@@ -23,9 +23,13 @@ CREATE TABLE stops (
     parent_station TEXT,
     wheelchair_boarding INTEGER,
     -- Commune déclarée par le GTFS source (extension Mecatran, pas un
-    -- champ standard). Sert de référence pour Session B, où la vraie
-    -- déduction géographique par coordonnées sera calculée.
-    commune_gtfs TEXT
+    -- champ standard) : sert de référence pour vérifier le calcul ci-dessous.
+    commune_gtfs TEXT,
+    -- Commune déduite des coordonnées par assistant.ingestion.enrichir_commune
+    -- (point dans le polygone du contour communal). C'est celle-ci que le
+    -- reste de l'application doit utiliser : elle ne dépend d'aucune
+    -- extension propriétaire, donc portable vers un autre réseau.
+    commune TEXT
 );
 
 CREATE TABLE routes (

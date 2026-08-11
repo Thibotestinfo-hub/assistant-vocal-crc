@@ -1,6 +1,7 @@
 .env
 data/gtfs/
 data/corpus/
+data/communes-13.geojson
 *.db
 *.sqlite
 __pycache__/
