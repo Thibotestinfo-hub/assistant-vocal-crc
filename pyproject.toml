@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
     "rapidfuzz>=3.14.5",
     "shapely>=2.1.2",
+    "uvicorn[standard]>=0.52.1",
 ]
