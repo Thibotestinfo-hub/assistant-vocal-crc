@@ -1,0 +1,5 @@
+# Paramètres propres au réseau "Les bus de l'étang" (mamp-bde).
+# Voir CLAUDE.md : dupliquer l'agent sur un autre réseau doit être une
+# opération de paramétrage, pas de développement.
+
+gtfs_url: "https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=2b7a3b3b084c750566663c2e09726b19171f275c"

@@ -3,10 +3,10 @@ Script de vérification de l'API : appelle chaque endpoint, vérifie le
 format de la réponse et mesure le temps de réponse (budget : 300 ms,
 voir CLAUDE.md).
 
-L'API doit déjà tourner : uv run uvicorn assistant.api.main:app --port 8000
+L'API doit déjà tourner : uv run python run.py
 
 Usage : uv run python tests/verifier_api.py [URL_BASE]
-        (URL_BASE par défaut : http://127.0.0.1:8000)
+        (URL_BASE par défaut : http://127.0.0.1:9000)
 """
 
 import os
@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-URL_BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
+URL_BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:9000"
 TOKEN = os.environ["API_TOKEN"]
 BUDGET_MS = 300
 
