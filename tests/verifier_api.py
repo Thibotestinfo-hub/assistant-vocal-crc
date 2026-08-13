@@ -27,7 +27,7 @@ en_tete = {"Authorization": f"Bearer {TOKEN}"}
 
 def appeler(methode, chemin, **kwargs):
     debut = time.perf_counter()
-    reponse = httpx.request(methode, f"{URL_BASE}{chemin}", timeout=10, **kwargs)
+    reponse = httpx.request(methode, f"{URL_BASE}{chemin}", timeout=10, follow_redirects=True, **kwargs)
     duree_ms = (time.perf_counter() - debut) * 1000
     return reponse, duree_ms
 
