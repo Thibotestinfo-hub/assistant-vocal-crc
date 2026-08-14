@@ -18,7 +18,12 @@ import numpy as np
 from fastembed import TextEmbedding
 
 INDEX_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "corpus_index.json"
-MODELE = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+MODELE = "intfloat/multilingual-e5-large"
+
+# e5 a besoin de savoir qu'une question est une "query" (voir
+# assistant.ingestion.indexer_corpus, qui préfixe les blocs avec "passage: ") :
+# sans ce préfixe, les vecteurs ne sont pas comparables entre eux.
+PREFIXE_QUESTION = "query: "
 
 SEUIL_BASSE = 0.25
 SEUIL_HAUTE = 0.45
@@ -62,7 +67,7 @@ def chercher_blocs(question, categorie=None, n=5):
         index_filtre, vecteurs_filtres = index, vecteurs
 
     modele = _charger_modele()
-    v_question = np.array(list(modele.embed([question]))[0])
+    v_question = np.array(list(modele.embed([PREFIXE_QUESTION + question]))[0])
 
     scores = vecteurs_filtres @ v_question / (
         np.linalg.norm(vecteurs_filtres, axis=1) * np.linalg.norm(v_question)

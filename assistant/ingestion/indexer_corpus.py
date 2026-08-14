@@ -19,9 +19,15 @@ from fastembed import TextEmbedding
 CORPUS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "corpus"
 INDEX_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "corpus_index.json"
 
-MODELE = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+MODELE = "intfloat/multilingual-e5-large"
 MOTS_MIN_BLOC = 400
 MOTS_MAX_BLOC = 800
+
+# e5 est un modèle de recherche (requête -> passage), pas de paraphrase :
+# il a besoin de savoir de quel côté est chaque texte. Sans ce préfixe,
+# les vecteurs ne sont pas comparables (voir assistant.outils.rechercher_information,
+# qui préfixe la question avec "query: ").
+PREFIXE_PASSAGE = "passage: "
 
 
 def _lire_entete(texte):
@@ -121,7 +127,7 @@ def construire_index():
     # dans bloc["texte"], qui reste la réponse propre renvoyée à l'appelant) :
     # un bloc court comme "Nous appeler" perd son seul repère thématique
     # sans lui, une fois isolé de son fichier.
-    textes_a_vectoriser = [f"{b['source']}. {b['texte']}" for b in tous_les_blocs]
+    textes_a_vectoriser = [PREFIXE_PASSAGE + f"{b['source']}. {b['texte']}" for b in tous_les_blocs]
     vecteurs = list(modele.embed(textes_a_vectoriser))
     for bloc, vecteur in zip(tous_les_blocs, vecteurs):
         bloc["vecteur"] = vecteur.tolist()

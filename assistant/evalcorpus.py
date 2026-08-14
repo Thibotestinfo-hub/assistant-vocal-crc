@@ -20,6 +20,7 @@ Usage : python3 -m assistant.evalcorpus
 
 import csv
 import sys
+import time
 from pathlib import Path
 
 from assistant.outils.rechercher_information import chercher_blocs, rechercher_information
@@ -48,7 +49,9 @@ def evaluer(lignes):
         fichiers_top5 = [bloc["fichier"] for _, bloc in top5]
         rappel_ok = True if piege else any(f in fichiers_top5 for f in attendus)
 
+        debut = time.perf_counter()
         reponse = rechercher_information(question, categorie)
+        duree_ms = (time.perf_counter() - debut) * 1000
         meilleur_score = top5[0][0] if top5 else None
         fichier_rendu = top5[0][1]["fichier"] if top5 else None
         if piege:
@@ -68,6 +71,7 @@ def evaluer(lignes):
             "confiance": reponse.get("confiance"),
             "trouve": reponse["trouve"],
             "meilleur_score": meilleur_score,
+            "duree_ms": duree_ms,
         })
     return resultats
 
@@ -96,6 +100,14 @@ def afficher(resultats):
     n_pieges = sum(r["piege"] for r in resultats)
     n_pieges_ok = sum(r["outil_ok"] for r in resultats if r["piege"])
     print(f"  dont questions pièges (doivent répondre 'je ne sais pas') : {n_pieges_ok}/{n_pieges}")
+
+    # Le tout premier appel charge le modèle en mémoire (coût unique, pas
+    # représentatif) : on regarde le régime de croisière à part, à
+    # comparer au budget de 300 ms de CLAUDE.md.
+    durees = sorted(r["duree_ms"] for r in resultats[1:])
+    mediane = durees[len(durees) // 2]
+    print(f"\nLatence rechercher_information (régime de croisière, 1er appel exclu) : "
+          f"médiane {mediane:.0f} ms, max {max(durees):.0f} ms  (budget CLAUDE.md : 300 ms)")
 
 
 def main():
