@@ -3,15 +3,28 @@ Outil `rechercher_information` — bloc A. Contrat : spec §4.
 
 Charge l'index (data/corpus_index.json, construit par
 assistant.ingestion.indexer_corpus) une seule fois en mémoire, puis
-compare l'embedding de la question à celui de chaque bloc par
-similarité cosinus. Aucun appel de modèle de langage ici : c'est
-l'agent vocal qui formule la réponse à partir de l'extrait renvoyé.
+combine deux signaux pour trouver le bon bloc :
 
-Seuils de confiance provisoires (Étape 4b) : à recalibrer avec de
-vraies mesures (Étape 4c, assistant.evalcorpus).
+- un score sémantique (similarité cosinus des embeddings e5), qui
+  présélectionne les blocs dont le SENS se rapproche de la question ;
+- un score lexical (mots significatifs de la question retrouvés tels
+  quels dans le bloc), qui départage ce lot.
+
+Le mélange des deux n'est pas un raffinement optionnel : mesuré à
+l'évaluation Étape 4c, le score sémantique brut d'e5 s'est révélé
+inexploitable seul sur ce corpus étroit — la fourchette de score des
+mauvaises réponses (0,81-0,87) était entièrement contenue dans celle
+des bonnes (0,79-0,91). Le score lexical, lui, sépare nettement les
+questions pièges (aucun mot en commun avec le corpus) des vraies
+questions : c'est lui qui porte la décision "je ne sais pas".
+
+Aucun appel de modèle de langage ici : c'est l'agent vocal qui formule
+la réponse à partir de l'extrait renvoyé.
 """
 
 import json
+import re
+import unicodedata
 from pathlib import Path
 
 import numpy as np
@@ -25,8 +38,25 @@ MODELE = "intfloat/multilingual-e5-large"
 # sans ce préfixe, les vecteurs ne sont pas comparables entre eux.
 PREFIXE_QUESTION = "query: "
 
-SEUIL_BASSE = 0.25
-SEUIL_HAUTE = 0.45
+# Nombre de candidats retenus par la présélection sémantique, avant
+# l'affinage lexical.
+TAILLE_PRESELECTION = 10
+
+MOTS_VIDES = {
+    "le", "la", "les", "de", "des", "du", "un", "une", "est", "ce", "cet", "cette",
+    "que", "qui", "quoi", "dans", "pour", "avec", "sur", "sous", "mon", "ma", "mes",
+    "ton", "ta", "tes", "son", "sa", "ses", "vos", "votre", "notre", "nos", "leur",
+    "leurs", "je", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles", "être",
+    "avoir", "fait", "faire", "comment", "quel", "quelle", "quels", "quelles", "peux",
+    "peut", "puis", "voudrais", "aussi", "bien", "tres", "plus", "moins", "tout",
+    "tous", "toute", "toutes", "sont", "etre", "suis", "es", "sommes", "etes", "au",
+    "aux", "en", "et", "ou", "donc", "car", "chez", "vers", "apres", "avant", "entre",
+}
+
+# Seuils provisoires sur le score combiné (Étape 4c) : à recalibrer une
+# fois les deux signaux mesurés ensemble avec de vraies questions.
+SEUIL_BASSE = 0.3
+SEUIL_HAUTE = 0.6
 
 _index = None
 _vecteurs = None
@@ -48,9 +78,30 @@ def _charger_modele():
     return _modele
 
 
+def _normaliser(texte):
+    forme = unicodedata.normalize("NFD", texte)
+    return "".join(c for c in forme if unicodedata.category(c) != "Mn").lower()
+
+
+def _mots_significatifs(question):
+    mots = re.findall(r"[a-z0-9]+", _normaliser(question))
+    return [m for m in mots if len(m) >= 4 and m not in MOTS_VIDES]
+
+
+def _score_lexical(mots_question, bloc):
+    """Part des mots significatifs de la question qu'on retrouve tels
+    quels (en substring, pour absorber pluriels/féminins simples) dans
+    le titre et le texte du bloc."""
+    if not mots_question:
+        return 0.0
+    texte_normalise = _normaliser(f"{bloc['source']} {bloc['texte']}")
+    trouves = sum(1 for m in mots_question if m in texte_normalise)
+    return trouves / len(mots_question)
+
+
 def chercher_blocs(question, categorie=None, n=5):
     """Renvoie les n blocs les plus proches de la question, triés du
-    meilleur au moins bon, sous la forme [(score, bloc), ...].
+    meilleur au moins bon, sous la forme [(score_combine, bloc), ...].
 
     Réutilisé par l'outil rechercher_information (qui ne garde que le
     meilleur) et par assistant.evalcorpus (qui regarde les 5 premiers,
@@ -69,19 +120,50 @@ def chercher_blocs(question, categorie=None, n=5):
     modele = _charger_modele()
     v_question = np.array(list(modele.embed([PREFIXE_QUESTION + question]))[0])
 
-    scores = vecteurs_filtres @ v_question / (
+    scores_semantiques = vecteurs_filtres @ v_question / (
         np.linalg.norm(vecteurs_filtres, axis=1) * np.linalg.norm(v_question)
     )
-    ordre = np.argsort(scores)[::-1][:n]
-    return [(float(scores[i]), index_filtre[i]) for i in ordre]
+    ordre_semantique = np.argsort(scores_semantiques)[::-1][:TAILLE_PRESELECTION]
+
+    mots_question = _mots_significatifs(question)
+    candidats = [(float(scores_semantiques[i]), index_filtre[i]) for i in ordre_semantique]
+
+    # Le score sémantique ne varie que sur une fourchette étroite dans ce
+    # lot (voir docstring du module) : on le ramène à une échelle 0-1
+    # relative au lot pour pouvoir le mélanger avec le score lexical.
+    scores_sem = [c[0] for c in candidats]
+    mini, maxi = min(scores_sem), max(scores_sem)
+    etendue = maxi - mini or 1.0
+
+    resultats = []
+    for score_sem, bloc in candidats:
+        score_sem_relatif = (score_sem - mini) / etendue
+        score_lex = _score_lexical(mots_question, bloc)
+        combine = 0.5 * score_sem_relatif + 0.5 * score_lex
+        resultats.append((combine, bloc))
+
+    resultats.sort(key=lambda r: r[0], reverse=True)
+    return resultats[:n]
 
 
 def rechercher_information(question, categorie=None):
     resultats = chercher_blocs(question, categorie, n=1)
-    if not resultats or resultats[0][0] < SEUIL_BASSE:
+    if not resultats:
         return {"trouve": False}
 
     meilleur_score, bloc = resultats[0]
+
+    # Aucun mot de la question ne se retrouve dans la meilleure réponse :
+    # quel que soit le score sémantique, ce n'est pas une réponse fiable
+    # (c'est ce signal, pas le score sémantique, qui distingue le mieux
+    # les questions pièges — voir docstring du module).
+    mots_question = _mots_significatifs(question)
+    if mots_question and _score_lexical(mots_question, bloc) == 0.0:
+        return {"trouve": False}
+
+    if meilleur_score < SEUIL_BASSE:
+        return {"trouve": False}
+
     return {
         "trouve": True,
         "reponse_source": bloc["texte"],

@@ -29,6 +29,18 @@ MOTS_MAX_BLOC = 800
 # qui préfixe la question avec "query: ").
 PREFIXE_PASSAGE = "passage: "
 
+MOTIF_LIEN = re.compile(r"\[[^\]]*\]\([^)]*\)")
+
+
+def _est_un_sommaire(texte):
+    """Une page qui ne fait que lister des liens vers ses sous-pages (ex.
+    accessibilite.md, conseils-pour-voyager.md) n'apporte aucune réponse :
+    l'indexer risque de la faire gagner par son vocabulaire générique sans
+    jamais donner d'information utile à l'appelant (constaté à l'évaluation
+    Étape 4c). On retire les liens et on regarde ce qu'il reste."""
+    sans_liens = MOTIF_LIEN.sub("", texte)
+    return len(sans_liens.split()) < 15
+
 
 def _lire_entete(texte):
     """Récupère titre/source/catégorie/date en tête de fichier, et
@@ -101,6 +113,8 @@ def decouper_fichier(chemin):
             continue
         for morceau in _redecouper_si_trop_long(texte_section):
             if len(morceau.split()) < 5:  # bruit résiduel (ex. juste "---")
+                continue
+            if _est_un_sommaire(morceau):
                 continue
             titre_complet = meta["titre"] + (f" — {titre_section}" if titre_section else "")
             blocs.append({
