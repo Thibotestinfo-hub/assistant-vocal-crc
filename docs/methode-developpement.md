@@ -146,6 +146,8 @@ Ajoute un contrôle de complétude : un script qui liste tous les montants en eu
 
 **Livrable** : `python -m assistant.evalcorpus` affiche un taux de succès, et `python -m assistant.demande "c'est combien un carnet"` renvoie les bons blocs avec leurs sources.
 
+**Et après ?** Une fois ce jeu de test initial passé, la suite naturelle est de le faire grandir avec de vraies questions de l'équipe CRC — voir `docs/methode-amelioration-continue.md`, qui propose une façon de le faire sans attendre le DPO.
+
 ### 4d — Rafraîchissement
 
 Une commande `python -m assistant.corpus --refresh` qui relance l'extraction et produit un rapport des différences : pages ajoutées, modifiées, disparues. À lancer chaque semaine, et à chaque enrichissement du site.

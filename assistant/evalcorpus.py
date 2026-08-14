@@ -15,7 +15,13 @@ question ; categorie ; fichiers_attendus). fichiers_attendus vaut
 "AUCUNE" pour les questions pièges, dont la réponse n'existe pas dans
 le corpus : rechercher_information doit alors répondre trouve=False.
 
-Usage : python3 -m assistant.evalcorpus
+Usage : python3 -m assistant.evalcorpus [fichier.csv]
+        Par défaut tests/questions_evaluation.csv (le jeu de test écrit à
+        l'Étape 4c). Passer tests/questions_crc.csv pour évaluer sur les
+        questions réelles remontées par l'équipe CRC (voir
+        docs/methode-amelioration-continue.md) — un fichier séparé, pour
+        suivre l'amélioration due aux vraies questions indépendamment du
+        jeu de test initial.
 """
 
 import csv
@@ -25,11 +31,11 @@ from pathlib import Path
 
 from assistant.outils.rechercher_information import chercher_blocs, rechercher_information
 
-QUESTIONS_PATH = Path(__file__).resolve().parent.parent / "tests" / "questions_evaluation.csv"
+QUESTIONS_PATH_DEFAUT = Path(__file__).resolve().parent.parent / "tests" / "questions_evaluation.csv"
 
 
-def charger_questions():
-    with open(QUESTIONS_PATH, encoding="utf-8") as f:
+def charger_questions(chemin=QUESTIONS_PATH_DEFAUT):
+    with open(chemin, encoding="utf-8") as f:
         lignes = list(csv.DictReader(f, delimiter=";"))
     for l in lignes:
         l["categorie"] = l["categorie"].strip() or None
@@ -80,6 +86,10 @@ def evaluer(lignes):
 
 
 def afficher(resultats):
+    if not resultats:
+        print("Aucune question dans ce fichier pour l'instant.")
+        return
+
     print(f"{len(resultats)} questions évaluées.\n")
 
     for r in resultats:
@@ -126,13 +136,16 @@ def afficher(resultats):
     # représentatif) : on regarde le régime de croisière à part, à
     # comparer au budget de 300 ms de CLAUDE.md.
     durees = sorted(r["duree_ms"] for r in resultats[1:])
-    mediane = durees[len(durees) // 2]
-    print(f"\nLatence rechercher_information (régime de croisière, 1er appel exclu) : "
-          f"médiane {mediane:.0f} ms, max {max(durees):.0f} ms  (budget CLAUDE.md : 300 ms)")
+    if durees:
+        mediane = durees[len(durees) // 2]
+        print(f"\nLatence rechercher_information (régime de croisière, 1er appel exclu) : "
+              f"médiane {mediane:.0f} ms, max {max(durees):.0f} ms  (budget CLAUDE.md : 300 ms)")
 
 
 def main():
-    lignes = charger_questions()
+    chemin = Path(sys.argv[1]) if len(sys.argv) > 1 else QUESTIONS_PATH_DEFAUT
+    print(f"Jeu de questions : {chemin}\n")
+    lignes = charger_questions(chemin)
     resultats = evaluer(lignes)
     afficher(resultats)
     n_outil = sum(r["outil_ok"] for r in resultats)
