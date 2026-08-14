@@ -53,6 +53,8 @@ def evaluer(lignes):
         reponse = rechercher_information(question, categorie)
         duree_ms = (time.perf_counter() - debut) * 1000
         meilleur_score = top5[0][0] if top5 else None
+        second_score = top5[1][0] if len(top5) > 1 else None
+        marge = (meilleur_score - second_score) if second_score is not None else None
         fichier_rendu = top5[0][1]["fichier"] if top5 else None
         if piege:
             outil_ok = not reponse["trouve"]
@@ -71,6 +73,7 @@ def evaluer(lignes):
             "confiance": reponse.get("confiance"),
             "trouve": reponse["trouve"],
             "meilleur_score": meilleur_score,
+            "marge": marge,
             "duree_ms": duree_ms,
         })
     return resultats
@@ -84,7 +87,8 @@ def afficher(resultats):
         detail = "piège" if r["piege"] else "/".join(r["attendus"])
         rendu = r["confiance"] or ("rien" if not r["trouve"] else "?")
         score = f"{r['meilleur_score']:.3f}" if r["meilleur_score"] is not None else "  -  "
-        print(f"[{marque}] ({rendu:6} {score}) {r['question']}")
+        marge = f"{r['marge']:.3f}" if r["marge"] is not None else "  -  "
+        print(f"[{marque}] ({rendu:6} score={score} marge={marge}) {r['question']}")
         if not r["outil_ok"]:
             print(f"         attendu : {detail}")
             print(f"         top-5   : {r['fichiers_top5']}")
@@ -100,6 +104,23 @@ def afficher(resultats):
     n_pieges = sum(r["piege"] for r in resultats)
     n_pieges_ok = sum(r["outil_ok"] for r in resultats if r["piege"])
     print(f"  dont questions pièges (doivent répondre 'je ne sais pas') : {n_pieges_ok}/{n_pieges}")
+
+    # Le score brut d'e5 est trop compressé pour servir de seuil (constaté
+    # au tour précédent) : on regarde si l'écart au 2e résultat sépare
+    # mieux les bonnes réponses des mauvaises.
+    marges_ok = [r["marge"] for r in resultats if r["outil_ok"] and r["marge"] is not None]
+    marges_fail = [r["marge"] for r in resultats if not r["outil_ok"] and r["marge"] is not None]
+    if marges_ok and marges_fail:
+        print(f"\nÉcart au 2e résultat (marge) : "
+              f"moyenne {sum(marges_ok) / len(marges_ok):.3f} quand correct, "
+              f"{sum(marges_fail) / len(marges_fail):.3f} quand faux")
+
+    marges_pieges = [r["marge"] for r in resultats if r["piege"] and r["marge"] is not None]
+    marges_reelles = [r["marge"] for r in resultats if not r["piege"] and r["marge"] is not None]
+    if marges_pieges and marges_reelles:
+        print(f"Écart au 2e résultat (marge) : "
+              f"moyenne {sum(marges_reelles) / len(marges_reelles):.3f} sur les vraies questions, "
+              f"{sum(marges_pieges) / len(marges_pieges):.3f} sur les pièges")
 
     # Le tout premier appel charge le modèle en mémoire (coût unique, pas
     # représentatif) : on regarde le régime de croisière à part, à
