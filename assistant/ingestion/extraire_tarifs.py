@@ -63,14 +63,15 @@ def ecrire_corpus(lignes):
         f"Date d'extraction : {date.today().isoformat()}",
         "",
     ]
-    for freq in FREQUENCES.values():
-        md.append(f"## {freq}")
+    # Un "## " par tarif individuel, pas un seul gros tableau par
+    # fréquence : sinon une question sur UN tarif précis ("un carnet")
+    # se noie dans un bloc qui en mélange 16 à la fois (constaté lors
+    # de la vérification en conditions réelles de l'Étape 4b).
+    for l in lignes:
+        md.append(f"## {l['titre']} ({l['frequence']})")
         md.append("")
-        md.append("| Titre de transport | Pour qui | Prix |")
-        md.append("|---|---|---|")
-        for l in lignes:
-            if l["frequence"] == freq:
-                md.append(f"| {l['titre']} | {l['pour_qui']} | {l['prix']} |")
+        md.append(f"Pour qui : {l['pour_qui']}")
+        md.append(f"Prix : {l['prix']}")
         md.append("")
 
     chemin = CORPUS_DIR / "tarifs.md"
