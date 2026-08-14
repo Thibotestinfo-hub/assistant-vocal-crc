@@ -92,6 +92,7 @@ def decouper_fichier(chemin):
                 continue
             titre_complet = meta["titre"] + (f" — {titre_section}" if titre_section else "")
             blocs.append({
+                "fichier": chemin.name,
                 "source": titre_complet,
                 "url": meta["url"],
                 "categorie": meta["categorie"],

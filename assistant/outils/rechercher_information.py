@@ -7,8 +7,8 @@ compare l'embedding de la question à celui de chaque bloc par
 similarité cosinus. Aucun appel de modèle de langage ici : c'est
 l'agent vocal qui formule la réponse à partir de l'extrait renvoyé.
 
-Seuils de confiance provisoires (voir Étape 4c) : à ajuster une fois
-qu'on aura de vraies questions et leurs bonnes réponses attendues.
+Seuils de confiance provisoires (Étape 4b) : à recalibrer avec de
+vraies mesures (Étape 4c, assistant.evalcorpus).
 """
 
 import json
@@ -43,13 +43,19 @@ def _charger_modele():
     return _modele
 
 
-def rechercher_information(question, categorie=None):
+def chercher_blocs(question, categorie=None, n=5):
+    """Renvoie les n blocs les plus proches de la question, triés du
+    meilleur au moins bon, sous la forme [(score, bloc), ...].
+
+    Réutilisé par l'outil rechercher_information (qui ne garde que le
+    meilleur) et par assistant.evalcorpus (qui regarde les 5 premiers,
+    comme le prévoit la méthode)."""
     index, vecteurs = _charger_index()
 
     if categorie:
         indices_retenus = [i for i, b in enumerate(index) if b["categorie"] == categorie]
         if not indices_retenus:
-            return {"trouve": False}
+            return []
         index_filtre = [index[i] for i in indices_retenus]
         vecteurs_filtres = vecteurs[indices_retenus]
     else:
@@ -61,13 +67,16 @@ def rechercher_information(question, categorie=None):
     scores = vecteurs_filtres @ v_question / (
         np.linalg.norm(vecteurs_filtres, axis=1) * np.linalg.norm(v_question)
     )
-    meilleur = int(np.argmax(scores))
-    meilleur_score = float(scores[meilleur])
+    ordre = np.argsort(scores)[::-1][:n]
+    return [(float(scores[i]), index_filtre[i]) for i in ordre]
 
-    if meilleur_score < SEUIL_BASSE:
+
+def rechercher_information(question, categorie=None):
+    resultats = chercher_blocs(question, categorie, n=1)
+    if not resultats or resultats[0][0] < SEUIL_BASSE:
         return {"trouve": False}
 
-    bloc = index_filtre[meilleur]
+    meilleur_score, bloc = resultats[0]
     return {
         "trouve": True,
         "reponse_source": bloc["texte"],
