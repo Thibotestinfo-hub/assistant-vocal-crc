@@ -1,0 +1,55 @@
+question;categorie;fichiers_attendus
+C'est combien un ticket ?;tarifs;tarifs.md
+C'est combien un carnet de tickets ?;;tarifs.md
+Je voudrais prendre un abonnement, comment je fais ?;tarifs;tarifs.md
+Y a des réductions pour les étudiants ?;tarifs;tarifs.md
+Combien coûte le pass annuel pour les plus de 65 ans ?;tarifs;tarifs.md
+Le bus est gratuit pour les enfants de moins de 4 ans ?;;faq.md
+Est-ce qu'il y a un tarif solidarité pour les bénéficiaires de la CSS ?;tarifs;tarifs.md
+Je peux payer avec ma carte bancaire sans contact directement dans le bus ?;tarifs;paiement-sans-contact.md
+Comment payer et valider avec ma carte bleue ?;;faq.md,paiement-sans-contact.md
+Mon employeur peut-il me rembourser une partie de mon abonnement de bus ?;tarifs;prime-transport.md
+C'est quoi le Pass Intégral Métropolitain ?;;pass-integral-metropolitain.md
+Combien coûte un abonnement mensuel pour la zone Étang ?;tarifs;tarifs.md
+Est-ce qu'on peut avoir un tarif de groupe pour une sortie scolaire ?;;tarifs.md,transport-de-groupes.md
+L'agence elle est ouverte le samedi ?;agences;boutiques.md,nous-contacter.md
+Où puis-je acheter un ticket près de chez moi ?;agences;distributeurs.md,depositaires-agrees.md,boutiques.md
+Quels sont vos horaires d'ouverture téléphonique ?;;nous-contacter.md
+Où sont les distributeurs automatiques de titres de transport ?;agences;distributeurs.md
+Quels commerces sont dépositaires agréés pour vendre des tickets ?;agences;depositaires-agrees.md
+Comment vous contacter par courrier ?;;nous-contacter.md
+Est-ce que je peux prendre rendez-vous en ligne avec un conseiller mobilité ?;;mobilite-particuliers-entreprises.md
+C'est quoi le TAD ?;tad;tad.md
+Comment réserver le bus à la demande ?;;tad.md
+Combien de temps à l'avance dois-je réserver le bus à la demande ?;;tad.md
+Le transport à la demande, ça coûte combien ?;;tad.md
+Je suis en fauteuil roulant, comment j'accède au service LeBus+ ?;;tad.md
+Est-ce que je peux annuler ma réservation de TAD ?;tad;tad.md
+Y a-t-il un bus à la demande sur Rognac ?;;tad.md
+Est-ce qu'il y a un service de vélo en libre-service ?;vls;velo.md
+Comment louer un vélo avec LeVélo+ ?;;velo.md
+Les bus sont-ils accessibles aux personnes en fauteuil roulant ?;accessibilite;AUCUNE
+Je peux monter avec mon vélo ?;;faq.md
+Je peux monter dans le bus avec mon chien ?;;faq.md
+J'ai perdu mon sac dans le bus, que faire ?;;faq.md
+J'ai oublié mon téléphone dans le bus hier, comment le récupérer ?;;faq.md
+J'ai perdu ma carte d'abonné, que faire ?;;faq.md
+Comment payer une amende ?;procedures;amendes.md
+J'ai reçu un procès-verbal, comment le contester ?;procedures;amendes.md
+Combien de temps un ticket de bus est-il valable ?;;faq.md
+Comment faire une réclamation sur la ponctualité d'un chauffeur ?;;faq.md
+Je ne veux plus recevoir de SMS publicitaires, comment me désinscrire ?;;faq.md
+À partir de quel âge un enfant doit-il payer son ticket ?;;faq.md
+J'ai perdu mon avis de contravention, que faire ?;procedures;amendes.md
+Quel est le règlement intérieur du réseau de bus ?;;conditions-generales.md,faq.md
+Quelles sont les conditions générales d'utilisation du réseau ?;conditions;conditions-generales.md
+Comment fonctionnent les transports scolaires ?;;transports-scolaires.md
+Est-ce que le transport de groupe pour une association est possible ?;;transport-de-groupes.md
+Y a-t-il des informations pour voyager sur toute la Métropole Aix-Marseille ?;;voyager-dans-la-metropole.md
+Où trouver des conseils pour bien voyager en bus ?;;conseils-pour-voyager.md
+Est-ce que je peux payer mon ticket en espèces avec un billet de 50 euros au chauffeur ?;;AUCUNE
+Quel est le programme de fidélité qui offre des voyages gratuits après 100 trajets ?;;AUCUNE
+Est-ce que je peux suivre la position du bus en temps réel sur une carte ?;;AUCUNE
+Le bus de nuit passe à quelle fréquence le week-end ?;;AUCUNE
+Est-ce que les animaux de plus de 20 kg sont autorisés dans le bus à la demande ?;;AUCUNE
+Quel est le numéro de téléphone du service des objets trouvés de la SNCF ?;;AUCUNE
