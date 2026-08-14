@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI
 from assistant.api.auth import verifier_jeton
 from assistant.api.schemas import (
     HorairesRequete, HorairesReponse,
+    InformationRequete, InformationReponse,
     ObjetPerduRequete, ObjetPerduReponse,
     RappelRequete, RappelReponse,
     RechercherArretRequete, RechercherArretReponse,
@@ -19,6 +20,7 @@ from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
 from assistant.outils.rechercher_arret import rechercher_arret
+from assistant.outils.rechercher_information import rechercher_information
 from assistant.outils.transfert import transferer_agent
 
 app = FastAPI(title="Assistant vocal — API des outils")
@@ -62,3 +64,9 @@ def route_demander_rappel(requete: RappelRequete):
           dependencies=[Depends(verifier_jeton)])
 def route_transferer_agent(requete: TransfertRequete):
     return transferer_agent(requete.motif, requete.resume)
+
+
+@app.post("/outils/rechercher_information", response_model=InformationReponse,
+          dependencies=[Depends(verifier_jeton)])
+def route_rechercher_information(requete: InformationRequete):
+    return rechercher_information(requete.question, requete.categorie)

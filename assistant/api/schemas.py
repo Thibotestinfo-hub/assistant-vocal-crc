@@ -9,6 +9,24 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 
+# --- rechercher_information ---
+
+class InformationRequete(BaseModel):
+    question: str
+    categorie: Optional[Literal[
+        "tarifs", "agences", "conditions", "accessibilite", "tad", "vls", "procedures",
+    ]] = None
+
+
+class InformationReponse(BaseModel):
+    trouve: bool
+    reponse_source: Optional[str] = None
+    source: Optional[str] = None
+    url: Optional[str] = None
+    maj: Optional[str] = None
+    confiance: Optional[Literal["haute", "moyenne", "basse"]] = None
+
+
 # --- rechercher_arret ---
 
 class RechercherArretRequete(BaseModel):

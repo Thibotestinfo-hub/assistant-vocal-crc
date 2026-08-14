@@ -59,6 +59,7 @@ def ecrire_corpus(lignes):
         "# Les tarifs",
         "",
         f"Source : {URL_BASE}",
+        "Catégorie : tarifs",
         f"Date d'extraction : {date.today().isoformat()}",
         "",
     ]

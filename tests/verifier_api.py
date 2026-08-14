@@ -73,6 +73,10 @@ def main():
     resultats.append(verifier("POST /outils/horaires_theoriques", r, d,
                                ["type_service", "circule_aujourdhui", "departs", "premier", "dernier"]))
 
+    r, d = appeler("POST", "/outils/rechercher_information", headers=en_tete,
+                    json={"question": "c'est combien un carnet de tickets"})
+    resultats.append(verifier("POST /outils/rechercher_information", r, d, ["trouve"]))
+
     r, d = appeler("POST", "/outils/enregistrer_objet_perdu", headers=en_tete, json={
         "nature": "sac", "description": "sac à dos gris, test automatique",
         "date_perte": "2026-08-11", "creneau_horaire": "vers 9h",
