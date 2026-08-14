@@ -83,19 +83,32 @@ def _normaliser(texte):
     return "".join(c for c in forme if unicodedata.category(c) != "Mn").lower()
 
 
+LONGUEUR_RADICAL = 6
+
+
 def _mots_significatifs(question):
+    """Mots courts mais numériques (âge, prix, poids...) gardés malgré
+    tout : "50 euros" ou "20 kg" est justement le genre de détail précis
+    qui distingue une vraie question d'une question piège."""
     mots = re.findall(r"[a-z0-9]+", _normaliser(question))
-    return [m for m in mots if len(m) >= 4 and m not in MOTS_VIDES]
+    return [m for m in mots if (m.isdigit() or len(m) >= 4) and m not in MOTS_VIDES]
+
+
+def _radical(mot):
+    """Les 6 premiers caractères d'un mot, pour absorber pluriels et
+    variations de genre sans vrai stemmer ("étudiant"/"étudiants",
+    "réduction"/"réductions") : comparer les mots entiers en substring
+    ratait ces accords simples (constaté à l'évaluation Étape 4c)."""
+    return mot[:LONGUEUR_RADICAL]
 
 
 def _score_lexical(mots_question, bloc):
-    """Part des mots significatifs de la question qu'on retrouve tels
-    quels (en substring, pour absorber pluriels/féminins simples) dans
-    le titre et le texte du bloc."""
+    """Part des mots significatifs de la question dont le radical se
+    retrouve dans le titre et le texte du bloc."""
     if not mots_question:
         return 0.0
     texte_normalise = _normaliser(f"{bloc['source']} {bloc['texte']}")
-    trouves = sum(1 for m in mots_question if m in texte_normalise)
+    trouves = sum(1 for m in mots_question if _radical(m) in texte_normalise)
     return trouves / len(mots_question)
 
 

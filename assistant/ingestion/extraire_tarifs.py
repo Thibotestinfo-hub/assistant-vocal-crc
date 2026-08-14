@@ -37,6 +37,24 @@ def _nettoyer(fragment_html):
     return re.sub(r"\s+", " ", texte).strip()
 
 
+# Noms officiels du site vs noms que les appelants utilisent réellement
+# au téléphone. Constaté à l'évaluation Étape 4c : "carnet de tickets"
+# ne matche rien dans le corpus, qui ne parle que de "TITRE 10 VOYAGES" ;
+# pareil pour "abonnement" vs "PASS". Le prix et les conditions restent
+# ceux du site, seul le nom usuel est ajouté à côté du nom officiel.
+SYNONYMES = [
+    (re.compile(r"TITRE 10 VOYAGES", re.IGNORECASE), "carnet de tickets, carnet de 10 voyages"),
+    (re.compile(r"PASS (MENSUEL|ANNUEL)", re.IGNORECASE), "abonnement"),
+]
+
+
+def _synonyme(titre):
+    for motif, nom_usuel in SYNONYMES:
+        if motif.search(titre):
+            return nom_usuel
+    return None
+
+
 def extraire_grille():
     lignes = []
     for code_frequence, nom_frequence in FREQUENCES.items():
@@ -70,6 +88,9 @@ def ecrire_corpus(lignes):
     for l in lignes:
         md.append(f"## {l['titre']} ({l['frequence']})")
         md.append("")
+        nom_usuel = _synonyme(l["titre"])
+        if nom_usuel:
+            md.append(f"Couramment appelé : {nom_usuel}")
         md.append(f"Pour qui : {l['pour_qui']}")
         md.append(f"Prix : {l['prix']}")
         md.append("")
