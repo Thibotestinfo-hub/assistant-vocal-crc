@@ -128,9 +128,14 @@ def construire_index():
     # un bloc court comme "Nous appeler" perd son seul repère thématique
     # sans lui, une fois isolé de son fichier.
     textes_a_vectoriser = [PREFIXE_PASSAGE + f"{b['source']}. {b['texte']}" for b in tous_les_blocs]
-    vecteurs = list(modele.embed(textes_a_vectoriser))
-    for bloc, vecteur in zip(tous_les_blocs, vecteurs):
+    # e5-large est un modèle lourd (560M paramètres) : le vectoriser en une
+    # seule fournée de 81 textes a fait tuer le processus par manque de
+    # mémoire lors de la vérification (Codespaces). De petits paquets
+    # limitent le pic mémoire, au prix d'un peu de temps.
+    for i, (bloc, vecteur) in enumerate(zip(tous_les_blocs, modele.embed(textes_a_vectoriser, batch_size=4))):
         bloc["vecteur"] = vecteur.tolist()
+        if (i + 1) % 20 == 0 or i + 1 == len(tous_les_blocs):
+            print(f"  {i + 1}/{len(tous_les_blocs)} blocs vectorisés")
 
     INDEX_PATH.write_text(json.dumps(tous_les_blocs, ensure_ascii=False), encoding="utf-8")
     print(f"Index écrit dans {INDEX_PATH}")
