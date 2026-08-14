@@ -37,7 +37,15 @@ def _est_un_sommaire(texte):
     accessibilite.md, conseils-pour-voyager.md) n'apporte aucune réponse :
     l'indexer risque de la faire gagner par son vocabulaire générique sans
     jamais donner d'information utile à l'appelant (constaté à l'évaluation
-    Étape 4c). On retire les liens et on regarde ce qu'il reste."""
+    Étape 4c). On retire les liens et on regarde ce qu'il reste.
+
+    Il faut au moins 2 liens pour envisager "sommaire" : sinon des fiches
+    courtes mais réelles (ex. les tarifs, juste "Pour qui" + "Prix", sans
+    aucun lien) se faisaient exclure à tort — régression constatée en
+    vérifiant le nombre de blocs de tarifs.md après ce filtre."""
+    liens = MOTIF_LIEN.findall(texte)
+    if len(liens) < 2:
+        return False
     sans_liens = MOTIF_LIEN.sub("", texte)
     return len(sans_liens.split()) < 15
 
