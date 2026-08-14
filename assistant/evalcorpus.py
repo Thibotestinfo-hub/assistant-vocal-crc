@@ -49,13 +49,13 @@ def evaluer(lignes):
         rappel_ok = True if piege else any(f in fichiers_top5 for f in attendus)
 
         reponse = rechercher_information(question, categorie)
+        meilleur_score = top5[0][0] if top5 else None
+        fichier_rendu = top5[0][1]["fichier"] if top5 else None
         if piege:
             outil_ok = not reponse["trouve"]
         else:
             # rechercher_information ne renvoie pas le champ "fichier" (pas dans le
             # contrat spec) : on le retrouve via le meilleur bloc de chercher_blocs.
-            meilleur = chercher_blocs(question, categorie, n=1)
-            fichier_rendu = meilleur[0][1]["fichier"] if meilleur else None
             outil_ok = reponse["trouve"] and fichier_rendu in attendus
 
         resultats.append({
@@ -67,6 +67,7 @@ def evaluer(lignes):
             "fichiers_top5": fichiers_top5,
             "confiance": reponse.get("confiance"),
             "trouve": reponse["trouve"],
+            "meilleur_score": meilleur_score,
         })
     return resultats
 
@@ -78,7 +79,8 @@ def afficher(resultats):
         marque = "OK  " if r["outil_ok"] else "FAIL"
         detail = "piège" if r["piege"] else "/".join(r["attendus"])
         rendu = r["confiance"] or ("rien" if not r["trouve"] else "?")
-        print(f"[{marque}] ({rendu:6}) {r['question']}")
+        score = f"{r['meilleur_score']:.3f}" if r["meilleur_score"] is not None else "  -  "
+        print(f"[{marque}] ({rendu:6} {score}) {r['question']}")
         if not r["outil_ok"]:
             print(f"         attendu : {detail}")
             print(f"         top-5   : {r['fichiers_top5']}")

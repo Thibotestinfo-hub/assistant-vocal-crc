@@ -48,9 +48,15 @@ def _lire_entete(texte):
 
 
 def _decouper_en_sections(corps):
-    """Coupe sur les titres de niveau 2 (## ...). S'il n'y en a aucun,
-    tout le texte forme une seule section sans titre propre."""
-    morceaux = re.split(r"^## (.+)$", corps, flags=re.MULTILINE)
+    """Coupe sur les titres de niveau 2 et 3 (## ou ### ...). S'il n'y en
+    a aucun, tout le texte forme une seule section sans titre propre.
+
+    Certaines pages du site (nous-contacter, tad...) n'utilisent que des
+    ### en dessous de leur unique ## : s'arrêter au niveau 2 les laissait
+    former un seul bloc géant qui mélangeait plusieurs sujets (constaté
+    lors de l'évaluation Étape 4c : les horaires téléphoniques, noyés
+    dans l'adresse postale, perdaient face à un autre bloc plus ciblé)."""
+    morceaux = re.split(r"^#{2,3} (.+)$", corps, flags=re.MULTILINE)
     if len(morceaux) == 1:
         return [(None, corps.strip())]
     sections = []
@@ -111,7 +117,12 @@ def construire_index():
 
     print(f"\n{len(tous_les_blocs)} blocs au total. Calcul des embeddings ({MODELE})...")
     modele = TextEmbedding(MODELE)
-    vecteurs = list(modele.embed([b["texte"] for b in tous_les_blocs]))
+    # Le titre est inclus dans le texte comparé à la question (mais pas
+    # dans bloc["texte"], qui reste la réponse propre renvoyée à l'appelant) :
+    # un bloc court comme "Nous appeler" perd son seul repère thématique
+    # sans lui, une fois isolé de son fichier.
+    textes_a_vectoriser = [f"{b['source']}. {b['texte']}" for b in tous_les_blocs]
+    vecteurs = list(modele.embed(textes_a_vectoriser))
     for bloc, vecteur in zip(tous_les_blocs, vecteurs):
         bloc["vecteur"] = vecteur.tolist()
 
