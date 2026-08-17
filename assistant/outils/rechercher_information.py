@@ -5,18 +5,25 @@ Charge l'index (data/corpus_index.json, construit par
 assistant.ingestion.indexer_corpus) une seule fois en mémoire, puis
 combine deux signaux pour trouver le bon bloc :
 
-- un score sémantique (similarité cosinus des embeddings e5), qui
+- un score sémantique (similarité cosinus des embeddings), qui
   présélectionne les blocs dont le SENS se rapproche de la question ;
 - un score lexical (mots significatifs de la question retrouvés tels
   quels dans le bloc), qui départage ce lot.
 
 Le mélange des deux n'est pas un raffinement optionnel : mesuré à
-l'évaluation Étape 4c, le score sémantique brut d'e5 s'est révélé
-inexploitable seul sur ce corpus étroit — la fourchette de score des
-mauvaises réponses (0,81-0,87) était entièrement contenue dans celle
-des bonnes (0,79-0,91). Le score lexical, lui, sépare nettement les
-questions pièges (aucun mot en commun avec le corpus) des vraies
+l'évaluation Étape 4c (avec intfloat/multilingual-e5-large), le score
+sémantique brut s'est révélé inexploitable seul sur ce corpus étroit —
+la fourchette de score des mauvaises réponses était entièrement
+contenue dans celle des bonnes. Le score lexical, lui, sépare nettement
+les questions pièges (aucun mot en commun avec le corpus) des vraies
 questions : c'est lui qui porte la décision "je ne sais pas".
+
+Modèle actuel (paraphrase-multilingual-MiniLM-L12-v2) : repli temporaire
+depuis e5-large, qui donnait un meilleur rappel mais dont le poids
+(2,25 Go) a fait échouer le déploiement Clever Cloud (mémoire, quota
+CPU, puis disque). Les seuils ci-dessous n'ont pas été remesurés avec
+ce modèle : à revérifier via assistant.evalcorpus avant de faire
+confiance aux chiffres de l'Étape 4c.
 
 Aucun appel de modèle de langage ici : c'est l'agent vocal qui formule
 la réponse à partir de l'extrait renvoyé.
@@ -31,12 +38,11 @@ import numpy as np
 from fastembed import TextEmbedding
 
 INDEX_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "corpus_index.json"
-MODELE = "intfloat/multilingual-e5-large"
+MODELE = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
-# e5 a besoin de savoir qu'une question est une "query" (voir
-# assistant.ingestion.indexer_corpus, qui préfixe les blocs avec "passage: ") :
-# sans ce préfixe, les vecteurs ne sont pas comparables entre eux.
-PREFIXE_QUESTION = "query: "
+# Repli temporaire depuis e5-large (voir indexer_corpus.py) : ce modèle
+# n'est pas un modèle de recherche asymétrique, pas de préfixe "query: ".
+PREFIXE_QUESTION = ""
 
 # Nombre de candidats retenus par la présélection sémantique, avant
 # l'affinage lexical.

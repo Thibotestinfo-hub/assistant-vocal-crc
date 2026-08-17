@@ -19,15 +19,17 @@ from fastembed import TextEmbedding
 CORPUS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "corpus"
 INDEX_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "corpus_index.json"
 
-MODELE = "intfloat/multilingual-e5-large"
+MODELE = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 MOTS_MIN_BLOC = 400
 MOTS_MAX_BLOC = 800
 
-# e5 est un modèle de recherche (requête -> passage), pas de paraphrase :
-# il a besoin de savoir de quel côté est chaque texte. Sans ce préfixe,
-# les vecteurs ne sont pas comparables (voir assistant.outils.rechercher_information,
-# qui préfixe la question avec "query: ").
-PREFIXE_PASSAGE = "passage: "
+# e5-large donnait un meilleur rappel sémantique seul (mesuré à l'Étape 4c),
+# mais son poids (2,25 Go) a fait échouer le déploiement Clever Cloud
+# (mémoire, puis quota CPU, puis disque) : repli sur ce modèle plus léger,
+# déjà validé en production, en attendant une solution moins coûteuse.
+# Pas de préfixe "passage: " ici : MiniLM n'est pas un modèle de recherche
+# asymétrique, il n'en a pas besoin (voir rechercher_information.py).
+PREFIXE_PASSAGE = ""
 
 MOTIF_LIEN = re.compile(r"\[[^\]]*\]\([^)]*\)")
 
