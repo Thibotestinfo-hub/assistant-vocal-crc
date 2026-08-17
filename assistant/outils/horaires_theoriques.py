@@ -9,13 +9,19 @@ confondues.
 """
 
 import unicodedata
-from datetime import date as Date
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from assistant.outils.arrets import trouver_par_stop_id
 from assistant.outils.db import connexion_gtfs
 
 JOURS_SEMAINE = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+# Les horaires GTFS sont en heure française ; le serveur (Clever Cloud)
+# tourne en UTC. Sans ce fuseau explicite, "maintenant" était décalé de
+# 1 à 2h selon la saison, et un départ déjà passé pouvait être présenté
+# comme le "prochain" (constaté en test réel, Étape 5).
+FUSEAU = ZoneInfo("Europe/Paris")
 
 
 def _normaliser(texte):
@@ -121,10 +127,10 @@ def horaires_theoriques(arret_id, ligne=None, direction=None, type="prochains",
             conn.close()
         return {"erreur": f"arret_id {arret_id!r} inconnu"}
 
-    date_cible = datetime.strptime(date, "%Y-%m-%d").date() if date else Date.today()
+    maintenant = datetime.now(FUSEAU)
+    date_cible = datetime.strptime(date, "%Y-%m-%d").date() if date else maintenant.date()
     maintenant_secondes = None
-    if type == "prochains" and (date is None or date_cible == Date.today()):
-        maintenant = datetime.now()
+    if type == "prochains" and (date is None or date_cible == maintenant.date()):
         maintenant_secondes = maintenant.hour * 3600 + maintenant.minute * 60 + maintenant.second
 
     type_service = _type_service(date_cible)
