@@ -9,34 +9,87 @@ anyio==4.14.2
     #   httpx
     #   starlette
     #   watchfiles
+beautifulsoup4==4.15.0
+    # via
+    #   assistant-vocal-crc
+    #   markdownify
 certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
+    #   requests
+charset-normalizer==3.5.0
+    # via requests
 click==8.4.2
-    # via uvicorn
+    # via
+    #   huggingface-hub
+    #   uvicorn
 colorama==0.4.6 ; sys_platform == 'win32'
-    # via click
+    # via
+    #   click
+    #   loguru
+    #   tqdm
 fastapi==0.141.1
     # via assistant-vocal-crc
+fastembed==0.8.0
+    # via assistant-vocal-crc
+filelock==3.32.3
+    # via huggingface-hub
+flatbuffers==25.12.19
+    # via onnxruntime
+fsspec==2026.7.0
+    # via huggingface-hub
 h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
+hf-xet==1.6.0 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+    # via huggingface-hub
 httpcore==1.0.9
     # via httpx
 httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
-    # via assistant-vocal-crc
+    # via
+    #   assistant-vocal-crc
+    #   huggingface-hub
+huggingface-hub==1.27.0
+    # via
+    #   fastembed
+    #   tokenizers
 idna==3.18
     # via
     #   anyio
     #   httpx
+    #   requests
+loguru==0.7.3
+    # via fastembed
+markdownify==1.2.3
+    # via assistant-vocal-crc
+mmh3==5.2.1
+    # via fastembed
 numpy==2.4.6 ; python_full_version < '3.12'
-    # via shapely
+    # via
+    #   fastembed
+    #   onnxruntime
+    #   shapely
 numpy==2.5.2 ; python_full_version >= '3.12'
-    # via shapely
+    # via
+    #   fastembed
+    #   onnxruntime
+    #   shapely
+onnxruntime==1.28.0
+    # via fastembed
+packaging==26.3
+    # via
+    #   huggingface-hub
+    #   onnxruntime
+pillow==12.3.0
+    # via fastembed
+protobuf==7.35.1
+    # via onnxruntime
+py-rust-stemmers==0.1.8
+    # via fastembed
 pydantic==2.13.4
     # via fastapi
 pydantic-core==2.46.4
@@ -44,17 +97,34 @@ pydantic-core==2.46.4
 python-dotenv==1.2.2
     # via uvicorn
 pyyaml==6.0.3
-    # via uvicorn
+    # via
+    #   assistant-vocal-crc
+    #   huggingface-hub
+    #   uvicorn
 rapidfuzz==3.14.5
     # via assistant-vocal-crc
+requests==2.34.2
+    # via fastembed
 shapely==2.1.2
     # via assistant-vocal-crc
+six==1.17.0
+    # via markdownify
+soupsieve==2.9.2
+    # via beautifulsoup4
 starlette==1.6.0
     # via fastapi
+tokenizers==0.23.1
+    # via fastembed
+tqdm==4.70.0
+    # via
+    #   fastembed
+    #   huggingface-hub
 typing-extensions==4.16.0
     # via
     #   anyio
+    #   beautifulsoup4
     #   fastapi
+    #   huggingface-hub
     #   pydantic
     #   pydantic-core
     #   starlette
@@ -63,6 +133,8 @@ typing-inspection==0.4.3
     # via
     #   fastapi
     #   pydantic
+urllib3==2.7.0
+    # via requests
 uvicorn==0.52.1
     # via assistant-vocal-crc
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
@@ -71,3 +143,5 @@ watchfiles==1.2.0
     # via uvicorn
 websockets==17.0.1
     # via uvicorn
+win32-setctime==1.2.0 ; sys_platform == 'win32'
+    # via loguru
