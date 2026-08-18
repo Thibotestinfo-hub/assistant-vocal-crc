@@ -51,6 +51,21 @@ CREATE TABLE IF NOT EXISTS transferts (
     motif TEXT NOT NULL,
     resume TEXT NOT NULL
 );
+
+-- Étape 6 : historique des appels, alimenté par le webhook de fin
+-- d'appel envoyé par ElevenLabs. donnees_brutes conserve la charge
+-- complète telle que reçue (voir assistant/backoffice/appels.py) :
+-- le format exact n'a pas pu être vérifié contre la documentation au
+-- moment d'écrire ce schéma, donc rien n'est perdu même si les
+-- quelques champs extraits ci-dessous se révèlent incomplets.
+CREATE TABLE IF NOT EXISTS appels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cree_le TEXT NOT NULL,
+    conversation_id TEXT UNIQUE,
+    agent_id TEXT,
+    statut TEXT,
+    donnees_brutes TEXT NOT NULL
+);
 """
 
 

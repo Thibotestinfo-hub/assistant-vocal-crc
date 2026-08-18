@@ -5,9 +5,10 @@ exactement à un outil décrit dans docs/spec-assistant-vocal-v0-revisee.md, §4
 Lancer en local : uv run uvicorn assistant.api.main:app --reload
 """
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 
-from assistant.api.auth import verifier_jeton
+from assistant.api.auth import verifier_acces_backoffice, verifier_jeton, verifier_jeton_requete
 from assistant.api.schemas import (
     HorairesRequete, HorairesReponse,
     InformationRequete, InformationReponse,
@@ -16,6 +17,8 @@ from assistant.api.schemas import (
     RechercherArretRequete, RechercherArretReponse,
     TransfertRequete, TransfertReponse,
 )
+from assistant.backoffice.appels import enregistrer_appel, lister_appels, obtenir_appel
+from assistant.backoffice.page import page_detail_appel, page_liste_appels
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
@@ -70,3 +73,33 @@ def route_transferer_agent(requete: TransfertRequete):
           dependencies=[Depends(verifier_jeton)])
 def route_rechercher_information(requete: InformationRequete):
     return rechercher_information(requete.question, requete.categorie)
+
+
+# --- Back-office (Étape 6) ---
+
+@app.post("/webhooks/elevenlabs/fin_appel", dependencies=[Depends(verifier_jeton_requete)])
+async def route_webhook_fin_appel(request: Request):
+    """Reçoit le webhook de fin d'appel d'ElevenLabs. URL à déclarer côté
+    ElevenLabs avec le paramètre ?jeton=<API_TOKEN> à la fin.
+
+    Format non vérifié contre la documentation officielle (bloquée
+    depuis l'environnement où ce code a été écrit) : voir
+    assistant/backoffice/appels.py pour le détail de cette réserve."""
+    charge_brute = await request.json()
+    enregistrer_appel(charge_brute)
+    return JSONResponse({"recu": True})
+
+
+@app.get("/backoffice/appels", response_class=HTMLResponse,
+         dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_liste_appels():
+    return page_liste_appels(lister_appels())
+
+
+@app.get("/backoffice/appels/{appel_id}", response_class=HTMLResponse,
+         dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_detail_appel(appel_id: int):
+    appel = obtenir_appel(appel_id)
+    if appel is None:
+        return HTMLResponse("Appel introuvable.", status_code=404)
+    return page_detail_appel(appel)
