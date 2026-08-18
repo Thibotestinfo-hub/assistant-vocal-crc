@@ -104,11 +104,11 @@ def ecrire_page(chemin, nom_fichier, categorie):
     try:
         resultat = extraire_page(chemin)
     except URLError as exc:
-        print(f"  ⚠️  {chemin} : inaccessible ({exc.reason}), fichier existant conservé tel quel")
+        print(f"  ⚠️  {chemin} : inaccessible ({exc.reason}), fichier existant conservé tel quel", flush=True)
         return False
 
     if resultat is None:
-        print(f"  ⚠️  {chemin} : pas de contenu principal trouvé, ignoré")
+        print(f"  ⚠️  {chemin} : pas de contenu principal trouvé, ignoré", flush=True)
         return False
 
     titre, contenu_md = resultat
@@ -120,7 +120,7 @@ def ecrire_page(chemin, nom_fichier, categorie):
     )
     CORPUS_DIR.mkdir(parents=True, exist_ok=True)
     (CORPUS_DIR / f"{nom_fichier}.md").write_text(entete + contenu_md, encoding="utf-8")
-    print(f"  {nom_fichier}.md ({len(contenu_md)} caractères) <- {chemin}")
+    print(f"  {nom_fichier}.md ({len(contenu_md)} caractères) <- {chemin}", flush=True)
     return True
 
 
@@ -134,7 +134,7 @@ def extraire_corpus():
         if not ecrire_page(chemin, nom_fichier, categorie):
             en_echec.append((chemin, nom_fichier))
     reussies = len(PAGES) - len(en_echec)
-    print(f"\n{reussies}/{len(PAGES)} pages extraites dans {CORPUS_DIR}")
+    print(f"\n{reussies}/{len(PAGES)} pages extraites dans {CORPUS_DIR}", flush=True)
     return en_echec
 
 

@@ -139,14 +139,19 @@ def decouper_fichier(chemin):
 
 
 def construire_index():
+    # flush=True partout ici : sans ça, la sortie reste bufferisée tant
+    # que le tampon ne se remplit pas, ce qui a déjà rendu un déploiement
+    # Clever Cloud illisible dans les logs — impossible de distinguer un
+    # calcul simplement lent d'un blocage réel (constaté à l'usage).
     tous_les_blocs = []
     for chemin in sorted(CORPUS_DIR.glob("*.md")):
         blocs = decouper_fichier(chemin)
         tous_les_blocs.extend(blocs)
-        print(f"  {chemin.name} -> {len(blocs)} bloc(s)")
+        print(f"  {chemin.name} -> {len(blocs)} bloc(s)", flush=True)
 
-    print(f"\n{len(tous_les_blocs)} blocs au total. Calcul des embeddings ({MODELE})...")
+    print(f"\n{len(tous_les_blocs)} blocs au total. Chargement du modèle ({MODELE})...", flush=True)
     modele = TextEmbedding(MODELE)
+    print("Modèle chargé. Calcul des embeddings...", flush=True)
     # Le titre est inclus dans le texte comparé à la question (mais pas
     # dans bloc["texte"], qui reste la réponse propre renvoyée à l'appelant) :
     # un bloc court comme "Nous appeler" perd son seul repère thématique
@@ -159,10 +164,10 @@ def construire_index():
     for i, (bloc, vecteur) in enumerate(zip(tous_les_blocs, modele.embed(textes_a_vectoriser, batch_size=4))):
         bloc["vecteur"] = vecteur.tolist()
         if (i + 1) % 20 == 0 or i + 1 == len(tous_les_blocs):
-            print(f"  {i + 1}/{len(tous_les_blocs)} blocs vectorisés")
+            print(f"  {i + 1}/{len(tous_les_blocs)} blocs vectorisés", flush=True)
 
     INDEX_PATH.write_text(json.dumps(tous_les_blocs, ensure_ascii=False), encoding="utf-8")
-    print(f"Index écrit dans {INDEX_PATH}")
+    print(f"Index écrit dans {INDEX_PATH}", flush=True)
 
 
 if __name__ == "__main__":

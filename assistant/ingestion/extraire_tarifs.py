@@ -97,7 +97,7 @@ def ecrire_corpus(lignes):
 
     chemin = CORPUS_DIR / "tarifs.md"
     chemin.write_text("\n".join(md), encoding="utf-8")
-    print(f"{len(lignes)} tarifs écrits dans {chemin}")
+    print(f"{len(lignes)} tarifs écrits dans {chemin}", flush=True)
 
 
 if __name__ == "__main__":
