@@ -66,7 +66,21 @@ CREATE TABLE IF NOT EXISTS appels (
     statut TEXT,
     donnees_brutes TEXT NOT NULL
 );
+
+-- Étape 6, point 4 : activation progressive des outils. La clé "tous"
+-- est l'interrupteur général (voir assistant/backoffice/activation.py) :
+-- s'il est coupé, plus aucun outil ne répond, quel que soit son propre
+-- réglage.
+CREATE TABLE IF NOT EXISTS activation_outils (
+    outil TEXT PRIMARY KEY,
+    actif INTEGER NOT NULL DEFAULT 1
+);
 """
+
+NOMS_OUTILS = [
+    "rechercher_arret", "horaires_theoriques", "rechercher_information",
+    "enregistrer_objet_perdu", "demander_rappel", "transferer_agent",
+]
 
 
 def connexion_gtfs():
@@ -79,4 +93,13 @@ def connexion_app():
     conn = sqlite3.connect(DB_APP_PATH)
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA_APP)
+    # Une ligne par outil, plus "tous" (l'interrupteur général), toutes
+    # actives par défaut. INSERT OR IGNORE : ne touche jamais un réglage
+    # déjà choisi par l'équipe CRC.
+    for cle in [*NOMS_OUTILS, "tous"]:
+        conn.execute(
+            "INSERT OR IGNORE INTO activation_outils (outil, actif) VALUES (?, 1)",
+            (cle,),
+        )
+    conn.commit()
     return conn

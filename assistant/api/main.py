@@ -6,7 +6,7 @@ Lancer en local : uv run uvicorn assistant.api.main:app --reload
 """
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from assistant.api.auth import verifier_acces_backoffice, verifier_jeton, verifier_jeton_requete
 from assistant.api.schemas import (
@@ -17,9 +17,10 @@ from assistant.api.schemas import (
     RechercherArretRequete, RechercherArretReponse,
     TransfertRequete, TransfertReponse,
 )
+from assistant.backoffice.activation import basculer, lister_activations, verifier_outil_actif
 from assistant.backoffice.appels import enregistrer_appel, lister_appels, obtenir_appel
 from assistant.backoffice.exports import exporter_demandes_rappel, exporter_objets_perdus
-from assistant.backoffice.page import page_detail_appel, page_liste_appels
+from assistant.backoffice.page import page_activations, page_detail_appel, page_liste_appels
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
@@ -38,13 +39,13 @@ def sante():
 
 
 @app.post("/outils/rechercher_arret", response_model=RechercherArretReponse,
-          dependencies=[Depends(verifier_jeton)])
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("rechercher_arret"))])
 def route_rechercher_arret(requete: RechercherArretRequete):
     return rechercher_arret(requete.texte, requete.commune, requete.ligne)
 
 
 @app.post("/outils/horaires_theoriques", response_model=HorairesReponse,
-          dependencies=[Depends(verifier_jeton)])
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("horaires_theoriques"))])
 def route_horaires_theoriques(requete: HorairesRequete):
     return horaires_theoriques(
         requete.arret_id, requete.ligne, requete.direction,
@@ -53,25 +54,25 @@ def route_horaires_theoriques(requete: HorairesRequete):
 
 
 @app.post("/outils/enregistrer_objet_perdu", response_model=ObjetPerduReponse,
-          dependencies=[Depends(verifier_jeton)])
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("enregistrer_objet_perdu"))])
 def route_enregistrer_objet_perdu(requete: ObjetPerduRequete):
     return enregistrer_objet_perdu(**requete.model_dump())
 
 
 @app.post("/outils/demander_rappel", response_model=RappelReponse,
-          dependencies=[Depends(verifier_jeton)])
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("demander_rappel"))])
 def route_demander_rappel(requete: RappelRequete):
     return demander_rappel(**requete.model_dump())
 
 
 @app.post("/outils/transferer_agent", response_model=TransfertReponse,
-          dependencies=[Depends(verifier_jeton)])
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("transferer_agent"))])
 def route_transferer_agent(requete: TransfertRequete):
     return transferer_agent(requete.motif, requete.resume)
 
 
 @app.post("/outils/rechercher_information", response_model=InformationReponse,
-          dependencies=[Depends(verifier_jeton)])
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("rechercher_information"))])
 def route_rechercher_information(requete: InformationRequete):
     return rechercher_information(requete.question, requete.categorie)
 
@@ -122,3 +123,16 @@ def route_export_objets_perdus():
 @app.get("/backoffice/exports/demandes_rappel.csv", dependencies=[Depends(verifier_acces_backoffice)])
 def route_export_demandes_rappel():
     return _reponse_csv(exporter_demandes_rappel(), "demandes_rappel.csv")
+
+
+@app.get("/backoffice/activation", response_class=HTMLResponse,
+         dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_activation():
+    return page_activations(lister_activations())
+
+
+@app.post("/backoffice/activation/{outil}/basculer",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_basculer(outil: str):
+    basculer(outil)
+    return RedirectResponse("/backoffice/activation", status_code=303)

@@ -31,6 +31,7 @@ def page_liste_appels(appels):
 <body>
 <h1>Historique des appels</h1>
 <p>
+  <a href="/backoffice/activation">Activation des outils</a> ·
   Exports :
   <a href="/backoffice/exports/objets_perdus.csv">objets perdus (CSV)</a> ·
   <a href="/backoffice/exports/demandes_rappel.csv">demandes de rappel (CSV)</a>
@@ -62,5 +63,75 @@ def page_detail_appel(appel):
 <p>Reçu le {html.escape(appel['cree_le'])} — conversation {html.escape(appel['conversation_id'] or '—')} — statut {html.escape(appel['statut'] or '—')}</p>
 <h2>Charge brute reçue du webhook</h2>
 <pre>{html.escape(donnees_brutes)}</pre>
+</body>
+</html>"""
+
+
+_NOMS_LISIBLES = {
+    "rechercher_arret": "Identifier un arrêt",
+    "horaires_theoriques": "Horaires théoriques",
+    "rechercher_information": "Questions tarifs / pratique (FAQ)",
+    "enregistrer_objet_perdu": "Déclarer un objet perdu",
+    "demander_rappel": "Demander à être rappelé",
+    "transferer_agent": "Transfert vers un conseiller",
+}
+
+
+def page_activations(activations):
+    tous_actif = activations["tous"]
+
+    def _ligne(cle, libelle):
+        actif = activations["outils"][cle] if cle != "tous" else tous_actif
+        etat = "activé" if actif else "désactivé"
+        classe = "on" if actif else "off"
+        bouton = "Désactiver" if actif else "Activer"
+        return f"""<tr class="{classe}">
+<td>{html.escape(libelle)}</td>
+<td>{etat}</td>
+<td>
+  <form method="post" action="/backoffice/activation/{cle}/basculer" style="display:inline">
+    <button type="submit">{bouton}</button>
+  </form>
+</td>
+</tr>"""
+
+    lignes_outils = "\n".join(
+        _ligne(cle, libelle) for cle, libelle in _NOMS_LISIBLES.items()
+    )
+
+    return f"""<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Activation des outils — Assistant Étang</title>
+<style>
+  body {{ font-family: sans-serif; margin: 2rem; }}
+  table {{ border-collapse: collapse; width: 100%; margin-top: 1rem; }}
+  th, td {{ border: 1px solid #ccc; padding: 0.6rem; text-align: left; }}
+  th {{ background: #f0f0f0; }}
+  tr.on td:nth-child(2) {{ color: #1a7f1a; font-weight: bold; }}
+  tr.off td:nth-child(2) {{ color: #b00; font-weight: bold; }}
+  .general {{ background: {"#eaffea" if tous_actif else "#ffecec"}; padding: 1rem; border-radius: 6px; }}
+  button {{ padding: 0.4rem 0.9rem; cursor: pointer; }}
+</style>
+</head>
+<body>
+<p><a href="/backoffice/appels">&larr; historique des appels</a></p>
+<h1>Activation des outils</h1>
+
+<div class="general">
+  <strong>Interrupteur général : {"activé" if tous_actif else "désactivé"}</strong><br>
+  Coupe tout d'un coup, quel que soit le réglage de chaque outil ci-dessous.
+  <form method="post" action="/backoffice/activation/tous/basculer">
+    <button type="submit">{"Désactiver l'assistant" if tous_actif else "Activer l'assistant"}</button>
+  </form>
+</div>
+
+<table>
+<tr><th>Cas d'usage</th><th>État</th><th></th></tr>
+{lignes_outils}
+</table>
+
+<p>Un outil désactivé ne casse pas l'appel : l'agent le traite comme une information indisponible et propose un transfert, exactement comme en cas de panne technique.</p>
 </body>
 </html>"""
