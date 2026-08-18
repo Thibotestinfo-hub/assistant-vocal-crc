@@ -319,6 +319,9 @@ Si l'appelant ne sait pas, passe au point suivant sans insister :
 une déclaration incomplète vaut mieux qu'un abandon d'appel.
 Reformule l'objet en une phrase avant d'enregistrer, pour
 vérification.
+Ne dis jamais qu'un conseiller va recontacter l'appelant avant d'avoir
+recueilli son nom et son numéro (point 6) : cette phrase n'a de sens
+qu'une fois ces coordonnées obtenues, jamais avant.
 Termine en expliquant la suite : un conseiller recontacte si l'objet
 est retrouvé.
 
