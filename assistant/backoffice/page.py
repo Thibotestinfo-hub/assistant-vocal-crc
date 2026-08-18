@@ -30,6 +30,11 @@ def page_liste_appels(appels):
 </head>
 <body>
 <h1>Historique des appels</h1>
+<p>
+  Exports :
+  <a href="/backoffice/exports/objets_perdus.csv">objets perdus (CSV)</a> ·
+  <a href="/backoffice/exports/demandes_rappel.csv">demandes de rappel (CSV)</a>
+</p>
 <p>{len(appels)} appel(s) — les {len(appels)} plus récents.</p>
 <table>
 <tr><th>Date</th><th>Conversation</th><th>Statut</th><th></th></tr>

@@ -6,7 +6,7 @@ Lancer en local : uv run uvicorn assistant.api.main:app --reload
 """
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from assistant.api.auth import verifier_acces_backoffice, verifier_jeton, verifier_jeton_requete
 from assistant.api.schemas import (
@@ -18,6 +18,7 @@ from assistant.api.schemas import (
     TransfertRequete, TransfertReponse,
 )
 from assistant.backoffice.appels import enregistrer_appel, lister_appels, obtenir_appel
+from assistant.backoffice.exports import exporter_demandes_rappel, exporter_objets_perdus
 from assistant.backoffice.page import page_detail_appel, page_liste_appels
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
@@ -103,3 +104,21 @@ def route_backoffice_detail_appel(appel_id: int):
     if appel is None:
         return HTMLResponse("Appel introuvable.", status_code=404)
     return page_detail_appel(appel)
+
+
+def _reponse_csv(contenu, nom_fichier):
+    return Response(
+        content=contenu,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{nom_fichier}"'},
+    )
+
+
+@app.get("/backoffice/exports/objets_perdus.csv", dependencies=[Depends(verifier_acces_backoffice)])
+def route_export_objets_perdus():
+    return _reponse_csv(exporter_objets_perdus(), "objets_perdus.csv")
+
+
+@app.get("/backoffice/exports/demandes_rappel.csv", dependencies=[Depends(verifier_acces_backoffice)])
+def route_export_demandes_rappel():
+    return _reponse_csv(exporter_demandes_rappel(), "demandes_rappel.csv")
