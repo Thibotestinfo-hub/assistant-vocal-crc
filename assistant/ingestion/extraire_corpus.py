@@ -14,6 +14,7 @@ Usage : python3 -m assistant.ingestion.extraire_corpus
 
 from datetime import date
 from pathlib import Path
+from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from bs4 import BeautifulSoup
@@ -95,7 +96,17 @@ def extraire_page(chemin):
 
 
 def ecrire_page(chemin, nom_fichier, categorie):
-    resultat = extraire_page(chemin)
+    """Renvoie True si la page a été écrite, False si elle est
+    inaccessible ou sans contenu principal — ne lève jamais d'exception :
+    une page en échec ne doit pas empêcher les autres d'être traitées
+    (utile notamment pour assistant.corpus --refresh, qui a besoin de
+    voir toutes les pages en échec d'un coup, pas seulement la première)."""
+    try:
+        resultat = extraire_page(chemin)
+    except URLError as exc:
+        print(f"  ⚠️  {chemin} : inaccessible ({exc.reason}), fichier existant conservé tel quel")
+        return False
+
     if resultat is None:
         print(f"  ⚠️  {chemin} : pas de contenu principal trouvé, ignoré")
         return False
@@ -114,11 +125,17 @@ def ecrire_page(chemin, nom_fichier, categorie):
 
 
 def extraire_corpus():
-    reussies = 0
+    """Renvoie la liste des (chemin, nom_fichier) en échec — pages
+    inaccessibles ou sans contenu — pour qu'un appelant (assistant.corpus
+    --refresh) puisse les signaler sans avoir à reparser la sortie
+    texte."""
+    en_echec = []
     for chemin, nom_fichier, categorie in PAGES:
-        if ecrire_page(chemin, nom_fichier, categorie):
-            reussies += 1
+        if not ecrire_page(chemin, nom_fichier, categorie):
+            en_echec.append((chemin, nom_fichier))
+    reussies = len(PAGES) - len(en_echec)
     print(f"\n{reussies}/{len(PAGES)} pages extraites dans {CORPUS_DIR}")
+    return en_echec
 
 
 if __name__ == "__main__":
