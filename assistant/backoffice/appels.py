@@ -65,3 +65,26 @@ def obtenir_appel(appel_id):
     ligne = conn.execute("SELECT * FROM appels WHERE id = ?", (appel_id,)).fetchone()
     conn.close()
     return dict(ligne) if ligne else None
+
+
+def enregistrer_evaluation(appel_id, qualite, note=None):
+    """qualite vaut 'bonne' ou 'mauvaise'. N'écrase jamais un avis
+    précédent : chaque évaluation s'ajoute à l'historique de l'appel."""
+    conn = connexion_app()
+    conn.execute(
+        "INSERT INTO evaluations_appels (appel_id, cree_le, qualite, note) VALUES (?, ?, ?, ?)",
+        (appel_id, datetime.now().isoformat(timespec="seconds"), qualite, note or None),
+    )
+    conn.commit()
+    conn.close()
+
+
+def lister_evaluations(appel_id):
+    conn = connexion_app()
+    lignes = conn.execute(
+        "SELECT cree_le, qualite, note FROM evaluations_appels "
+        "WHERE appel_id = ? ORDER BY id DESC",
+        (appel_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(l) for l in lignes]

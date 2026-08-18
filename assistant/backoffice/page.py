@@ -45,8 +45,21 @@ def page_liste_appels(appels):
 </html>"""
 
 
-def page_detail_appel(appel):
+def page_detail_appel(appel, evaluations=()):
     donnees_brutes = json.dumps(json.loads(appel["donnees_brutes"]), ensure_ascii=False, indent=2)
+
+    if evaluations:
+        lignes_eval = "\n".join(
+            f"<li><strong>{'👍 bonne' if e['qualite'] == 'bonne' else '👎 mauvaise'}</strong> "
+            f"— {html.escape(e['cree_le'])}"
+            + (f" — {html.escape(e['note'])}" if e["note"] else "")
+            + "</li>"
+            for e in evaluations
+        )
+        bloc_evaluations = f"<ul>{lignes_eval}</ul>"
+    else:
+        bloc_evaluations = "<p>Aucune évaluation pour l'instant.</p>"
+
     return f"""<!doctype html>
 <html lang="fr">
 <head>
@@ -55,12 +68,27 @@ def page_detail_appel(appel):
 <style>
   body {{ font-family: sans-serif; margin: 2rem; }}
   pre {{ background: #f5f5f5; padding: 1rem; overflow-x: auto; white-space: pre-wrap; }}
+  textarea {{ width: 100%; max-width: 40rem; height: 4rem; font-family: inherit; }}
+  .boutons button {{ padding: 0.5rem 1rem; margin-right: 0.5rem; cursor: pointer; }}
 </style>
 </head>
 <body>
 <p><a href="/backoffice/appels">&larr; retour à la liste</a></p>
 <h1>Appel {html.escape(str(appel['id']))}</h1>
 <p>Reçu le {html.escape(appel['cree_le'])} — conversation {html.escape(appel['conversation_id'] or '—')} — statut {html.escape(appel['statut'] or '—')}</p>
+
+<h2>Évaluer cet appel</h2>
+<form method="post" action="/backoffice/appels/{appel['id']}/evaluer">
+  <textarea name="note" placeholder="Note libre, optionnelle : ce qui n'allait pas, la question posée, la réponse attendue..."></textarea>
+  <div class="boutons">
+    <button type="submit" name="qualite" value="bonne">👍 Bonne réponse</button>
+    <button type="submit" name="qualite" value="mauvaise">👎 Mauvaise réponse</button>
+  </div>
+</form>
+
+<h2>Évaluations précédentes</h2>
+{bloc_evaluations}
+
 <h2>Charge brute reçue du webhook</h2>
 <pre>{html.escape(donnees_brutes)}</pre>
 </body>

@@ -5,7 +5,9 @@ exactement à un outil décrit dans docs/spec-assistant-vocal-v0-revisee.md, §4
 Lancer en local : uv run uvicorn assistant.api.main:app --reload
 """
 
-from fastapi import Depends, FastAPI, Request
+from typing import Literal
+
+from fastapi import Depends, FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from assistant.api.auth import verifier_acces_backoffice, verifier_jeton, verifier_jeton_requete
@@ -18,7 +20,9 @@ from assistant.api.schemas import (
     TransfertRequete, TransfertReponse,
 )
 from assistant.backoffice.activation import basculer, lister_activations, verifier_outil_actif
-from assistant.backoffice.appels import enregistrer_appel, lister_appels, obtenir_appel
+from assistant.backoffice.appels import (
+    enregistrer_appel, enregistrer_evaluation, lister_appels, lister_evaluations, obtenir_appel,
+)
 from assistant.backoffice.exports import exporter_demandes_rappel, exporter_objets_perdus
 from assistant.backoffice.page import page_activations, page_detail_appel, page_liste_appels
 from assistant.outils.horaires_theoriques import horaires_theoriques
@@ -104,7 +108,16 @@ def route_backoffice_detail_appel(appel_id: int):
     appel = obtenir_appel(appel_id)
     if appel is None:
         return HTMLResponse("Appel introuvable.", status_code=404)
-    return page_detail_appel(appel)
+    return page_detail_appel(appel, lister_evaluations(appel_id))
+
+
+@app.post("/backoffice/appels/{appel_id}/evaluer",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_evaluer_appel(
+    appel_id: int, qualite: Literal["bonne", "mauvaise"] = Form(...), note: str = Form("")
+):
+    enregistrer_evaluation(appel_id, qualite, note.strip() or None)
+    return RedirectResponse(f"/backoffice/appels/{appel_id}", status_code=303)
 
 
 def _reponse_csv(contenu, nom_fichier):

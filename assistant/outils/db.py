@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS activation_outils (
     outil TEXT PRIMARY KEY,
     actif INTEGER NOT NULL DEFAULT 1
 );
+
+-- Étape 6, point 2 : évaluation humaine d'un appel a posteriori (bonne
+-- ou mauvaise réponse, avec une note libre). Plusieurs évaluations
+-- possibles par appel — jamais de mise à jour qui écraserait un avis
+-- précédent, seulement des ajouts, pour garder l'historique complet.
+CREATE TABLE IF NOT EXISTS evaluations_appels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    appel_id INTEGER NOT NULL,
+    cree_le TEXT NOT NULL,
+    qualite TEXT NOT NULL CHECK (qualite IN ('bonne', 'mauvaise')),
+    note TEXT
+);
 """
 
 NOMS_OUTILS = [

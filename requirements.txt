@@ -96,6 +96,8 @@ pydantic-core==2.46.4
     # via pydantic
 python-dotenv==1.2.2
     # via uvicorn
+python-multipart==0.0.32
+    # via assistant-vocal-crc
 pyyaml==6.0.3
     # via
     #   assistant-vocal-crc
