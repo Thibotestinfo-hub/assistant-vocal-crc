@@ -47,9 +47,10 @@ assistant/          code applicatif
   api/              FastAPI
   backoffice/       suivi des appels et exports
 data/
-  gtfs/             GTFS décompressé, non versionné
-  connaissances.md  base de connaissance écrite à la main
-  config.yaml       paramètres du réseau
+  gtfs/                 GTFS décompressé, non versionné
+  connaissances.md      base de connaissance écrite à la main
+  config.yaml           paramètres du réseau
+  corpus_index.json     index documentaire + embeddings, versionné (voir pièges connus)
 docs/               spec, fiche GTFS, notes
 tests/              jeu de test et scripts de vérification
 ```
@@ -61,6 +62,7 @@ tests/              jeu de test et scripts de vérification
 - Les numéros de ligne se répètent d'une zone à l'autre du réseau et d'une marque à l'autre. Toute recherche par numéro doit être bornée au périmètre configuré.
 - Le GTFS a une période de validité et expire. Le chargeur doit alerter quand la fin de validité approche.
 - Les noms d'arrêts locaux sont difficiles à reconnaître à l'oral. Le matching phonétique est un cycle mesure-ajustement continu, pas un problème qu'on règle une fois.
+- `data/` est ignoré par Git presque en entier, sauf `data/corpus_index.json` : ce fichier est le résultat d'un calcul lent (téléchargement + calcul d'un modèle d'embeddings), et rien n'est conservé d'un déploiement Clever Cloud à l'autre. Sans le versionner, ce calcul recommence à chaque déploiement, au risque de dépasser le délai du health-check. Après tout `assistant.corpus --refresh` suivi d'un `indexer_corpus`, il faut recommitter ce fichier.
 
 ## Méthode de session
 

@@ -74,7 +74,9 @@ def rafraichir():
             "\nDu contenu a changé : pensez à relancer "
             "`python -m assistant.ingestion.indexer_corpus` puis "
             "`python -m assistant.evalcorpus` pour vérifier que la recherche "
-            "documentaire n'a pas régressé."
+            "documentaire n'a pas régressé. data/corpus_index.json est versionné "
+            "(il évite de recalculer les embeddings à chaque déploiement) : "
+            "n'oubliez pas de le recommitter une fois regénéré."
         )
 
     return {"modifiees": modifiees, "nouvelles": nouvelles, "en_echec": en_echec}

@@ -1,7 +1,6 @@
 .env
 data/gtfs/
 data/corpus/
-data/corpus_index.json
 data/communes-13.geojson
 *.db
 *.sqlite
