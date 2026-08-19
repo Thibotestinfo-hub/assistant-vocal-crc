@@ -21,10 +21,13 @@ from assistant.api.schemas import (
 )
 from assistant.backoffice.activation import basculer, lister_activations, verifier_outil_actif
 from assistant.backoffice.appels import (
-    enregistrer_appel, enregistrer_evaluation, lister_appels, lister_evaluations, obtenir_appel,
+    compter_appels, enregistrer_appel, enregistrer_evaluation, lister_appels_avec_details,
+    resumer_evaluations,
 )
-from assistant.backoffice.exports import exporter_demandes_rappel, exporter_objets_perdus
-from assistant.backoffice.page import page_activations, page_detail_appel, page_liste_appels
+from assistant.backoffice.exports import (
+    exporter_contacts_marketing, exporter_demandes_rappel, exporter_objets_perdus,
+)
+from assistant.backoffice.page import page_backoffice
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
@@ -99,16 +102,9 @@ async def route_webhook_fin_appel(request: Request):
 @app.get("/backoffice/appels", response_class=HTMLResponse,
          dependencies=[Depends(verifier_acces_backoffice)])
 def route_backoffice_liste_appels():
-    return page_liste_appels(lister_appels())
-
-
-@app.get("/backoffice/appels/{appel_id}", response_class=HTMLResponse,
-         dependencies=[Depends(verifier_acces_backoffice)])
-def route_backoffice_detail_appel(appel_id: int):
-    appel = obtenir_appel(appel_id)
-    if appel is None:
-        return HTMLResponse("Appel introuvable.", status_code=404)
-    return page_detail_appel(appel, lister_evaluations(appel_id))
+    return page_backoffice(
+        lister_appels_avec_details(), lister_activations(), compter_appels(), resumer_evaluations(),
+    )
 
 
 @app.post("/backoffice/appels/{appel_id}/evaluer",
@@ -117,7 +113,7 @@ def route_backoffice_evaluer_appel(
     appel_id: int, qualite: Literal["bonne", "mauvaise"] = Form(...), note: str = Form("")
 ):
     enregistrer_evaluation(appel_id, qualite, note.strip() or None)
-    return RedirectResponse(f"/backoffice/appels/{appel_id}", status_code=303)
+    return RedirectResponse(f"/backoffice/appels#appel-{appel_id}", status_code=303)
 
 
 def _reponse_csv(contenu, nom_fichier):
@@ -138,14 +134,13 @@ def route_export_demandes_rappel():
     return _reponse_csv(exporter_demandes_rappel(), "demandes_rappel.csv")
 
 
-@app.get("/backoffice/activation", response_class=HTMLResponse,
-         dependencies=[Depends(verifier_acces_backoffice)])
-def route_backoffice_activation():
-    return page_activations(lister_activations())
+@app.get("/backoffice/exports/contacts_marketing.csv", dependencies=[Depends(verifier_acces_backoffice)])
+def route_export_contacts_marketing():
+    return _reponse_csv(exporter_contacts_marketing(), "contacts_marketing.csv")
 
 
 @app.post("/backoffice/activation/{outil}/basculer",
           dependencies=[Depends(verifier_acces_backoffice)])
 def route_backoffice_basculer(outil: str):
     basculer(outil)
-    return RedirectResponse("/backoffice/activation", status_code=303)
+    return RedirectResponse("/backoffice/appels", status_code=303)

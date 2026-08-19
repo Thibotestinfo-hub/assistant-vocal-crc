@@ -69,8 +69,8 @@ def main():
         "l'appel de test n'apparaît pas dans la liste" if r.status_code == 200 else "",
     ))
 
-    r, d = appeler("GET", "/backoffice/activation", auth=auth_backoffice)
-    resultats.append(verifier("GET /backoffice/activation", r.status_code == 200, r, d))
+    ok = r.status_code == 200 and "Expérimentation" in r.text
+    resultats.append(verifier("GET /backoffice/appels (panneau activation présent)", ok, r, d))
 
     # --- Exports CSV ---
 
@@ -84,6 +84,10 @@ def main():
     r, d = appeler("GET", "/backoffice/exports/demandes_rappel.csv", auth=auth_backoffice)
     ok = r.status_code == 200 and r.headers.get("content-type", "").startswith("text/csv")
     resultats.append(verifier("GET export demandes_rappel.csv", ok, r, d))
+
+    r, d = appeler("GET", "/backoffice/exports/contacts_marketing.csv", auth=auth_backoffice)
+    ok = r.status_code == 200 and r.headers.get("content-type", "").startswith("text/csv")
+    resultats.append(verifier("GET export contacts_marketing.csv", ok, r, d))
 
     # --- Activation des outils ---
     # transferer_agent : choisi parce qu'une brève désactivation pendant
@@ -104,7 +108,7 @@ def main():
         reactive = verifier("POST bascule transferer_agent (réactive)", r.status_code == 200, r, d)
         resultats.append(reactive)
         if not reactive:
-            print("       ⚠️  ATTENTION : transferer_agent pourrait être resté désactivé, à vérifier à la main sur /backoffice/activation")
+            print("       ⚠️  ATTENTION : transferer_agent pourrait être resté désactivé, à vérifier à la main sur /backoffice/appels")
 
     r, d = appeler("POST", "/outils/transferer_agent", headers=en_tete,
                     json={"motif": "test", "resume": "vérification back-office, après réactivation"})

@@ -60,6 +60,59 @@ def lister_appels(limite=100):
     return [dict(l) for l in lignes]
 
 
+def lister_appels_avec_details(limite=100):
+    """Comme lister_appels, mais avec la charge brute et les évaluations
+    de chaque appel déjà chargées — utilisé par la page back-office
+    consolidée, qui affiche tout sur un seul écran (accordéon HTML natif,
+    sans rechargement de page par appel)."""
+    conn = connexion_app()
+    appels = conn.execute(
+        "SELECT id, cree_le, conversation_id, agent_id, statut, donnees_brutes FROM appels "
+        "ORDER BY id DESC LIMIT ?",
+        (limite,),
+    ).fetchall()
+    resultat = []
+    for a in appels:
+        a = dict(a)
+        evals = conn.execute(
+            "SELECT cree_le, qualite, note FROM evaluations_appels "
+            "WHERE appel_id = ? ORDER BY id DESC",
+            (a["id"],),
+        ).fetchall()
+        a["evaluations"] = [dict(e) for e in evals]
+        resultat.append(a)
+    conn.close()
+    return resultat
+
+
+def compter_appels():
+    conn = connexion_app()
+    n = conn.execute("SELECT COUNT(*) AS n FROM appels").fetchone()["n"]
+    conn.close()
+    return n
+
+
+def resumer_evaluations():
+    """Renvoie (nb_bonnes, nb_total) sur la dernière évaluation de chaque
+    appel évalué — un appel évalué plusieurs fois ne compte qu'une fois,
+    pour son avis le plus récent."""
+    conn = connexion_app()
+    lignes = conn.execute(
+        """
+        SELECT qualite FROM evaluations_appels e
+        WHERE e.id = (
+            SELECT id FROM evaluations_appels e2
+            WHERE e2.appel_id = e.appel_id
+            ORDER BY id DESC LIMIT 1
+        )
+        """
+    ).fetchall()
+    conn.close()
+    total = len(lignes)
+    bonnes = sum(1 for l in lignes if l["qualite"] == "bonne")
+    return bonnes, total
+
+
 def obtenir_appel(appel_id):
     conn = connexion_app()
     ligne = conn.execute("SELECT * FROM appels WHERE id = ?", (appel_id,)).fetchone()
