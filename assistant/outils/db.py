@@ -3,10 +3,17 @@ Connexions aux deux bases du projet.
 
 - data/gtfs.db : régénérée à chaque rechargement du GTFS (Étape 2). Lecture
   seule depuis les outils.
-- data/assistant.db : l'état propre à l'application (déclarations d'objets
-  perdus, demandes de rappel...). Ne doit JAMAIS être recréée depuis zéro
-  comme gtfs.db — ce sont de vraies données saisies par de vrais appelants.
-  Les tables sont créées avec IF NOT EXISTS, jamais DROP.
+- data/etat/assistant.db : l'état propre à l'application (déclarations
+  d'objets perdus, demandes de rappel...). Ne doit JAMAIS être recréée
+  depuis zéro comme gtfs.db — ce sont de vraies données saisies par de
+  vrais appelants. Les tables sont créées avec IF NOT EXISTS, jamais DROP.
+
+  Sur Clever Cloud, data/etat/ est monté comme un espace de stockage
+  persistant ("FS Bucket") qui survit aux redéploiements — contrairement
+  au reste de data/, remis à neuf à chaque déploiement. Sous-dossier
+  dédié (pas directement data/) pour ne pas entrer en conflit avec les
+  fichiers déjà versionnés (config.yaml, corpus_index.json) : Clever
+  Cloud ignore le montage si le dossier cible n'est pas vide.
 """
 
 import sqlite3
@@ -14,7 +21,7 @@ from pathlib import Path
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 DB_GTFS_PATH = RACINE / "data" / "gtfs.db"
-DB_APP_PATH = RACINE / "data" / "assistant.db"
+DB_APP_PATH = RACINE / "data" / "etat" / "assistant.db"
 
 _SCHEMA_APP = """
 CREATE TABLE IF NOT EXISTS objets_perdus (
@@ -102,6 +109,9 @@ def connexion_gtfs():
 
 
 def connexion_app():
+    # En local, data/etat/ n'existe pas forcément encore (sur Clever
+    # Cloud, c'est le point de montage du FS Bucket, déjà présent).
+    DB_APP_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_APP_PATH)
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA_APP)
