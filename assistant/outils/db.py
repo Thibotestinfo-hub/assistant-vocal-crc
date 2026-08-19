@@ -14,14 +14,28 @@ Connexions aux deux bases du projet.
   dédié (pas directement data/) pour ne pas entrer en conflit avec les
   fichiers déjà versionnés (config.yaml, corpus_index.json) : Clever
   Cloud ignore le montage si le dossier cible n'est pas vide.
+
+  Piège constaté : la variable CC_FS_BUCKET donne un chemin de montage
+  "data/etat", mais Clever Cloud le monte en réalité à la racine du
+  système de fichiers (/data/etat), pas dans le dossier de l'application
+  — malgré ce que suggère leur documentation ("starting from your
+  application's root folder"). Un chemin relatif au code (RACINE / ...)
+  pointait donc ailleurs que le vrai montage, et rien ne persistait.
+  D'où le chemin absolu ci-dessous, actif seulement quand CC_FS_BUCKET
+  est présent (donc uniquement sur Clever Cloud).
 """
 
+import os
 import sqlite3
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 DB_GTFS_PATH = RACINE / "data" / "gtfs.db"
-DB_APP_PATH = RACINE / "data" / "etat" / "assistant.db"
+
+if os.environ.get("CC_FS_BUCKET"):
+    DB_APP_PATH = Path("/data/etat/assistant.db")
+else:
+    DB_APP_PATH = RACINE / "data" / "etat" / "assistant.db"
 
 _SCHEMA_APP = """
 CREATE TABLE IF NOT EXISTS objets_perdus (
