@@ -8,3 +8,16 @@ gtfs_url: "https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=2b7a3
 # une référence — la clé pour agir dessus est ELEVENLABS_API_KEY, dans
 # .env, jamais ici).
 elevenlabs_agent_id: "agent_7101m00afyqfe16re00h46qnbnd3"
+
+# Voix proposées à l'équipe CRC depuis le back-office (choisies parmi
+# celles ajoutées à "Mes voix" côté ElevenLabs, Étape 6 point B). Liste
+# volontairement statique plutôt qu'interrogée en direct à chaque
+# affichage de la page : le back-office ne doit pas dépendre de la
+# disponibilité d'ElevenLabs juste pour s'afficher.
+voix_disponibles:
+  - id: "YxrwjAKoUKULGd0g8K9Y"
+    nom: "Lucie"
+  - id: "IbbR6Av0dWuQJS0b8JVT"
+    nom: "Hugo"
+  - id: "3C1zYzXNXNzrB66ON8rj"
+    nom: "Jade"

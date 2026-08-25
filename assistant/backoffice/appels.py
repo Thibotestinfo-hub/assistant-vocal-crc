@@ -45,6 +45,10 @@ def _extraire_tracabilite(donnees):
             if nom:
                 outils.add(nom)
 
+    voix = sorted({
+        v["voice_id"] for v in (tts.get("per_voice_usage") or []) if v.get("voice_id")
+    })
+
     return {
         "duree_secs": metadata.get("call_duration_secs"),
         "cout_usd": metadata.get("cost_fiat"),
@@ -53,6 +57,7 @@ def _extraire_tracabilite(donnees):
         "modeles_llm": json.dumps(llm_usage, ensure_ascii=False) if llm_usage else None,
         "tokens_llm": tokens_total or None,
         "outils_utilises": json.dumps(sorted(outils), ensure_ascii=False) if outils else None,
+        "voix_utilisees": json.dumps(voix, ensure_ascii=False) if voix else None,
     }
 
 
@@ -73,9 +78,9 @@ def enregistrer_appel(charge_brute: dict):
         INSERT INTO appels (
             cree_le, conversation_id, agent_id, statut, donnees_brutes,
             duree_secs, cout_usd, minutes_asr, minutes_tts, modeles_llm,
-            tokens_llm, outils_utilises
+            tokens_llm, outils_utilises, voix_utilisees
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(conversation_id) DO UPDATE SET
             statut = excluded.statut,
             donnees_brutes = excluded.donnees_brutes,
@@ -85,7 +90,8 @@ def enregistrer_appel(charge_brute: dict):
             minutes_tts = excluded.minutes_tts,
             modeles_llm = excluded.modeles_llm,
             tokens_llm = excluded.tokens_llm,
-            outils_utilises = excluded.outils_utilises
+            outils_utilises = excluded.outils_utilises,
+            voix_utilisees = excluded.voix_utilisees
         """,
         (
             datetime.now().isoformat(timespec="seconds"),
@@ -94,7 +100,7 @@ def enregistrer_appel(charge_brute: dict):
             tracabilite["duree_secs"], tracabilite["cout_usd"],
             tracabilite["minutes_asr"], tracabilite["minutes_tts"],
             tracabilite["modeles_llm"], tracabilite["tokens_llm"],
-            tracabilite["outils_utilises"],
+            tracabilite["outils_utilises"], tracabilite["voix_utilisees"],
         ),
     )
     conn.commit()
@@ -122,12 +128,13 @@ def retraiter_tracabilite():
             """
             UPDATE appels SET
                 duree_secs = ?, cout_usd = ?, minutes_asr = ?, minutes_tts = ?,
-                modeles_llm = ?, tokens_llm = ?, outils_utilises = ?
+                modeles_llm = ?, tokens_llm = ?, outils_utilises = ?, voix_utilisees = ?
             WHERE id = ?
             """,
             (
                 t["duree_secs"], t["cout_usd"], t["minutes_asr"], t["minutes_tts"],
-                t["modeles_llm"], t["tokens_llm"], t["outils_utilises"], a["id"],
+                t["modeles_llm"], t["tokens_llm"], t["outils_utilises"], t["voix_utilisees"],
+                a["id"],
             ),
         )
         n += 1
@@ -154,7 +161,8 @@ def lister_appels_avec_details(limite=100):
     sans rechargement de page par appel)."""
     conn = connexion_app()
     appels = conn.execute(
-        "SELECT id, cree_le, conversation_id, agent_id, statut, donnees_brutes FROM appels "
+        "SELECT id, cree_le, conversation_id, agent_id, statut, donnees_brutes, "
+        "duree_secs, outils_utilises, voix_utilisees FROM appels "
         "ORDER BY id DESC LIMIT ?",
         (limite,),
     ).fetchall()

@@ -69,7 +69,7 @@ def main():
         "l'appel de test n'apparaît pas dans la liste" if r.status_code == 200 else "",
     ))
 
-    ok = r.status_code == 200 and "Expérimentation" in r.text
+    ok = r.status_code == 200 and "Outils actifs" in r.text
     resultats.append(verifier("GET /backoffice/appels (panneau activation présent)", ok, r, d))
 
     # --- Exports CSV ---

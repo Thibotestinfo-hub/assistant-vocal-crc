@@ -127,6 +127,7 @@ _COLONNES_TRACABILITE = {
     "modeles_llm": "TEXT",   # JSON : détail tokens par modèle (parfois plusieurs par appel)
     "tokens_llm": "INTEGER",  # somme, toutes catégories et modèles confondus
     "outils_utilises": "TEXT",  # JSON : liste des outils réellement appelés
+    "voix_utilisees": "TEXT",  # JSON : liste des voice_id ElevenLabs utilisés
 }
 
 

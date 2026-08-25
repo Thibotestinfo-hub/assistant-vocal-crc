@@ -28,6 +28,7 @@ from assistant.backoffice.exports import (
     exporter_contacts_marketing, exporter_demandes_rappel, exporter_objets_perdus,
 )
 from assistant.backoffice.page import page_backoffice
+from assistant.elevenlabs_api import changer_voix_agent
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
@@ -101,10 +102,10 @@ async def route_webhook_fin_appel(request: Request):
 
 @app.get("/backoffice/appels", response_class=HTMLResponse,
          dependencies=[Depends(verifier_acces_backoffice)])
-def route_backoffice_liste_appels():
+def route_backoffice_liste_appels(erreur_voix: bool = False):
     return page_backoffice(
         lister_appels_avec_details(), lister_activations(), compter_appels(),
-        resumer_evaluations(), resumer_tracabilite(),
+        resumer_evaluations(), resumer_tracabilite(), erreur_voix=erreur_voix,
     )
 
 
@@ -112,6 +113,21 @@ def route_backoffice_liste_appels():
           dependencies=[Depends(verifier_acces_backoffice)])
 def route_backoffice_retraiter_tracabilite():
     retraiter_tracabilite()
+    return RedirectResponse("/backoffice/appels#suivi", status_code=303)
+
+
+@app.post("/backoffice/voix/changer",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_changer_voix(voice_id: str = Form(...)):
+    """Change la voix de l'agent ElevenLabs depuis le back-office, sans
+    que l'équipe CRC ait besoin d'un compte ElevenLabs (voir
+    assistant/elevenlabs_api.py). N'importe quelle panne côté ElevenLabs
+    ne doit jamais faire planter le back-office : on redirige avec un
+    indicateur d'erreur plutôt que de laisser l'exception remonter."""
+    try:
+        changer_voix_agent(voice_id)
+    except Exception:
+        return RedirectResponse("/backoffice/appels?erreur_voix=1", status_code=303)
     return RedirectResponse("/backoffice/appels", status_code=303)
 
 

@@ -1,13 +1,19 @@
-"""Rendu HTML du back-office — une seule page consolidée (historique des
-appels, activation des outils, indicateurs, exports), sans framework
-front : accordéon natif (<details>/<summary>) pour ouvrir un appel sans
-recharger la page, formulaires HTML classiques pour les actions.
+"""Rendu HTML du back-office — page consolidée en 2 onglets ("Live" /
+"Suivi"), sans framework front : un peu de JS pour basculer d'onglet,
+accordéon natif (<details>/<summary>) pour ouvrir un appel sans recharger
+la page, formulaires HTML classiques pour les actions.
+
+Structure reprise de la maquette proposée par l'équipe (25/08/2026) :
+- Live : interrupteur général, choix de la voix, activation des outils.
+- Suivi : indicateurs, appels reçus (avec voix utilisée et motif), exports.
 
 Palette de couleurs fournie par l'équipe CRC (Étape 6, retour visuel) :
-bleu clair, sauge, rouge, rose — première mouture, à affiner ensemble."""
+bleu clair, sauge, rouge, rose."""
 
 import html
 import json
+
+from assistant.elevenlabs_api import nom_voix, voix_disponibles
 
 BLEU = "#A6D7E4"
 SAUGE = "#C7DFD4"
@@ -21,6 +27,15 @@ _NOMS_LISIBLES = {
     "enregistrer_objet_perdu": "Déclarer un objet perdu",
     "demander_rappel": "Demander à être rappelé",
     "transferer_agent": "Transfert vers un conseiller",
+}
+
+_DESCRIPTIONS_OUTILS = {
+    "rechercher_arret": "Identifie l'arrêt mentionné par l'appelant (nom, commune, ligne).",
+    "horaires_theoriques": "Donne les horaires théoriques des prochains passages à un arrêt.",
+    "rechercher_information": "Répond aux questions tarifs et pratiques depuis la base de connaissance.",
+    "enregistrer_objet_perdu": "Enregistre une déclaration d'objet perdu.",
+    "demander_rappel": "Enregistre une demande de rappel par un conseiller.",
+    "transferer_agent": "Bascule l'appel vers un conseiller humain.",
 }
 
 _STYLE = f"""
@@ -74,6 +89,29 @@ main {{
   margin: 0 auto;
   padding: 2rem 2.5rem;
 }}
+.onglets {{
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--bordure);
+}}
+.onglet-btn {{
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.7rem 1.3rem;
+  border: none;
+  background: none;
+  color: var(--texte-doux);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+}}
+.onglet-btn.actif {{
+  color: var(--texte);
+  border-bottom-color: var(--bleu);
+}}
+.contenu-onglet {{ }}
 .grille-compteurs {{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
@@ -148,8 +186,41 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 }}
 .interrupteur-general.coupe {{ background: {ROUGE}22; }}
 .interrupteur-general strong {{ font-size: 0.95rem; }}
-.interrupteur-general button {{ background: var(--rouge); color: #fff; border-color: var(--rouge); font-weight: 600; }}
-.interrupteur-general.coupe button {{ background: {SAUGE}; color: var(--texte); border-color: {SAUGE}; }}
+.interrupteur-general form {{ margin: 0; }}
+.bouton-power {{
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  border: none;
+  background: var(--rouge);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}}
+.interrupteur-general.coupe .bouton-power {{ background: #4a9d76; }}
+.voix-form {{
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}}
+.voix-form select {{
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 7px;
+  border: 1px solid var(--bordure);
+  background: var(--carte);
+}}
+.erreur-voix {{
+  color: var(--rouge);
+  font-size: 0.8rem;
+  margin-top: 0.6rem;
+}}
 .outils-grille {{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
@@ -176,6 +247,21 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 .outil.off .pastille {{ background: var(--rouge); }}
 .outil form {{ margin: 0; }}
 .outil button {{ padding: 0.25rem 0.6rem; font-size: 0.75rem; }}
+.entete-tableau-appels {{
+  display: flex;
+  gap: 1rem;
+  padding: 0 1.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texte-doux);
+  text-transform: uppercase;
+}}
+.col-date {{ flex: 0 0 9rem; }}
+.col-conv {{ flex: 1 1 8rem; min-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.col-statut {{ flex: 0 0 4.5rem; }}
+.col-duree {{ flex: 0 0 5rem; }}
+.col-voix {{ flex: 0 0 5rem; }}
+.col-motif {{ flex: 2 1 10rem; }}
 details.appel {{
   border: 1px solid var(--bordure);
   border-radius: 8px;
@@ -192,8 +278,8 @@ details.appel summary {{
   font-size: 0.85rem;
 }}
 details.appel summary::-webkit-details-marker {{ display: none; }}
-details.appel summary .date {{ color: var(--texte-doux); min-width: 9rem; }}
-details.appel summary .conv {{ font-family: monospace; color: var(--texte-doux); flex: 1; }}
+details.appel summary .col-date {{ color: var(--texte-doux); }}
+details.appel summary .col-conv {{ font-family: monospace; color: var(--texte-doux); }}
 details.appel[open] summary {{ border-bottom: 1px solid var(--bordure); }}
 .corps-appel {{ padding: 1.1rem; }}
 .corps-appel pre {{
@@ -222,8 +308,22 @@ details.appel[open] summary {{ border-bottom: 1px solid var(--bordure); }}
 """
 
 
-def _details_ouvertes(id_cible):
-    return "open" if id_cible else ""
+def _motif_appel(outils_utilises):
+    if not outils_utilises:
+        return "—"
+    outils = json.loads(outils_utilises)
+    if not outils:
+        return "—"
+    return ", ".join(_NOMS_LISIBLES.get(o, o) for o in outils)
+
+
+def _voix_appel(voix_utilisees):
+    if not voix_utilisees:
+        return "—"
+    voix = json.loads(voix_utilisees)
+    if not voix:
+        return "—"
+    return ", ".join(nom_voix(v) for v in voix)
 
 
 def _bloc_appel(a):
@@ -244,9 +344,12 @@ def _bloc_appel(a):
 
     return f"""<details class="appel" id="appel-{a['id']}">
   <summary>
-    <span class="date">{html.escape(a['cree_le'])}</span>
-    <span class="conv">{html.escape(a['conversation_id'] or '—')}</span>
-    <span>{html.escape(a['statut'] or '—')}</span>
+    <span class="col-date">{html.escape(a['cree_le'])}</span>
+    <span class="col-conv">{html.escape(a['conversation_id'] or '—')}</span>
+    <span class="col-statut">{html.escape(a['statut'] or '—')}</span>
+    <span class="col-duree">{_formater_duree(a.get('duree_secs'))}</span>
+    <span class="col-voix">{html.escape(_voix_appel(a.get('voix_utilisees')))}</span>
+    <span class="col-motif">{html.escape(_motif_appel(a.get('outils_utilises')))}</span>
   </summary>
   <div class="corps-appel">
     <h3 style="font-size:0.85rem;margin:0 0 0.5rem">Évaluer cet appel</h3>
@@ -264,6 +367,32 @@ def _bloc_appel(a):
 </details>"""
 
 
+def _bloc_voix(erreur_voix):
+    options = "".join(
+        f'<option value="{html.escape(v["id"])}">{html.escape(v["nom"])}</option>'
+        for v in voix_disponibles()
+    )
+    erreur_html = (
+        '<p class="erreur-voix">Le changement de voix a échoué (ElevenLabs indisponible '
+        "ou clé API manquante). Réessayez dans un instant.</p>"
+        if erreur_voix else ""
+    )
+    return f"""<div class="section">
+  <h2>Voix de l'assistant</h2>
+  <form class="voix-form" method="post" action="/backoffice/voix/changer">
+    <select name="voice_id" required>
+      <option value="" disabled selected>Choisir une voix…</option>
+      {options}
+    </select>
+    <button type="submit" class="bouton accent">Appliquer</button>
+  </form>
+  <p style="font-size:0.8rem;color:var(--texte-doux);margin-top:0.6rem">
+    Change la voix de l'agent directement, sans connexion à ElevenLabs. Effectif dès le prochain appel.
+  </p>
+  {erreur_html}
+</div>"""
+
+
 def _bloc_outils(activations):
     tous_actif = activations["tous"]
 
@@ -271,7 +400,8 @@ def _bloc_outils(activations):
         actif = activations["outils"][cle]
         classe = "on" if actif else "off"
         bouton = "Désactiver" if actif else "Activer"
-        return f"""<div class="outil {classe}">
+        description = _DESCRIPTIONS_OUTILS.get(cle, "")
+        return f"""<div class="outil {classe}" title="{html.escape(description)}">
   <span><span class="pastille"></span>{html.escape(libelle)}</span>
   <form method="post" action="/backoffice/activation/{cle}/basculer">
     <button type="submit">{bouton}</button>
@@ -281,11 +411,11 @@ def _bloc_outils(activations):
     lignes_outils = "".join(_ligne(cle, libelle) for cle, libelle in _NOMS_LISIBLES.items())
 
     return f"""<div class="section">
-  <h2>Expérimentation</h2>
+  <h2>Outils actifs</h2>
   <div class="interrupteur-general {'coupe' if not tous_actif else ''}">
     <strong>{"🟢 Assistant en service" if tous_actif else "🔴 Assistant à l'arrêt"}</strong>
     <form method="post" action="/backoffice/activation/tous/basculer">
-      <button type="submit">{"Tout arrêter" if tous_actif else "Tout relancer"}</button>
+      <button type="submit" class="bouton-power" title="{'Tout arrêter' if tous_actif else 'Tout relancer'}">⏻</button>
     </form>
   </div>
   <div class="outils-grille">
@@ -313,7 +443,7 @@ def _formater_repartition(repartition):
     return f"{libelle_principal} ({n}/{total})", f"Type de requête le plus fréquent — {detail}"
 
 
-def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite):
+def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, erreur_voix=False):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -348,49 +478,84 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite):
 </header>
 <main>
 
-  <div class="grille-compteurs">
-    <div class="compteur" style="--accent:{BLEU}">
-      <div class="valeur">{nb_appels}</div>
-      <div class="libelle">Appels captés</div>
-    </div>
-    <div class="compteur" style="--accent:{ROSE}">
-      <div class="valeur">{pct}</div>
-      <div class="libelle">Satisfaction — {libelle_satisfaction}</div>
-    </div>
-    <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{SAUGE}">
-      <div class="valeur">{duree_valeur}</div>
-      <div class="libelle">Durée moyenne d'appel{suffixe_trace}</div>
-    </div>
-    <div class="compteur{' a-venir' if not tracabilite['horaire_moyen'] else ''}" style="--accent:{BLEU}">
-      <div class="valeur">{horaire_valeur}</div>
-      <div class="libelle">Horaire moyen des appels{suffixe_trace}</div>
-    </div>
-    <div class="compteur{' a-venir' if not tracabilite['repartition_outils'] else ''}" style="--accent:{ROSE}">
-      <div class="valeur">{repartition_valeur}</div>
-      <div class="libelle">{repartition_libelle}</div>
-    </div>
-    <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{SAUGE}">
-      <div class="valeur">{cout_valeur}</div>
-      <div class="libelle">Coût total{suffixe_trace} — impact carbone : pas encore de méthode fiable</div>
-    </div>
+  <div class="onglets">
+    <button type="button" class="onglet-btn actif" data-cible="live" onclick="afficherOnglet('live')">Live</button>
+    <button type="button" class="onglet-btn" data-cible="suivi" onclick="afficherOnglet('suivi')">Suivi</button>
   </div>
 
-  {_bloc_outils(activations)}
-
-  <div class="bandeau-actions">
-    <a class="bouton" href="/backoffice/exports/contacts_marketing.csv">⬇ Contacts marketing (CSV)</a>
-    <a class="bouton" href="/backoffice/exports/objets_perdus.csv">⬇ Objets perdus (CSV)</a>
-    <a class="bouton" href="/backoffice/exports/demandes_rappel.csv">⬇ Demandes de rappel (CSV)</a>
-    <form method="post" action="/backoffice/appels/retraiter-tracabilite" style="display:inline">
-      <button type="submit" class="bouton" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
-    </form>
+  <div id="onglet-live" class="contenu-onglet">
+    {_bloc_outils(activations)}
+    {_bloc_voix(erreur_voix)}
   </div>
 
-  <div class="section">
-    <h2>Appels ({len(appels)} affiché{'s' if len(appels) > 1 else ''})</h2>
-    {blocs_appels}
+  <div id="onglet-suivi" class="contenu-onglet" style="display:none">
+
+    <div class="grille-compteurs">
+      <div class="compteur" style="--accent:{BLEU}">
+        <div class="valeur">{nb_appels}</div>
+        <div class="libelle">Appels captés</div>
+      </div>
+      <div class="compteur" style="--accent:{ROSE}">
+        <div class="valeur">{pct}</div>
+        <div class="libelle">Satisfaction — {libelle_satisfaction}</div>
+      </div>
+      <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{SAUGE}">
+        <div class="valeur">{duree_valeur}</div>
+        <div class="libelle">Durée moyenne d'appel{suffixe_trace}</div>
+      </div>
+      <div class="compteur{' a-venir' if not tracabilite['horaire_moyen'] else ''}" style="--accent:{BLEU}">
+        <div class="valeur">{horaire_valeur}</div>
+        <div class="libelle">Horaire moyen des appels{suffixe_trace}</div>
+      </div>
+      <div class="compteur{' a-venir' if not tracabilite['repartition_outils'] else ''}" style="--accent:{ROSE}">
+        <div class="valeur">{repartition_valeur}</div>
+        <div class="libelle">{repartition_libelle}</div>
+      </div>
+      <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{SAUGE}">
+        <div class="valeur">{cout_valeur}</div>
+        <div class="libelle">Coût total{suffixe_trace} — impact carbone : pas encore de méthode fiable</div>
+      </div>
+    </div>
+
+    <div class="bandeau-actions">
+      <a class="bouton" href="/backoffice/exports/contacts_marketing.csv">⬇ Contacts marketing (CSV)</a>
+      <a class="bouton" href="/backoffice/exports/objets_perdus.csv">⬇ Objets perdus (CSV)</a>
+      <a class="bouton" href="/backoffice/exports/demandes_rappel.csv">⬇ Demandes de rappel (CSV)</a>
+      <form method="post" action="/backoffice/appels/retraiter-tracabilite" style="display:inline">
+        <button type="submit" class="bouton" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
+      </form>
+    </div>
+
+    <div class="section">
+      <h2>Appels ({len(appels)} affiché{'s' if len(appels) > 1 else ''})</h2>
+      <div class="entete-tableau-appels">
+        <span class="col-date">Date</span>
+        <span class="col-conv">Conversation</span>
+        <span class="col-statut">Statut</span>
+        <span class="col-duree">Durée</span>
+        <span class="col-voix">Voix</span>
+        <span class="col-motif">Motif</span>
+      </div>
+      {blocs_appels}
+    </div>
+
   </div>
 
 </main>
+<script>
+function afficherOnglet(nom) {{
+  document.querySelectorAll('.contenu-onglet').forEach(function(el) {{
+    el.style.display = (el.id === 'onglet-' + nom) ? '' : 'none';
+  }});
+  document.querySelectorAll('.onglet-btn').forEach(function(b) {{
+    b.classList.toggle('actif', b.dataset.cible === nom);
+  }});
+}}
+document.addEventListener('DOMContentLoaded', function() {{
+  if (location.hash === '#suivi' || location.hash.indexOf('#appel-') === 0) {{
+    afficherOnglet('suivi');
+  }}
+}});
+</script>
 </body>
 </html>"""

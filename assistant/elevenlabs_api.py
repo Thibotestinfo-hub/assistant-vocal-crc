@@ -25,9 +25,29 @@ CONFIG_PATH = RACINE / "data" / "config.yaml"
 BASE_URL = "https://api.elevenlabs.io/v1"
 
 
+def _config():
+    return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+
+
 def _agent_id():
-    config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
-    return config["elevenlabs_agent_id"]
+    return _config()["elevenlabs_agent_id"]
+
+
+def voix_disponibles():
+    """Les 2-3 voix proposées à l'équipe CRC (data/config.yaml), pas
+    toutes les voix du compte — voir la note dans config.yaml sur
+    pourquoi cette liste est statique plutôt qu'interrogée en direct."""
+    return _config().get("voix_disponibles", [])
+
+
+def nom_voix(voice_id):
+    """Nom lisible d'une voix connue, ou l'identifiant technique tel
+    quel si elle ne fait pas partie de voix_disponibles (ex. une voix
+    testée manuellement puis retirée de la config)."""
+    for voix in voix_disponibles():
+        if voix["id"] == voice_id:
+            return voix["nom"]
+    return voice_id
 
 
 def _en_tete():
