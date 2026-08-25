@@ -48,16 +48,19 @@ back-office — voir l'historique Git pour le détail des commits.
 ## B. Expérience équipe (back-office)
 
 - [x] **Traçabilité par appel** (CLAUDE.md, contrainte non négociable) —
-      fait le 25/08/2026 : durée, coût réel, minutes ASR/TTS, détail des
-      modèles/tokens (JSON, un appel peut mêler plusieurs modèles LLM —
-      vu en vrai : gemini-2.5-flash puis bascule vers gpt-4o) et
-      répartition par outil réellement appelé (dérivée du transcript).
-      3 des 4 compteurs "à venir" sont maintenant réels. Le 4e (impact
-      carbone) reste "à venir" : pas de méthodologie de conversion
-      vérifiable trouvée — mieux vaut l'annoncer manquant qu'inventer un
-      chiffre. Si une source fiable de facteur d'émission (kWh → CO2e
-      pour un appel API LLM/ASR/TTS) est trouvée un jour, c'est le seul
-      morceau qui manque pour compléter ce compteur.
+      fait et vérifié en production le 25/08/2026 : durée, coût réel,
+      minutes ASR/TTS, détail des modèles/tokens (JSON, un appel peut
+      mêler plusieurs modèles LLM — vu en vrai : gemini-2.5-flash puis
+      bascule vers gpt-4o) et répartition par outil réellement appelé
+      (dérivée du transcript). 3 des 4 compteurs "à venir" sont
+      maintenant réels, confirmé à l'écran sur le back-office déployé
+      (bouton "Recalculer la traçabilité" pour les appels reçus avant ce
+      chantier). Le 4e (impact carbone) reste "à venir" : pas de
+      méthodologie de conversion vérifiable trouvée — mieux vaut
+      l'annoncer manquant qu'inventer un chiffre. Si une source fiable de
+      facteur d'émission (kWh → CO2e pour un appel API LLM/ASR/TTS) est
+      trouvée un jour, c'est le seul morceau qui manque pour compléter ce
+      compteur.
 - [x] **Vérifier le format réel du webhook de fin d'appel** — fait en
       même temps que la traçabilité : un vrai payload a été inspecté
       (conversation `conv_0601m0d9nbx0fkw8ev00f0gvmrh4`), confirmant que
