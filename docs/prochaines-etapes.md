@@ -47,21 +47,28 @@ back-office — voir l'historique Git pour le détail des commits.
 
 ## B. Expérience équipe (back-office)
 
-- [ ] **Itérer sur le design** : première mouture posée aujourd'hui,
-      l'équipe CRC veut continuer à l'affiner (couleurs, disposition).
-- [ ] **Traçabilité par appel** (CLAUDE.md, contrainte non négociable,
-      jamais implémentée) : logger modèle utilisé, tokens consommés,
-      minutes de reconnaissance et de synthèse vocale, coût estimé, pour
-      chaque appel. C'est un vrai chantier technique (webhook ElevenLabs
-      et/ou API d'usage), pas juste un ajout d'affichage — mais c'est ce
-      qui débloque les 4 compteurs actuellement en "à venir" sur le
-      back-office (durée moyenne d'appel, horaire moyen, répartition par
-      type de requête, coût/impact carbone).
-- [ ] **Vérifier le format réel du webhook de fin d'appel** : jamais
-      inspecté avec un vrai payload (toujours contourné faute d'accès
-      réseau à elevenlabs.io pendant l'écriture du code). Nécessaire pour
-      fiabiliser `assistant/backoffice/appels.py`, actuellement défensif.
-      Un appel de test suffit, à faire au retour.
+- [x] **Traçabilité par appel** (CLAUDE.md, contrainte non négociable) —
+      fait le 25/08/2026 : durée, coût réel, minutes ASR/TTS, détail des
+      modèles/tokens (JSON, un appel peut mêler plusieurs modèles LLM —
+      vu en vrai : gemini-2.5-flash puis bascule vers gpt-4o) et
+      répartition par outil réellement appelé (dérivée du transcript).
+      3 des 4 compteurs "à venir" sont maintenant réels. Le 4e (impact
+      carbone) reste "à venir" : pas de méthodologie de conversion
+      vérifiable trouvée — mieux vaut l'annoncer manquant qu'inventer un
+      chiffre. Si une source fiable de facteur d'émission (kWh → CO2e
+      pour un appel API LLM/ASR/TTS) est trouvée un jour, c'est le seul
+      morceau qui manque pour compléter ce compteur.
+- [x] **Vérifier le format réel du webhook de fin d'appel** — fait en
+      même temps que la traçabilité : un vrai payload a été inspecté
+      (conversation `conv_0601m0d9nbx0fkw8ev00f0gvmrh4`), confirmant que
+      `assistant/backoffice/appels.py` extrayait déjà correctement
+      `conversation_id`/`agent_id`/`status`.
+- [ ] **Itérer sur le design** : première mouture posée le 19/08, jugée
+      perfectible. Report explicite de l'équipe CRC : d'abord toutes les
+      fonctionnalités opérationnelles, le design ensuite. Le nouveau
+      bloc de compteurs (chantier ci-dessus) est fonctionnel mais pas
+      forcément élégant — la carte "répartition par requête" notamment,
+      texte un peu long pour le format de carte.
 - [ ] **Idée à évaluer : changer de voix depuis notre back-office**,
       sans que l'équipe CRC ait besoin de se connecter à ElevenLabs
       pendant le POC (2-3 voix au choix). Techniquement : appeler l'API
@@ -80,8 +87,6 @@ back-office — voir l'historique Git pour le détail des commits.
 
 ## Suggestion pour la reprise
 
-Vu la taille du chantier B (traçabilité), ce serait sans doute la première
-chose à cadrer ensemble au retour — c'est ce qui bloque une bonne partie
-des attentes exprimées côté back-office (compteurs, coût, carbone). Le
-reste (points de prononciation, design) peut avancer par petites touches
-en parallèle.
+Le chantier traçabilité (B) est fait — reste le design du back-office
+(après le reste des fonctionnalités, comme convenu) et les points de
+prononciation (A), qui peuvent avancer par petites touches en parallèle.
