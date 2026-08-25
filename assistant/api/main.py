@@ -22,7 +22,7 @@ from assistant.api.schemas import (
 from assistant.backoffice.activation import basculer, lister_activations, verifier_outil_actif
 from assistant.backoffice.appels import (
     compter_appels, enregistrer_appel, enregistrer_evaluation, lister_appels_avec_details,
-    resumer_evaluations,
+    resumer_evaluations, resumer_tracabilite,
 )
 from assistant.backoffice.exports import (
     exporter_contacts_marketing, exporter_demandes_rappel, exporter_objets_perdus,
@@ -103,7 +103,8 @@ async def route_webhook_fin_appel(request: Request):
          dependencies=[Depends(verifier_acces_backoffice)])
 def route_backoffice_liste_appels():
     return page_backoffice(
-        lister_appels_avec_details(), lister_activations(), compter_appels(), resumer_evaluations(),
+        lister_appels_avec_details(), lister_activations(), compter_appels(),
+        resumer_evaluations(), resumer_tracabilite(),
     )
 
 

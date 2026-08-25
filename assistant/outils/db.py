@@ -71,10 +71,12 @@ CREATE TABLE IF NOT EXISTS transferts (
 
 -- Étape 6 : historique des appels, alimenté par le webhook de fin
 -- d'appel envoyé par ElevenLabs. donnees_brutes conserve la charge
--- complète telle que reçue (voir assistant/backoffice/appels.py) :
--- le format exact n'a pas pu être vérifié contre la documentation au
--- moment d'écrire ce schéma, donc rien n'est perdu même si les
--- quelques champs extraits ci-dessous se révèlent incomplets.
+-- complète telle que reçue (voir assistant/backoffice/appels.py).
+-- Le format a depuis été vérifié sur un vrai payload : les colonnes de
+-- traçabilité (durée, coût, minutes ASR/TTS, modèles, outils) sont
+-- ajoutées après coup via _migrer_colonnes_manquantes, pas ici — SQLite
+-- ne permet pas d'ajouter une colonne dans CREATE TABLE IF NOT EXISTS
+-- sur une table qui existe déjà en production.
 CREATE TABLE IF NOT EXISTS appels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cree_le TEXT NOT NULL,
@@ -111,6 +113,29 @@ NOMS_OUTILS = [
     "enregistrer_objet_perdu", "demander_rappel", "transferer_agent",
 ]
 
+# Traçabilité par appel (CLAUDE.md, contrainte non négociable) : ajoutées
+# après coup à une table déjà en production, via ALTER TABLE — un CREATE
+# TABLE IF NOT EXISTS ne les aurait pas ajoutées aux bases existantes.
+# Toutes nullables : les appels enregistrés avant ce changement n'ont pas
+# cette donnée, et un futur format de webhook inconnu ne doit jamais faire
+# échouer l'enregistrement (voir enregistrer_appel).
+_COLONNES_TRACABILITE = {
+    "duree_secs": "INTEGER",
+    "cout_usd": "REAL",
+    "minutes_asr": "REAL",
+    "minutes_tts": "REAL",
+    "modeles_llm": "TEXT",   # JSON : détail tokens par modèle (parfois plusieurs par appel)
+    "tokens_llm": "INTEGER",  # somme, toutes catégories et modèles confondus
+    "outils_utilises": "TEXT",  # JSON : liste des outils réellement appelés
+}
+
+
+def _migrer_colonnes_manquantes(conn):
+    colonnes_existantes = {r["name"] for r in conn.execute("PRAGMA table_info(appels)").fetchall()}
+    for nom, type_sql in _COLONNES_TRACABILITE.items():
+        if nom not in colonnes_existantes:
+            conn.execute(f"ALTER TABLE appels ADD COLUMN {nom} {type_sql}")
+
 
 def connexion_gtfs():
     conn = sqlite3.connect(DB_GTFS_PATH)
@@ -125,6 +150,7 @@ def connexion_app():
     conn = sqlite3.connect(DB_APP_PATH)
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA_APP)
+    _migrer_colonnes_manquantes(conn)
     # Une ligne par outil, plus "tous" (l'interrupteur général), toutes
     # actives par défaut. INSERT OR IGNORE : ne touche jamais un réglage
     # déjà choisi par l'équipe CRC.

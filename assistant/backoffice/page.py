@@ -294,7 +294,26 @@ def _bloc_outils(activations):
 </div>"""
 
 
-def page_backoffice(appels, activations, nb_appels, satisfaction):
+def _formater_duree(secs):
+    if secs is None:
+        return "à venir"
+    m, s = divmod(secs, 60)
+    return f"{m} min {s:02d}" if m else f"{s} s"
+
+
+def _formater_repartition(repartition):
+    if not repartition:
+        return "à venir", "Répartition par type de requête"
+    total = sum(repartition.values())
+    outil_principal, n = max(repartition.items(), key=lambda kv: kv[1])
+    libelle_principal = _NOMS_LISIBLES.get(outil_principal, outil_principal)
+    detail = ", ".join(
+        f"{_NOMS_LISIBLES.get(o, o)} : {c}" for o, c in sorted(repartition.items(), key=lambda kv: -kv[1])
+    )
+    return f"{libelle_principal} ({n}/{total})", f"Type de requête le plus fréquent — {detail}"
+
+
+def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -302,6 +321,13 @@ def page_backoffice(appels, activations, nb_appels, satisfaction):
     else:
         pct = "—"
         libelle_satisfaction = "aucune évaluation pour l'instant"
+
+    duree_valeur = _formater_duree(tracabilite["duree_moyenne_secs"])
+    horaire_valeur = tracabilite["horaire_moyen"] or "à venir"
+    repartition_valeur, repartition_libelle = _formater_repartition(tracabilite["repartition_outils"])
+    cout_valeur = f"{tracabilite['cout_total_usd']:.3f} $" if tracabilite["cout_total_usd"] is not None else "à venir"
+    n_trace = tracabilite["nb_avec_tracabilite"]
+    suffixe_trace = f" — sur {n_trace} appel{'s' if n_trace > 1 else ''}" if n_trace else ""
 
     blocs_appels = "\n".join(_bloc_appel(a) for a in appels) if appels else "<p>Aucun appel pour l'instant.</p>"
 
@@ -331,21 +357,21 @@ def page_backoffice(appels, activations, nb_appels, satisfaction):
       <div class="valeur">{pct}</div>
       <div class="libelle">Satisfaction — {libelle_satisfaction}</div>
     </div>
-    <div class="compteur a-venir" style="--accent:{SAUGE}">
-      <div class="valeur">à venir</div>
-      <div class="libelle">Durée moyenne d'appel</div>
+    <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{SAUGE}">
+      <div class="valeur">{duree_valeur}</div>
+      <div class="libelle">Durée moyenne d'appel{suffixe_trace}</div>
     </div>
-    <div class="compteur a-venir" style="--accent:{BLEU}">
-      <div class="valeur">à venir</div>
-      <div class="libelle">Horaire moyen des appels</div>
+    <div class="compteur{' a-venir' if not tracabilite['horaire_moyen'] else ''}" style="--accent:{BLEU}">
+      <div class="valeur">{horaire_valeur}</div>
+      <div class="libelle">Horaire moyen des appels{suffixe_trace}</div>
     </div>
-    <div class="compteur a-venir" style="--accent:{ROSE}">
-      <div class="valeur">à venir</div>
-      <div class="libelle">Répartition par type de requête</div>
+    <div class="compteur{' a-venir' if not tracabilite['repartition_outils'] else ''}" style="--accent:{ROSE}">
+      <div class="valeur">{repartition_valeur}</div>
+      <div class="libelle">{repartition_libelle}</div>
     </div>
-    <div class="compteur a-venir" style="--accent:{SAUGE}">
-      <div class="valeur">à venir</div>
-      <div class="libelle">Coût / impact carbone estimé</div>
+    <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{SAUGE}">
+      <div class="valeur">{cout_valeur}</div>
+      <div class="libelle">Coût total{suffixe_trace} — impact carbone : pas encore de méthode fiable</div>
     </div>
   </div>
 

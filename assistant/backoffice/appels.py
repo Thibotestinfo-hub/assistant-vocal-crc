@@ -2,13 +2,11 @@
 Historique des appels — Étape 6, point 1 de la méthode.
 
 ElevenLabs envoie un webhook ("post_call_transcription") à la fin de
-chaque conversation. Je n'ai pas pu vérifier le format exact de ce
-webhook contre la documentation officielle (bloquée depuis mon
-environnement de travail au moment d'écrire ce fichier) : par
-prudence, `enregistrer_appel` conserve donc toujours la charge brute
-complète, en plus des quelques champs dont le nom est raisonnablement
-sûr (conversation_id, agent_id, status). À vérifier et enrichir dès
-qu'un vrai webhook aura été reçu et inspecté — voir TODO plus bas.
+chaque conversation. Le format a été vérifié sur un vrai payload (voir
+_extraire_tracabilite) : la charge utile est bien enveloppée dans une
+clé "data", et donnees_brutes conserve malgré tout la charge complète
+telle que reçue, au cas où un futur type d'appel (téléphonique plutôt
+que widget, par exemple) aurait une structure différente.
 """
 
 import json
@@ -17,32 +15,86 @@ from datetime import datetime
 from assistant.outils.db import connexion_app
 
 
+def _extraire_tracabilite(donnees):
+    """Traçabilité par appel (CLAUDE.md, contrainte non négociable) :
+    durée, coût réel, minutes ASR/TTS, détail des modèles/tokens, outils
+    utilisés — tout est déjà dans le webhook ElevenLabs, vérifié sur un
+    vrai payload le 19/08/2026 (voir docs/prochaines-etapes.md).
+
+    Ne lève jamais d'exception : un champ absent ou un format différent
+    (ex. appel téléphonique plutôt que widget) donne simplement des
+    valeurs manquantes, jamais une perte de l'appel entier."""
+    metadata = donnees.get("metadata") or {}
+    charging = metadata.get("charging") or {}
+    asr = charging.get("asr_usage") or {}
+    tts = charging.get("tts_usage") or {}
+    llm_usage = (
+        (charging.get("llm_usage") or {})
+        .get("irreversible_generation") or {}
+    ).get("model_usage") or {}
+
+    tokens_total = 0
+    for modele, categories in llm_usage.items():
+        for cle_categorie, valeurs in categories.items():
+            tokens_total += (valeurs or {}).get("tokens", 0)
+
+    outils = set()
+    for tour in donnees.get("transcript") or []:
+        for appel_outil in tour.get("tool_calls") or []:
+            nom = appel_outil.get("tool_name")
+            if nom:
+                outils.add(nom)
+
+    return {
+        "duree_secs": metadata.get("call_duration_secs"),
+        "cout_usd": metadata.get("cost_fiat"),
+        "minutes_asr": (asr.get("total_audio_input_seconds") / 60) if asr.get("total_audio_input_seconds") is not None else None,
+        "minutes_tts": (tts.get("total_audio_output_seconds") / 60) if tts.get("total_audio_output_seconds") is not None else None,
+        "modeles_llm": json.dumps(llm_usage, ensure_ascii=False) if llm_usage else None,
+        "tokens_llm": tokens_total or None,
+        "outils_utilises": json.dumps(sorted(outils), ensure_ascii=False) if outils else None,
+    }
+
+
 def enregistrer_appel(charge_brute: dict):
     """Insère (ou met à jour si déjà vu) un appel à partir de la charge
     du webhook ElevenLabs. Ne lève jamais d'exception sur un format
     inattendu : un appel dont on ne reconnaît aucun champ est quand
     même stocké, pour ne perdre aucune donnée reçue."""
-    # TODO(vérifié à l'usage) : ces chemins sont une hypothèse. Certains
-    # webhooks ElevenLabs enveloppent la charge utile dans une clé
-    # "data" ; on tente les deux formes sans faire d'hypothèse plus forte.
     donnees = charge_brute.get("data", charge_brute) if isinstance(charge_brute, dict) else {}
     conversation_id = donnees.get("conversation_id")
     agent_id = donnees.get("agent_id")
     statut = donnees.get("status")
+    tracabilite = _extraire_tracabilite(donnees)
 
     conn = connexion_app()
     conn.execute(
         """
-        INSERT INTO appels (cree_le, conversation_id, agent_id, statut, donnees_brutes)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO appels (
+            cree_le, conversation_id, agent_id, statut, donnees_brutes,
+            duree_secs, cout_usd, minutes_asr, minutes_tts, modeles_llm,
+            tokens_llm, outils_utilises
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(conversation_id) DO UPDATE SET
             statut = excluded.statut,
-            donnees_brutes = excluded.donnees_brutes
+            donnees_brutes = excluded.donnees_brutes,
+            duree_secs = excluded.duree_secs,
+            cout_usd = excluded.cout_usd,
+            minutes_asr = excluded.minutes_asr,
+            minutes_tts = excluded.minutes_tts,
+            modeles_llm = excluded.modeles_llm,
+            tokens_llm = excluded.tokens_llm,
+            outils_utilises = excluded.outils_utilises
         """,
         (
             datetime.now().isoformat(timespec="seconds"),
             conversation_id, agent_id, statut,
             json.dumps(charge_brute, ensure_ascii=False),
+            tracabilite["duree_secs"], tracabilite["cout_usd"],
+            tracabilite["minutes_asr"], tracabilite["minutes_tts"],
+            tracabilite["modeles_llm"], tracabilite["tokens_llm"],
+            tracabilite["outils_utilises"],
         ),
     )
     conn.commit()
@@ -111,6 +163,62 @@ def resumer_evaluations():
     total = len(lignes)
     bonnes = sum(1 for l in lignes if l["qualite"] == "bonne")
     return bonnes, total
+
+
+def resumer_tracabilite():
+    """Agrège la traçabilité de tous les appels qui en ont une (les
+    appels enregistrés avant ce chantier n'en ont pas, et sont ignorés
+    ici plutôt que de fausser une moyenne avec des zéros).
+
+    "Horaire moyen" : moyenne arithmétique simple des minutes depuis
+    minuit à partir de cree_le (heure locale du serveur, Europe/Paris —
+    voir CLAUDE.md). Pas une moyenne circulaire : pour un réseau qui ne
+    fonctionne que le jour, c'est largement suffisant, et beaucoup plus
+    simple à lire pour l'équipe CRC."""
+    conn = connexion_app()
+    lignes = conn.execute(
+        "SELECT cree_le, duree_secs, cout_usd, outils_utilises FROM appels "
+        "WHERE duree_secs IS NOT NULL"
+    ).fetchall()
+    conn.close()
+
+    if not lignes:
+        return {
+            "nb_avec_tracabilite": 0, "duree_moyenne_secs": None,
+            "horaire_moyen": None, "cout_total_usd": None,
+            "repartition_outils": {},
+        }
+
+    durees = [l["duree_secs"] for l in lignes]
+    couts = [l["cout_usd"] for l in lignes if l["cout_usd"] is not None]
+
+    minutes_depuis_minuit = []
+    for l in lignes:
+        try:
+            heure, minute = l["cree_le"][11:16].split(":")
+            minutes_depuis_minuit.append(int(heure) * 60 + int(minute))
+        except (ValueError, IndexError):
+            continue
+
+    repartition = {}
+    for l in lignes:
+        if not l["outils_utilises"]:
+            continue
+        for outil in json.loads(l["outils_utilises"]):
+            repartition[outil] = repartition.get(outil, 0) + 1
+
+    horaire_moyen = None
+    if minutes_depuis_minuit:
+        m = round(sum(minutes_depuis_minuit) / len(minutes_depuis_minuit))
+        horaire_moyen = f"{m // 60:02d}h{m % 60:02d}"
+
+    return {
+        "nb_avec_tracabilite": len(lignes),
+        "duree_moyenne_secs": round(sum(durees) / len(durees)),
+        "horaire_moyen": horaire_moyen,
+        "cout_total_usd": round(sum(couts), 4) if couts else None,
+        "repartition_outils": repartition,
+    }
 
 
 def obtenir_appel(appel_id):
