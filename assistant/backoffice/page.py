@@ -381,6 +381,9 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite):
     <a class="bouton" href="/backoffice/exports/contacts_marketing.csv">⬇ Contacts marketing (CSV)</a>
     <a class="bouton" href="/backoffice/exports/objets_perdus.csv">⬇ Objets perdus (CSV)</a>
     <a class="bouton" href="/backoffice/exports/demandes_rappel.csv">⬇ Demandes de rappel (CSV)</a>
+    <form method="post" action="/backoffice/appels/retraiter-tracabilite" style="display:inline">
+      <button type="submit" class="bouton" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
+    </form>
   </div>
 
   <div class="section">

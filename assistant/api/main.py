@@ -22,7 +22,7 @@ from assistant.api.schemas import (
 from assistant.backoffice.activation import basculer, lister_activations, verifier_outil_actif
 from assistant.backoffice.appels import (
     compter_appels, enregistrer_appel, enregistrer_evaluation, lister_appels_avec_details,
-    resumer_evaluations, resumer_tracabilite,
+    resumer_evaluations, resumer_tracabilite, retraiter_tracabilite,
 )
 from assistant.backoffice.exports import (
     exporter_contacts_marketing, exporter_demandes_rappel, exporter_objets_perdus,
@@ -106,6 +106,13 @@ def route_backoffice_liste_appels():
         lister_appels_avec_details(), lister_activations(), compter_appels(),
         resumer_evaluations(), resumer_tracabilite(),
     )
+
+
+@app.post("/backoffice/appels/retraiter-tracabilite",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_retraiter_tracabilite():
+    retraiter_tracabilite()
+    return RedirectResponse("/backoffice/appels", status_code=303)
 
 
 @app.post("/backoffice/appels/{appel_id}/evaluer",

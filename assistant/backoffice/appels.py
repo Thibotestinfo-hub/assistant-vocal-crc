@@ -101,6 +101,41 @@ def enregistrer_appel(charge_brute: dict):
     conn.close()
 
 
+def retraiter_tracabilite():
+    """Recalcule les champs de traçabilité des appels déjà enregistrés,
+    à partir de leur donnees_brutes déjà stockée — sans dépendre d'un
+    nouveau webhook. Utile après avoir déployé _extraire_tracabilite
+    (ou une amélioration future) : les appels reçus avant ce
+    déploiement ont leur JSON brut, mais pas encore les colonnes
+    dérivées. Renvoie le nombre d'appels mis à jour."""
+    conn = connexion_app()
+    appels = conn.execute("SELECT id, donnees_brutes FROM appels").fetchall()
+    n = 0
+    for a in appels:
+        try:
+            charge_brute = json.loads(a["donnees_brutes"])
+        except json.JSONDecodeError:
+            continue
+        donnees = charge_brute.get("data", charge_brute) if isinstance(charge_brute, dict) else {}
+        t = _extraire_tracabilite(donnees)
+        conn.execute(
+            """
+            UPDATE appels SET
+                duree_secs = ?, cout_usd = ?, minutes_asr = ?, minutes_tts = ?,
+                modeles_llm = ?, tokens_llm = ?, outils_utilises = ?
+            WHERE id = ?
+            """,
+            (
+                t["duree_secs"], t["cout_usd"], t["minutes_asr"], t["minutes_tts"],
+                t["modeles_llm"], t["tokens_llm"], t["outils_utilises"], a["id"],
+            ),
+        )
+        n += 1
+    conn.commit()
+    conn.close()
+    return n
+
+
 def lister_appels(limite=100):
     conn = connexion_app()
     lignes = conn.execute(
