@@ -3,3 +3,8 @@
 # opération de paramétrage, pas de développement.
 
 gtfs_url: "https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=2b7a3b3b084c750566663c2e09726b19171f275c"
+
+# Identifiant de l'agent ElevenLabs de ce réseau (pas un secret, juste
+# une référence — la clé pour agir dessus est ELEVENLABS_API_KEY, dans
+# .env, jamais ici).
+elevenlabs_agent_id: "agent_7101m00afyqfe16re00h46qnbnd3"
