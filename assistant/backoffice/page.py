@@ -1,14 +1,20 @@
 """Rendu HTML du back-office — page consolidée en 2 onglets ("Live" /
-"Suivi"), sans framework front : un peu de JS pour basculer d'onglet,
-accordéon natif (<details>/<summary>) pour ouvrir un appel sans recharger
-la page, formulaires HTML classiques pour les actions.
+"Suivi"), sans framework front : un peu de JS pour basculer d'onglet et
+pour afficher le détail d'un appel dans le panneau latéral, formulaires
+HTML classiques pour les actions.
 
-Structure reprise de la maquette proposée par l'équipe (25/08/2026) :
-- Live : interrupteur général, choix de la voix, activation des outils.
-- Suivi : indicateurs, appels reçus (avec voix utilisée et motif), exports.
+Structure et disposition reprises fidèlement de la maquette PDF fournie
+par l'équipe (25/08/2026, revue le 25/08 après un premier essai trop
+éloigné) :
+- Live : bouton d'arrêt général en anneau, réglages voix, appels en
+  cours (à venir), activation des outils avec interrupteurs.
+- Suivi : indicateurs en tuiles, tableau des appels + panneau de détail
+  latéral qui s'ouvre au clic (comme dans la maquette).
 
 Palette de couleurs fournie par l'équipe CRC (Étape 6, retour visuel) :
-bleu clair, sauge, rouge, rose."""
+bleu clair, sauge, rouge, rose. --bleu-fonce est une teinte plus soutenue
+de ce même bleu (pas une nouvelle couleur), utilisée pour l'onglet actif
+et l'anneau du bouton, comme dans la maquette."""
 
 import html
 import json
@@ -16,6 +22,7 @@ import json
 from assistant.elevenlabs_api import nom_voix, voix_disponibles
 
 BLEU = "#A6D7E4"
+BLEU_FONCE = "#2f7288"
 SAUGE = "#C7DFD4"
 ROUGE = "#FF6666"
 ROSE = "#FFB6C8"
@@ -26,7 +33,7 @@ _NOMS_LISIBLES = {
     "rechercher_information": "Questions tarifs / pratique (FAQ)",
     "enregistrer_objet_perdu": "Déclarer un objet perdu",
     "demander_rappel": "Demander à être rappelé",
-    "transferer_agent": "Transfert vers un conseiller",
+    "transferer_agent": "Transférer vers un conseiller",
 }
 
 _DESCRIPTIONS_OUTILS = {
@@ -38,15 +45,25 @@ _DESCRIPTIONS_OUTILS = {
     "transferer_agent": "Bascule l'appel vers un conseiller humain.",
 }
 
+_ICONES_COMPTEURS = {
+    "appels": "📞",
+    "satisfaction": "👍",
+    "duree": "⏱",
+    "horaire": "🕒",
+    "repartition": "🛠",
+    "cout": "💶",
+}
+
 _STYLE = f"""
 :root {{
   --bleu: {BLEU};
+  --bleu-fonce: {BLEU_FONCE};
   --sauge: {SAUGE};
   --rouge: {ROUGE};
   --rose: {ROSE};
   --texte: #22303c;
   --texte-doux: #6b7a86;
-  --fond: #f7f9fa;
+  --fond: #f4f7f8;
   --carte: #ffffff;
   --bordure: #e6ebee;
 }}
@@ -57,101 +74,232 @@ body {{
   color: var(--texte);
   margin: 0;
   padding: 0 0 4rem;
+  font-size: 16px;
 }}
-a {{ color: #2b6a80; }}
+a {{ color: var(--bleu-fonce); }}
 header.entete {{
-  background: var(--carte);
-  border-bottom: 3px solid var(--bleu);
-  padding: 1.4rem 2.5rem;
+  padding: 1.1rem 3rem 0.9rem;
+  border-bottom: 1px solid var(--bordure);
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.7rem;
 }}
-header.entete .logo {{
-  width: 2.4rem;
-  height: 2.4rem;
-  border-radius: 9px;
-  background: linear-gradient(135deg, var(--bleu), var(--rose));
-  flex-shrink: 0;
+header.entete .logo-mark {{
+  color: var(--rouge);
+  font-size: 1.5rem;
+  line-height: 1;
+}}
+header.entete .marque {{
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--texte-doux);
+  text-transform: uppercase;
+  line-height: 1.15;
 }}
 header.entete h1 {{
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 500;
+  margin: 0 0 0 0.6rem;
+  color: var(--texte);
 }}
-header.entete .sous-titre {{
-  color: var(--texte-doux);
-  font-size: 0.85rem;
-  margin-top: 0.15rem;
-}}
+header.entete .entete-titres {{ display: flex; align-items: baseline; }}
 main {{
-  max-width: 68rem;
+  max-width: 100rem;
   margin: 0 auto;
-  padding: 2rem 2.5rem;
+  padding: 1.8rem 3rem;
 }}
 .onglets {{
   display: flex;
-  gap: 0.4rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid var(--bordure);
+  margin-bottom: 1.8rem;
+  max-width: 34rem;
 }}
 .onglet-btn {{
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  padding: 0.7rem 1.3rem;
+  padding: 0.9rem 0;
+  flex: 1;
   border: none;
-  background: none;
-  color: var(--texte-doux);
   cursor: pointer;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -1px;
+  background: var(--bleu);
+  color: #ffffffcc;
 }}
 .onglet-btn.actif {{
-  color: var(--texte);
-  border-bottom-color: var(--bleu);
+  background: var(--bleu-fonce);
+  color: #fff;
 }}
 .contenu-onglet {{ }}
+
+/* --- Live : rangée du haut (power / voix / appels en cours) --- */
+.grille-live-haut {{
+  display: grid;
+  grid-template-columns: 15rem 1.6fr 1fr;
+  gap: 1.6rem;
+  align-items: stretch;
+  margin-bottom: 1.8rem;
+}}
+@media (max-width: 900px) {{
+  .grille-live-haut {{ grid-template-columns: 1fr; }}
+}}
+.carte {{
+  background: var(--carte);
+  border: 1px solid var(--bordure);
+  border-radius: 12px;
+  padding: 1.4rem 1.6rem;
+}}
+.carte h2 {{
+  font-size: 1rem;
+  margin: 0 0 1rem;
+}}
+.carte h2 em {{ font-style: italic; font-weight: 400; color: var(--texte-doux); }}
+.carte-power {{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.1rem;
+}}
+.carte-power form {{ margin: 0; }}
+.anneau-power {{
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 50%;
+  border: 6px solid var(--bleu);
+  background: #eef7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}}
+.anneau-power .icone-power {{ font-size: 2.4rem; color: var(--bleu-fonce); }}
+.anneau-power.coupe {{ border-color: var(--rouge); background: {ROUGE}11; }}
+.anneau-power.coupe .icone-power {{ color: var(--rouge); }}
+.legende-power {{ font-size: 0.9rem; margin: 0; }}
+.voix-form {{
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}}
+.voix-form select {{
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 7px;
+  border: 1px solid var(--bordure);
+  background: #eef1f3;
+  flex: 1;
+  min-width: 10rem;
+}}
+.champ-label {{
+  display: block;
+  font-style: italic;
+  color: var(--texte-doux);
+  font-size: 0.85rem;
+  margin: 0.9rem 0 0.3rem;
+}}
+.curseur-desactive {{
+  width: 100%;
+  opacity: 0.5;
+  accent-color: var(--sauge);
+}}
+.note-a-venir {{
+  color: var(--texte-doux);
+  font-size: 0.78rem;
+  font-style: italic;
+  margin: 0.9rem 0 0;
+}}
+.erreur-voix {{ color: var(--rouge); font-size: 0.82rem; margin-top: 0.6rem; }}
+.carte-appels-cours {{ display: flex; flex-direction: column; }}
+.a-venir-message {{
+  color: var(--texte-doux);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin: 0;
+}}
+
+/* --- Live : grille des outils --- */
+.outils-grille {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1rem;
+}}
+.outil {{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.5rem 0;
+  font-size: 0.95rem;
+}}
+.etiquette-outil {{ display: flex; align-items: center; }}
+.info-icone {{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: #d7dbdf;
+  color: #5b6570;
+  font-size: 0.68rem;
+  font-style: italic;
+  margin-left: 0.4rem;
+  cursor: help;
+  flex-shrink: 0;
+}}
+.outil form {{ margin: 0; }}
+.interrupteur-outil {{
+  width: 3.5rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  flex-shrink: 0;
+}}
+.interrupteur-outil.on {{ background: #4a9d76; }}
+.interrupteur-outil.off {{ background: #c7ccd1; }}
+.bille-interrupteur {{
+  position: absolute;
+  top: 0.16rem;
+  width: 1.38rem;
+  height: 1.38rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  transition: left .15s;
+}}
+.interrupteur-outil.on .bille-interrupteur {{ left: calc(100% - 1.54rem); }}
+.interrupteur-outil.off .bille-interrupteur {{ left: 0.16rem; }}
+
+/* --- Suivi : tuiles d'indicateurs --- */
 .grille-compteurs {{
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.8rem;
+}}
+@media (max-width: 1100px) {{
+  .grille-compteurs {{ grid-template-columns: repeat(2, 1fr); }}
 }}
 .compteur {{
   background: var(--carte);
   border: 1px solid var(--bordure);
   border-top: 4px solid var(--accent, var(--bleu));
-  border-radius: 10px;
-  padding: 1.1rem 1.2rem;
+  border-radius: 12px;
+  padding: 1.2rem 1.3rem;
 }}
-.compteur .valeur {{
-  font-size: 1.7rem;
-  font-weight: 700;
-}}
-.compteur .libelle {{
-  color: var(--texte-doux);
-  font-size: 0.8rem;
-  margin-top: 0.2rem;
-}}
-.compteur.a-venir {{
-  opacity: 0.55;
-}}
-.compteur.a-venir .valeur {{
-  font-size: 1rem;
-  font-weight: 500;
-}}
-.section {{
-  background: var(--carte);
-  border: 1px solid var(--bordure);
-  border-radius: 10px;
-  padding: 1.4rem 1.6rem;
-  margin-bottom: 1.5rem;
-}}
-.section h2 {{
-  font-size: 1rem;
-  margin: 0 0 1rem;
-}}
+.compteur .icone-compteur {{ font-size: 1.3rem; margin-bottom: 0.4rem; }}
+.compteur .valeur {{ font-size: 1.8rem; font-weight: 700; }}
+.compteur .libelle {{ color: var(--texte-doux); font-size: 0.82rem; margin-top: 0.25rem; }}
+.compteur.a-venir {{ opacity: 0.55; }}
+.compteur.a-venir .valeur {{ font-size: 1.05rem; font-weight: 500; }}
+
 .bandeau-actions {{
   display: flex;
   flex-wrap: wrap;
@@ -160,8 +308,8 @@ main {{
 }}
 .bouton, button {{
   font-family: inherit;
-  font-size: 0.85rem;
-  padding: 0.5rem 1rem;
+  font-size: 0.88rem;
+  padding: 0.55rem 1.1rem;
   border-radius: 7px;
   border: 1px solid var(--bordure);
   background: var(--carte);
@@ -175,126 +323,64 @@ main {{
 .bandeau-actions button, .bandeau-actions .bouton {{ background: {BLEU}33; border-color: {BLEU}88; font-weight: 500; }}
 button[name="qualite"][value="bonne"] {{ background: {SAUGE}77; border-color: {SAUGE}; }}
 button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color: {ROUGE}77; }}
-.interrupteur-general {{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 1.1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  background: {SAUGE}55;
-}}
-.interrupteur-general.coupe {{ background: {ROUGE}22; }}
-.interrupteur-general strong {{ font-size: 0.95rem; }}
-.interrupteur-general form {{ margin: 0; }}
-.bouton-power {{
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 50%;
-  border: none;
-  background: var(--rouge);
-  color: #fff;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}}
-.interrupteur-general.coupe .bouton-power {{ background: #4a9d76; }}
-.voix-form {{
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  flex-wrap: wrap;
-}}
-.voix-form select {{
-  font-family: inherit;
-  font-size: 0.85rem;
-  padding: 0.5rem 0.7rem;
-  border-radius: 7px;
-  border: 1px solid var(--bordure);
-  background: var(--carte);
-}}
-.erreur-voix {{
-  color: var(--rouge);
-  font-size: 0.8rem;
-  margin-top: 0.6rem;
-}}
-.outils-grille {{
+
+/* --- Suivi : tableau + panneau de détail --- */
+.grille-suivi-bas {{
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: 3fr 1.1fr;
+  gap: 1.6rem;
+  align-items: start;
 }}
-.outil {{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.9rem;
-  border: 1px solid var(--bordure);
-  border-radius: 8px;
-  font-size: 0.85rem;
+@media (max-width: 1000px) {{
+  .grille-suivi-bas {{ grid-template-columns: 1fr; }}
 }}
-.outil .pastille {{
-  display: inline-block;
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
-  margin-right: 0.5rem;
-}}
-.outil.on {{ border-color: {SAUGE}; }}
-.outil.on .pastille {{ background: #4a9d76; }}
-.outil.off .pastille {{ background: var(--rouge); }}
-.outil form {{ margin: 0; }}
-.outil button {{ padding: 0.25rem 0.6rem; font-size: 0.75rem; }}
-.entete-tableau-appels {{
-  display: flex;
-  gap: 1rem;
-  padding: 0 1.1rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--texte-doux);
+.carte-table-appels {{ padding: 0; overflow-x: auto; }}
+.carte-table-appels table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
+.carte-table-appels th {{
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
+  color: var(--texte-doux);
+  padding: 1rem 1rem 0.7rem;
+  border-bottom: 1px solid var(--bordure);
+  white-space: nowrap;
 }}
-.col-date {{ flex: 0 0 9rem; }}
-.col-conv {{ flex: 1 1 8rem; min-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-.col-statut {{ flex: 0 0 4.5rem; }}
-.col-duree {{ flex: 0 0 5rem; }}
-.col-voix {{ flex: 0 0 5rem; }}
-.col-motif {{ flex: 2 1 10rem; }}
-details.appel {{
-  border: 1px solid var(--bordure);
-  border-radius: 8px;
-  margin-bottom: 0.6rem;
-  overflow: hidden;
+.carte-table-appels td {{
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--bordure);
+  vertical-align: middle;
+  white-space: nowrap;
 }}
-details.appel summary {{
-  list-style: none;
+.carte-table-appels tr:last-child td {{ border-bottom: none; }}
+.carte-table-appels td.col-motif-table {{ white-space: normal; }}
+.bouton-voir {{
+  background: none;
+  border: none;
   cursor: pointer;
-  padding: 0.8rem 1.1rem;
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  font-size: 0.85rem;
+  font-size: 1.05rem;
+  padding: 0.2rem 0.4rem;
 }}
-details.appel summary::-webkit-details-marker {{ display: none; }}
-details.appel summary .col-date {{ color: var(--texte-doux); }}
-details.appel summary .col-conv {{ font-family: monospace; color: var(--texte-doux); }}
-details.appel[open] summary {{ border-bottom: 1px solid var(--bordure); }}
-.corps-appel {{ padding: 1.1rem; }}
-.corps-appel pre {{
+.bouton-voir.actif {{ background: {BLEU}44; border-radius: 6px; }}
+.carte-detail-appel {{
+  position: sticky;
+  top: 1.5rem;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}}
+.detail-vide {{ color: var(--texte-doux); font-size: 0.88rem; font-style: italic; margin: 0; }}
+.detail-appel-contenu pre {{
   background: var(--fond);
   padding: 0.9rem;
   border-radius: 6px;
   overflow-x: auto;
   white-space: pre-wrap;
-  font-size: 0.78rem;
-  max-height: 20rem;
+  font-size: 0.76rem;
+  max-height: 18rem;
   overflow-y: auto;
 }}
-.corps-appel textarea {{
+.detail-appel-contenu textarea {{
   width: 100%;
-  max-width: 32rem;
   height: 3.2rem;
   font-family: inherit;
   border: 1px solid var(--bordure);
@@ -326,7 +412,20 @@ def _voix_appel(voix_utilisees):
     return ", ".join(nom_voix(v) for v in voix)
 
 
-def _bloc_appel(a):
+def _ligne_tableau_appel(a, numero):
+    date, _, heure = (a["cree_le"] or "").partition("T")
+    return f"""<tr>
+  <td>{numero}</td>
+  <td>{html.escape(_voix_appel(a.get('voix_utilisees')))}</td>
+  <td>{html.escape(date)}</td>
+  <td>{html.escape(heure)}</td>
+  <td>{_formater_duree(a.get('duree_secs'))}</td>
+  <td class="col-motif-table">{html.escape(_motif_appel(a.get('outils_utilises')))}</td>
+  <td><button type="button" class="bouton-voir" id="bouton-voir-{a['id']}" onclick="afficherDetail({a['id']})" title="Voir le détail">👁</button></td>
+</tr>"""
+
+
+def _detail_appel(a):
     donnees_brutes = json.dumps(json.loads(a["donnees_brutes"]), ensure_ascii=False, indent=2)
     evaluations = a.get("evaluations", [])
     if evaluations:
@@ -342,32 +441,36 @@ def _bloc_appel(a):
     else:
         bloc_evaluations = '<p class="evaluations-passees">Aucune évaluation pour l\'instant.</p>'
 
-    return f"""<details class="appel" id="appel-{a['id']}">
-  <summary>
-    <span class="col-date">{html.escape(a['cree_le'])}</span>
-    <span class="col-conv">{html.escape(a['conversation_id'] or '—')}</span>
-    <span class="col-statut">{html.escape(a['statut'] or '—')}</span>
-    <span class="col-duree">{_formater_duree(a.get('duree_secs'))}</span>
-    <span class="col-voix">{html.escape(_voix_appel(a.get('voix_utilisees')))}</span>
-    <span class="col-motif">{html.escape(_motif_appel(a.get('outils_utilises')))}</span>
-  </summary>
-  <div class="corps-appel">
-    <h3 style="font-size:0.85rem;margin:0 0 0.5rem">Évaluer cet appel</h3>
-    <form method="post" action="/backoffice/appels/{a['id']}/evaluer">
-      <textarea name="note" placeholder="Note libre, optionnelle : ce qui n'allait pas, la question posée, la réponse attendue..."></textarea>
-      <div style="margin-top:0.5rem">
-        <button type="submit" name="qualite" value="bonne">👍 Bonne réponse</button>
-        <button type="submit" name="qualite" value="mauvaise">👎 Mauvaise réponse</button>
-      </div>
-    </form>
-    {bloc_evaluations}
-    <h3 style="font-size:0.85rem;margin:1rem 0 0.5rem">Charge brute reçue du webhook</h3>
-    <pre>{html.escape(donnees_brutes)}</pre>
-  </div>
-</details>"""
+    return f"""<div class="detail-appel-contenu" id="detail-{a['id']}" style="display:none">
+  <h3 style="font-size:0.95rem;margin:0 0 0.3rem">Appel {html.escape(a['conversation_id'] or '—')}</h3>
+  <p style="font-size:0.8rem;color:var(--texte-doux);margin:0 0 1rem">{html.escape(a['cree_le'])} — {html.escape(a['statut'] or '—')}</p>
+  <h4 style="font-size:0.85rem;margin:0 0 0.5rem">Évaluer cet appel</h4>
+  <form method="post" action="/backoffice/appels/{a['id']}/evaluer">
+    <textarea name="note" placeholder="Note libre, optionnelle : ce qui n'allait pas, la question posée, la réponse attendue..."></textarea>
+    <div style="margin-top:0.5rem">
+      <button type="submit" name="qualite" value="bonne">👍 Bonne réponse</button>
+      <button type="submit" name="qualite" value="mauvaise">👎 Mauvaise réponse</button>
+    </div>
+  </form>
+  {bloc_evaluations}
+  <h4 style="font-size:0.85rem;margin:1rem 0 0.5rem">Charge brute reçue du webhook</h4>
+  <pre>{html.escape(donnees_brutes)}</pre>
+</div>"""
 
 
-def _bloc_voix(erreur_voix):
+def _carte_power(activations):
+    tous_actif = activations["tous"]
+    return f"""<div class="carte carte-power">
+  <form method="post" action="/backoffice/activation/tous/basculer">
+    <button type="submit" class="anneau-power {'coupe' if not tous_actif else ''}" title="{'Tout arrêter' if tous_actif else 'Tout relancer'}">
+      <span class="icone-power">⏻</span>
+    </button>
+  </form>
+  <p class="legende-power">Assistant conversationnel <strong>{"actif" if tous_actif else "à l'arrêt"}</strong></p>
+</div>"""
+
+
+def _carte_voix(erreur_voix):
     options = "".join(
         f'<option value="{html.escape(v["id"])}">{html.escape(v["nom"])}</option>'
         for v in voix_disponibles()
@@ -377,8 +480,8 @@ def _bloc_voix(erreur_voix):
         "ou clé API manquante). Réessayez dans un instant.</p>"
         if erreur_voix else ""
     )
-    return f"""<div class="section">
-  <h2>Voix de l'assistant</h2>
+    return f"""<div class="carte">
+  <h2>Paramétrages <em>voix</em></h2>
   <form class="voix-form" method="post" action="/backoffice/voix/changer">
     <select name="voice_id" required>
       <option value="" disabled selected>Choisir une voix…</option>
@@ -386,42 +489,37 @@ def _bloc_voix(erreur_voix):
     </select>
     <button type="submit" class="bouton accent">Appliquer</button>
   </form>
-  <p style="font-size:0.8rem;color:var(--texte-doux);margin-top:0.6rem">
-    Change la voix de l'agent directement, sans connexion à ElevenLabs. Effectif dès le prochain appel.
-  </p>
   {erreur_html}
+  <label class="champ-label">ton</label>
+  <input type="range" class="curseur-desactive" disabled>
+  <label class="champ-label">autre</label>
+  <input type="range" class="curseur-desactive" disabled>
+  <p class="note-a-venir">Réglages fins pas encore reliés à l'API ElevenLabs — à explorer.</p>
 </div>"""
 
 
-def _bloc_outils(activations):
-    tous_actif = activations["tous"]
+def _carte_appels_en_cours():
+    return """<div class="carte carte-appels-cours">
+  <h2>Appels en cours</h2>
+  <p class="a-venir-message">Pas encore disponible : ElevenLabs ne nous transmet les données qu'à la fin de l'appel, pas pendant.</p>
+</div>"""
 
+
+def _grille_outils(activations):
     def _ligne(cle, libelle):
         actif = activations["outils"][cle]
         classe = "on" if actif else "off"
-        bouton = "Désactiver" if actif else "Activer"
         description = _DESCRIPTIONS_OUTILS.get(cle, "")
-        return f"""<div class="outil {classe}" title="{html.escape(description)}">
-  <span><span class="pastille"></span>{html.escape(libelle)}</span>
+        return f"""<div class="outil">
+  <span class="etiquette-outil">{html.escape(libelle)}<span class="info-icone" title="{html.escape(description)}">i</span></span>
   <form method="post" action="/backoffice/activation/{cle}/basculer">
-    <button type="submit">{bouton}</button>
+    <button type="submit" class="interrupteur-outil {classe}" title="{'Désactiver' if actif else 'Activer'}">
+      <span class="bille-interrupteur"></span>
+    </button>
   </form>
 </div>"""
 
-    lignes_outils = "".join(_ligne(cle, libelle) for cle, libelle in _NOMS_LISIBLES.items())
-
-    return f"""<div class="section">
-  <h2>Outils actifs</h2>
-  <div class="interrupteur-general {'coupe' if not tous_actif else ''}">
-    <strong>{"🟢 Assistant en service" if tous_actif else "🔴 Assistant à l'arrêt"}</strong>
-    <form method="post" action="/backoffice/activation/tous/basculer">
-      <button type="submit" class="bouton-power" title="{'Tout arrêter' if tous_actif else 'Tout relancer'}">⏻</button>
-    </form>
-  </div>
-  <div class="outils-grille">
-    {lignes_outils}
-  </div>
-</div>"""
+    return "".join(_ligne(cle, libelle) for cle, libelle in _NOMS_LISIBLES.items())
 
 
 def _formater_duree(secs):
@@ -459,7 +557,11 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, e
     n_trace = tracabilite["nb_avec_tracabilite"]
     suffixe_trace = f" — sur {n_trace} appel{'s' if n_trace > 1 else ''}" if n_trace else ""
 
-    blocs_appels = "\n".join(_bloc_appel(a) for a in appels) if appels else "<p>Aucun appel pour l'instant.</p>"
+    lignes_tableau = (
+        "\n".join(_ligne_tableau_appel(a, i) for i, a in enumerate(appels, 1))
+        if appels else '<tr><td colspan="7">Aucun appel pour l\'instant.</td></tr>'
+    )
+    details_appels = "\n".join(_detail_appel(a) for a in appels)
 
     return f"""<!doctype html>
 <html lang="fr">
@@ -470,10 +572,12 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, e
 </head>
 <body>
 <header class="entete">
-  <div class="logo"></div>
+  <span class="logo-mark">➜</span>
   <div>
-    <h1>Assistant vocal CRC — zone Étang</h1>
-    <div class="sous-titre">Suivi de l'expérimentation</div>
+    <div class="marque">Assistant vocal · zone Étang</div>
+  </div>
+  <div class="entete-titres">
+    <h1>Assistant conversationnel — Expérimentation 2026</h1>
   </div>
 </header>
 <main>
@@ -484,34 +588,50 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, e
   </div>
 
   <div id="onglet-live" class="contenu-onglet">
-    {_bloc_outils(activations)}
-    {_bloc_voix(erreur_voix)}
+    <div class="grille-live-haut">
+      {_carte_power(activations)}
+      {_carte_voix(erreur_voix)}
+      {_carte_appels_en_cours()}
+    </div>
+
+    <div class="carte">
+      <h2>Outils actifs</h2>
+      <div class="outils-grille">
+        {_grille_outils(activations)}
+      </div>
+    </div>
   </div>
 
   <div id="onglet-suivi" class="contenu-onglet" style="display:none">
 
     <div class="grille-compteurs">
       <div class="compteur" style="--accent:{BLEU}">
+        <div class="icone-compteur">{_ICONES_COMPTEURS['appels']}</div>
         <div class="valeur">{nb_appels}</div>
         <div class="libelle">Appels captés</div>
       </div>
       <div class="compteur" style="--accent:{ROSE}">
+        <div class="icone-compteur">{_ICONES_COMPTEURS['satisfaction']}</div>
         <div class="valeur">{pct}</div>
         <div class="libelle">Satisfaction — {libelle_satisfaction}</div>
       </div>
       <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{SAUGE}">
+        <div class="icone-compteur">{_ICONES_COMPTEURS['duree']}</div>
         <div class="valeur">{duree_valeur}</div>
         <div class="libelle">Durée moyenne d'appel{suffixe_trace}</div>
       </div>
       <div class="compteur{' a-venir' if not tracabilite['horaire_moyen'] else ''}" style="--accent:{BLEU}">
+        <div class="icone-compteur">{_ICONES_COMPTEURS['horaire']}</div>
         <div class="valeur">{horaire_valeur}</div>
         <div class="libelle">Horaire moyen des appels{suffixe_trace}</div>
       </div>
       <div class="compteur{' a-venir' if not tracabilite['repartition_outils'] else ''}" style="--accent:{ROSE}">
+        <div class="icone-compteur">{_ICONES_COMPTEURS['repartition']}</div>
         <div class="valeur">{repartition_valeur}</div>
         <div class="libelle">{repartition_libelle}</div>
       </div>
       <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{SAUGE}">
+        <div class="icone-compteur">{_ICONES_COMPTEURS['cout']}</div>
         <div class="valeur">{cout_valeur}</div>
         <div class="libelle">Coût total{suffixe_trace} — impact carbone : pas encore de méthode fiable</div>
       </div>
@@ -526,17 +646,29 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, e
       </form>
     </div>
 
-    <div class="section">
-      <h2>Appels ({len(appels)} affiché{'s' if len(appels) > 1 else ''})</h2>
-      <div class="entete-tableau-appels">
-        <span class="col-date">Date</span>
-        <span class="col-conv">Conversation</span>
-        <span class="col-statut">Statut</span>
-        <span class="col-duree">Durée</span>
-        <span class="col-voix">Voix</span>
-        <span class="col-motif">Motif</span>
+    <div class="grille-suivi-bas">
+      <div class="carte carte-table-appels">
+        <table>
+          <thead>
+            <tr>
+              <th>Call #</th>
+              <th>Voix</th>
+              <th>Jour</th>
+              <th>Heure</th>
+              <th>Durée</th>
+              <th>Motif</th>
+              <th>Voir</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lignes_tableau}
+          </tbody>
+        </table>
       </div>
-      {blocs_appels}
+      <div class="carte carte-detail-appel" id="panneau-detail">
+        <p class="detail-vide" id="detail-vide">Cliquez sur 👁 pour voir le détail d'un appel.</p>
+        {details_appels}
+      </div>
     </div>
 
   </div>
@@ -551,9 +683,25 @@ function afficherOnglet(nom) {{
     b.classList.toggle('actif', b.dataset.cible === nom);
   }});
 }}
+function afficherDetail(id) {{
+  document.querySelectorAll('.detail-appel-contenu').forEach(function(el) {{
+    el.style.display = 'none';
+  }});
+  document.querySelectorAll('.bouton-voir').forEach(function(b) {{
+    b.classList.remove('actif');
+  }});
+  var vide = document.getElementById('detail-vide');
+  if (vide) vide.style.display = 'none';
+  var cible = document.getElementById('detail-' + id);
+  if (cible) cible.style.display = '';
+  var bouton = document.getElementById('bouton-voir-' + id);
+  if (bouton) bouton.classList.add('actif');
+}}
 document.addEventListener('DOMContentLoaded', function() {{
   if (location.hash === '#suivi' || location.hash.indexOf('#appel-') === 0) {{
     afficherOnglet('suivi');
+    var id = location.hash.indexOf('#appel-') === 0 ? location.hash.slice(7) : null;
+    if (id) afficherDetail(id);
   }}
 }});
 </script>
