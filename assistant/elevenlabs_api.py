@@ -16,6 +16,9 @@ from pathlib import Path
 
 import httpx
 import yaml
+from dotenv import load_dotenv
+
+load_dotenv()
 
 RACINE = Path(__file__).resolve().parent.parent
 CONFIG_PATH = RACINE / "data" / "config.yaml"
