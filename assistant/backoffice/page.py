@@ -149,16 +149,27 @@ main {{
 }}
 .contenu-onglet {{ }}
 
-/* --- Live : rangée du haut (power / voix / appels en cours) --- */
+/* --- Live : power / voix / outils à gauche, appels en cours à droite
+   sur toute la hauteur (maquette du 26/08 : l'encart "Appels en cours"
+   doit descendre jusqu'au bas de "Outils actifs", qui lui doit s'arrêter
+   à la bordure droite de "Paramétrages voix", pas s'étendre en dessous
+   de "Appels en cours") --- */
 .grille-live-haut {{
   display: grid;
   grid-template-columns: 15rem 1.6fr 1fr;
+  grid-template-rows: auto auto;
   gap: 1.6rem;
-  align-items: stretch;
   margin-bottom: 1.8rem;
 }}
+.carte-power {{ grid-column: 1; grid-row: 1; }}
+.carte-voix {{ grid-column: 2; grid-row: 1; }}
+.carte-appels-cours {{ grid-column: 3; grid-row: 1 / span 2; }}
+.carte-outils {{ grid-column: 1 / span 2; grid-row: 2; }}
 @media (max-width: 900px) {{
   .grille-live-haut {{ grid-template-columns: 1fr; }}
+  .carte-power, .carte-voix, .carte-appels-cours, .carte-outils {{
+    grid-column: 1; grid-row: auto;
+  }}
 }}
 .carte {{
   background: var(--carte);
@@ -250,8 +261,11 @@ main {{
 /* --- Live : grille des outils --- */
 .outils-grille {{
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
+}}
+@media (max-width: 900px) {{
+  .outils-grille {{ grid-template-columns: 1fr; }}
 }}
 .outil {{
   display: flex;
@@ -506,7 +520,7 @@ def _carte_voix(erreur_voix):
         "ou clé API manquante). Réessayez dans un instant.</p>"
         if erreur_voix else ""
     )
-    return f"""<div class="carte">
+    return f"""<div class="carte carte-voix">
   <h2>Paramétrages <em>voix</em></h2>
   <form class="voix-form-complete" method="post" action="/backoffice/voix/changer">
     <div class="voix-form">
@@ -675,12 +689,11 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
       {_carte_power(activations)}
       {_carte_voix(erreur_voix)}
       {_carte_appels_en_cours(en_cours)}
-    </div>
-
-    <div class="carte">
-      <h2>Outils actifs</h2>
-      <div class="outils-grille">
-        {_grille_outils(activations)}
+      <div class="carte carte-outils">
+        <h2>Outils actifs</h2>
+        <div class="outils-grille">
+          {_grille_outils(activations)}
+        </div>
       </div>
     </div>
   </div>
