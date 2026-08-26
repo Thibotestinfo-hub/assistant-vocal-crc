@@ -146,15 +146,31 @@ l'outil en parallèle.
     depuis Codespaces ("quasiment toutes les cases cochées") — à revoir
     et restreindre au strict nécessaire.
 
+## E. Protocole de test téléphonique réel (à préparer en premier demain)
+
+Demande explicite de l'utilisateur (26/08, fin de session) : avant
+d'attaquer autre chose, refaire un vrai test en conditions réelles, sur le
+numéro Twilio (pas seulement le widget), avec un protocole complet et
+étapé — probablement pour objectiver les points ouverts sur la latence
+perçue (A) et remonter de nouveaux cas de prononciation. À construire en
+premier au démarrage de la prochaine session : scénarios d'appel (chaque
+outil au moins une fois, y compris un cas d'erreur/hors périmètre), points
+de mesure (latence perçue, prononciation, transfert humain), et grille de
+recueil des résultats — probablement consignée ensuite dans le back-office
+(évaluation par appel, déjà existante) plutôt que sur un support à part.
+
 ## Suggestion pour la reprise
 
-1. **Corriger le bug d'écoute des voix** — vérifier la variable
+1. **Construire le protocole de test téléphonique** (E ci-dessus) — c'est
+   la demande explicite pour démarrer la session.
+2. **Corriger le bug d'écoute des voix** — vérifier la variable
    d'environnement `ELEVENLABS_API_KEY` sur Clever Cloud en premier, avant
-   toute autre hypothèse (c'est la cause la plus probable).
-2. Une fois corrigé, vérifier au passage que la transcription (bulles
+   toute autre hypothèse (c'est la cause la plus probable). Utile avant le
+   test réel si l'équipe veut aussi valider la voix ce jour-là.
+3. Une fois corrigé, vérifier au passage que la transcription (bulles
    Appelant/Assistant) s'affiche correctement sur un vrai appel.
-3. Avant le test live : vérifier la limite de concurrence ElevenLabs et la
+4. Avant le test live : vérifier la limite de concurrence ElevenLabs et la
    tester réellement.
-4. Ensuite, au choix : le dictionnaire de prononciation depuis le
+5. Ensuite, au choix : le dictionnaire de prononciation depuis le
    back-office (C, prioritaire côté "paramétrable sans ElevenLabs"), ou les
    points de prononciation encore ouverts (A).
