@@ -429,7 +429,43 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
   padding: 0.2rem 0.4rem;
 }}
 .bouton-voir.actif {{ background: {BLEU}44; border-radius: 6px; }}
-.carte-detail-appel {{ margin-bottom: 1.5rem; }}
+.carte-detail-appel {{ margin-bottom: 1.5rem; position: relative; }}
+.bouton-fermer-detail {{
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--texte-doux);
+  padding: 0.3rem;
+}}
+.transcription {{
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}}
+.tour-transcription {{
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  max-width: 80%;
+  font-size: 0.88rem;
+}}
+.tour-transcription.role-user {{ background: {BLEU}22; align-self: flex-start; }}
+.tour-transcription.role-agent {{ background: {SAUGE}44; align-self: flex-end; }}
+.role-transcription {{
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+  margin-bottom: 0.2rem;
+}}
+.tour-transcription p {{ margin: 0; }}
+.outils-tour {{ font-size: 0.78rem; color: var(--texte-doux); font-style: italic; margin-top: 0.3rem !important; }}
 .detail-appel-contenu pre {{
   background: var(--fond);
   padding: 0.9rem;
@@ -486,8 +522,46 @@ def _ligne_tableau_appel(a, numero):
 </tr>"""
 
 
+_NOMS_ROLES = {"user": "Appelant", "agent": "Assistant"}
+
+
+def _transcription_appel(donnees):
+    """Rendu lisible du transcript (qui a dit quoi), pas seulement la
+    charge brute. Champs role/message : documentés par ElevenLabs pour
+    le webhook post_call_transcription — pas encore reconfirmés sur un
+    payload réel complet depuis cet environnement (celui utilisé pour
+    les tests locaux est un extrait fabriqué à la main, sans champ
+    message). À vérifier sur un vrai appel avant de considérer ce rendu
+    fiable à 100 %."""
+    tours = donnees.get("transcript") or []
+    blocs = []
+    for tour in tours:
+        role_brut = tour.get("role")
+        role = _NOMS_ROLES.get(role_brut, role_brut or "—")
+        message = (tour.get("message") or "").strip()
+        outils = [tc.get("tool_name") for tc in (tour.get("tool_calls") or []) if tc.get("tool_name")]
+        if not message and not outils:
+            continue
+        bloc_message = f"<p>{html.escape(message)}</p>" if message else ""
+        bloc_outils = (
+            f'<p class="outils-tour">🛠 {html.escape(", ".join(_NOMS_LISIBLES.get(o, o) for o in outils))}</p>'
+            if outils else ""
+        )
+        classe = "role-agent" if role_brut == "agent" else "role-user"
+        blocs.append(f"""<div class="tour-transcription {classe}">
+  <span class="role-transcription">{html.escape(role)}</span>
+  {bloc_message}
+  {bloc_outils}
+</div>""")
+    if not blocs:
+        return '<p class="a-venir-message">Pas de transcription disponible pour cet appel.</p>'
+    return f'<div class="transcription">{"".join(blocs)}</div>'
+
+
 def _detail_appel(a):
-    donnees_brutes = json.dumps(json.loads(a["donnees_brutes"]), ensure_ascii=False, indent=2)
+    charge_brute = json.loads(a["donnees_brutes"])
+    donnees = charge_brute.get("data", charge_brute) if isinstance(charge_brute, dict) else {}
+    donnees_brutes = json.dumps(charge_brute, ensure_ascii=False, indent=2)
     evaluations = a.get("evaluations", [])
     if evaluations:
         lignes_eval = "".join(
@@ -514,6 +588,8 @@ def _detail_appel(a):
     </div>
   </form>
   {bloc_evaluations}
+  <h4 style="font-size:0.85rem;margin:1rem 0 0.5rem">Transcription de la conversation</h4>
+  {_transcription_appel(donnees)}
   <h4 style="font-size:0.85rem;margin:1rem 0 0.5rem">Charge brute reçue du webhook</h4>
   <pre>{html.escape(donnees_brutes)}</pre>
 </div>"""
@@ -829,6 +905,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
     </div>
 
     <div class="carte carte-detail-appel" id="panneau-detail" style="display:none">
+      <button type="button" class="bouton-fermer-detail" onclick="fermerDetail()" title="Fermer">✕</button>
       {details_appels}
     </div>
 
@@ -841,10 +918,18 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
 function ecouterVoix() {{
   var select = document.getElementById('select-voix');
   var voiceId = select.value;
-  if (!voiceId) return;
+  if (!voiceId) {{
+    alert("Choisissez d'abord une voix dans la liste.");
+    return;
+  }}
   var lecteur = document.getElementById('lecteur-voix');
+  lecteur.onerror = function() {{
+    alert('Impossible de lire cet extrait pour le moment (ElevenLabs indisponible ?).');
+  }};
   lecteur.src = '/backoffice/voix/' + voiceId + '/apercu';
-  lecteur.play().catch(function() {{}});
+  lecteur.play().catch(function() {{
+    alert('Impossible de lire cet extrait pour le moment (ElevenLabs indisponible ?).');
+  }});
 }}
 function afficherOnglet(nom) {{
   document.querySelectorAll('.contenu-onglet').forEach(function(el) {{
@@ -870,6 +955,12 @@ function afficherDetail(id) {{
   }}
   var bouton = document.getElementById('bouton-voir-' + id);
   if (bouton) bouton.classList.add('actif');
+}}
+function fermerDetail() {{
+  document.getElementById('panneau-detail').style.display = 'none';
+  document.querySelectorAll('.bouton-voir').forEach(function(b) {{
+    b.classList.remove('actif');
+  }});
 }}
 document.addEventListener('DOMContentLoaded', function() {{
   if (location.hash === '#suivi' || location.hash.indexOf('#appel-') === 0) {{
