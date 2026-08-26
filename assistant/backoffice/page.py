@@ -68,7 +68,6 @@ _ICONES_COMPTEURS = {
     "satisfaction": "👍",
     "duree": "⏱",
     "horaire": "🕒",
-    "repartition": "🛠",
     "cout": "💶",
 }
 
@@ -317,14 +316,24 @@ main {{
 .interrupteur-outil.on .bille-interrupteur {{ left: calc(100% - 1.54rem); }}
 .interrupteur-outil.off .bille-interrupteur {{ left: 0.16rem; }}
 
-/* --- Suivi : tuiles d'indicateurs --- */
-.grille-compteurs {{
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+/* --- Suivi : tuiles d'indicateurs (picto à gauche, chiffre à droite en
+   plus gros, 3 par ligne) + répartition en anneau à côté --- */
+.section-indicateurs {{
+  display: flex;
+  gap: 1.5rem;
   margin-bottom: 1.8rem;
+  align-items: stretch;
 }}
 @media (max-width: 1100px) {{
+  .section-indicateurs {{ flex-direction: column; }}
+}}
+.grille-compteurs {{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  flex: 3;
+}}
+@media (max-width: 700px) {{
   .grille-compteurs {{ grid-template-columns: repeat(2, 1fr); }}
 }}
 .compteur {{
@@ -333,12 +342,31 @@ main {{
   border-top: 4px solid var(--accent, var(--bleu));
   border-radius: 12px;
   padding: 1.2rem 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }}
-.compteur .icone-compteur {{ font-size: 1.3rem; margin-bottom: 0.4rem; }}
-.compteur .valeur {{ font-size: 1.8rem; font-weight: 700; }}
-.compteur .libelle {{ color: var(--texte-doux); font-size: 0.82rem; margin-top: 0.25rem; }}
+.compteur .icone-compteur {{ font-size: 2.3rem; flex-shrink: 0; }}
+.compteur .compteur-corps {{ display: flex; flex-direction: column; }}
+.compteur .valeur {{ font-size: 2.1rem; font-weight: 700; line-height: 1.1; }}
+.compteur .libelle {{ color: var(--texte-doux); font-size: 0.78rem; margin-top: 0.2rem; }}
 .compteur.a-venir {{ opacity: 0.55; }}
 .compteur.a-venir .valeur {{ font-size: 1.05rem; font-weight: 500; }}
+.carte-repartition {{
+  flex: 1.3;
+  display: flex;
+  flex-direction: column;
+}}
+.donut-bloc {{ display: flex; align-items: center; gap: 1.2rem; flex: 1; }}
+.donut-legende {{ font-size: 0.82rem; }}
+.legende-item {{ display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }}
+.pastille-legende {{
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}}
 
 .bandeau-actions {{
   display: flex;
@@ -360,6 +388,7 @@ main {{
 }}
 .bouton:hover, button:hover {{ filter: brightness(0.96); }}
 .bouton.accent {{ background: var(--bleu); border-color: var(--bleu); font-weight: 600; }}
+.bouton-grand {{ font-size: 1rem; padding: 0.75rem 1.5rem; font-weight: 700; }}
 .bandeau-actions button, .bandeau-actions .bouton {{ background: {BLEU}33; border-color: {BLEU}88; font-weight: 500; }}
 button[name="qualite"][value="bonne"] {{ background: {SAUGE}77; border-color: {SAUGE}; }}
 button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color: {ROUGE}77; }}
@@ -560,7 +589,7 @@ def _carte_demandes_rappel(demandes):
     return f"""<div class="carte carte-tableau" style="margin-bottom:1.5rem">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1rem 0">
     <h2 style="margin:0">Demandes de rappel ({len(demandes)})</h2>
-    <a class="bouton" href="/backoffice/exports/demandes_rappel.csv">⬇ Télécharger (CSV)</a>
+    <a class="bouton accent bouton-grand" href="/backoffice/exports/demandes_rappel.csv">⬇ Télécharger (CSV)</a>
   </div>
   <table>
     <thead>
@@ -626,16 +655,55 @@ def _formater_duree(secs):
     return f"{m} min {s:02d}" if m else f"{s} s"
 
 
-def _formater_repartition(repartition):
+_COULEURS_REPARTITION = [BLEU_FONCE, SAUGE, ROSE, ROUGE, BLEU, "#8fb9c9"]
+
+
+def _svg_repartition(repartition):
+    """Diagramme en anneau (donut) dessiné à la main en SVG — pas de
+    librairie de graphiques, cohérent avec "pas de framework front" :
+    un cercle par catégorie, découpé via stroke-dasharray."""
+    r = 45
     if not repartition:
-        return "à venir", "Répartition par type de requête"
+        return (
+            '<svg viewBox="0 0 120 120" width="110" height="110" role="img" aria-label="Aucune donnée">'
+            f'<circle cx="60" cy="60" r="{r}" fill="none" stroke="#e6ebee" stroke-width="18"/></svg>'
+        )
     total = sum(repartition.values())
-    outil_principal, n = max(repartition.items(), key=lambda kv: kv[1])
-    libelle_principal = _NOMS_LISIBLES.get(outil_principal, outil_principal)
-    detail = ", ".join(
-        f"{_NOMS_LISIBLES.get(o, o)} : {c}" for o, c in sorted(repartition.items(), key=lambda kv: -kv[1])
+    circonference = 2 * 3.14159265 * r
+    segments = []
+    decalage = 0.0
+    for i, (outil, n) in enumerate(sorted(repartition.items(), key=lambda kv: -kv[1])):
+        longueur = (n / total) * circonference
+        couleur = _COULEURS_REPARTITION[i % len(_COULEURS_REPARTITION)]
+        segments.append(
+            f'<circle cx="60" cy="60" r="{r}" fill="none" stroke="{couleur}" stroke-width="18" '
+            f'stroke-dasharray="{longueur:.2f} {circonference - longueur:.2f}" '
+            f'stroke-dashoffset="{-decalage:.2f}" transform="rotate(-90 60 60)"/>'
+        )
+        decalage += longueur
+    return f'<svg viewBox="0 0 120 120" width="110" height="110" role="img" aria-label="Répartition des appels par motif">{"".join(segments)}</svg>'
+
+
+def _legende_repartition(repartition):
+    if not repartition:
+        return '<p class="a-venir-message">Pas encore de données.</p>'
+    items = sorted(repartition.items(), key=lambda kv: -kv[1])
+    return "".join(
+        f'<div class="legende-item"><span class="pastille-legende" '
+        f'style="background:{_COULEURS_REPARTITION[i % len(_COULEURS_REPARTITION)]}"></span>'
+        f'{html.escape(_NOMS_LISIBLES.get(outil, outil))} — {n}</div>'
+        for i, (outil, n) in enumerate(items)
     )
-    return f"{libelle_principal} ({n}/{total})", f"Type de requête le plus fréquent — {detail}"
+
+
+def _carte_repartition(repartition, suffixe_trace):
+    return f"""<div class="carte carte-repartition">
+  <h2>Répartition des appels par motif{suffixe_trace}</h2>
+  <div class="donut-bloc">
+    {_svg_repartition(repartition)}
+    <div class="donut-legende">{_legende_repartition(repartition)}</div>
+  </div>
+</div>"""
 
 
 def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, demandes_rappel, en_cours, erreur_voix=False):
@@ -649,7 +717,6 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
 
     duree_valeur = _formater_duree(tracabilite["duree_moyenne_secs"])
     horaire_valeur = tracabilite["horaire_moyen"] or "à venir"
-    repartition_valeur, repartition_libelle = _formater_repartition(tracabilite["repartition_outils"])
     cout_valeur = f"{tracabilite['cout_total_usd']:.3f} $" if tracabilite["cout_total_usd"] is not None else "à venir"
     n_trace = tracabilite["nb_avec_tracabilite"]
     suffixe_trace = f" — sur {n_trace} appel{'s' if n_trace > 1 else ''}" if n_trace else ""
@@ -700,37 +767,45 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
 
   <div id="onglet-suivi" class="contenu-onglet" style="display:none">
 
-    <div class="grille-compteurs">
-      <div class="compteur" style="--accent:{BLEU}">
-        <div class="icone-compteur">{_ICONES_COMPTEURS['appels']}</div>
-        <div class="valeur">{nb_appels}</div>
-        <div class="libelle">Appels captés</div>
+    <div class="section-indicateurs">
+      <div class="grille-compteurs">
+        <div class="compteur" style="--accent:{BLEU}">
+          <div class="icone-compteur">{_ICONES_COMPTEURS['appels']}</div>
+          <div class="compteur-corps">
+            <div class="valeur">{nb_appels}</div>
+            <div class="libelle">Appels captés</div>
+          </div>
+        </div>
+        <div class="compteur" style="--accent:{ROSE}">
+          <div class="icone-compteur">{_ICONES_COMPTEURS['satisfaction']}</div>
+          <div class="compteur-corps">
+            <div class="valeur">{pct}</div>
+            <div class="libelle">Satisfaction — {libelle_satisfaction}</div>
+          </div>
+        </div>
+        <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{SAUGE}">
+          <div class="icone-compteur">{_ICONES_COMPTEURS['duree']}</div>
+          <div class="compteur-corps">
+            <div class="valeur">{duree_valeur}</div>
+            <div class="libelle">Durée moyenne d'appel{suffixe_trace}</div>
+          </div>
+        </div>
+        <div class="compteur{' a-venir' if not tracabilite['horaire_moyen'] else ''}" style="--accent:{BLEU}">
+          <div class="icone-compteur">{_ICONES_COMPTEURS['horaire']}</div>
+          <div class="compteur-corps">
+            <div class="valeur">{horaire_valeur}</div>
+            <div class="libelle">Horaire moyen des appels{suffixe_trace}</div>
+          </div>
+        </div>
+        <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{SAUGE}">
+          <div class="icone-compteur">{_ICONES_COMPTEURS['cout']}</div>
+          <div class="compteur-corps">
+            <div class="valeur">{cout_valeur}</div>
+            <div class="libelle">Coût total{suffixe_trace} — impact carbone : pas encore de méthode fiable</div>
+          </div>
+        </div>
       </div>
-      <div class="compteur" style="--accent:{ROSE}">
-        <div class="icone-compteur">{_ICONES_COMPTEURS['satisfaction']}</div>
-        <div class="valeur">{pct}</div>
-        <div class="libelle">Satisfaction — {libelle_satisfaction}</div>
-      </div>
-      <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{SAUGE}">
-        <div class="icone-compteur">{_ICONES_COMPTEURS['duree']}</div>
-        <div class="valeur">{duree_valeur}</div>
-        <div class="libelle">Durée moyenne d'appel{suffixe_trace}</div>
-      </div>
-      <div class="compteur{' a-venir' if not tracabilite['horaire_moyen'] else ''}" style="--accent:{BLEU}">
-        <div class="icone-compteur">{_ICONES_COMPTEURS['horaire']}</div>
-        <div class="valeur">{horaire_valeur}</div>
-        <div class="libelle">Horaire moyen des appels{suffixe_trace}</div>
-      </div>
-      <div class="compteur{' a-venir' if not tracabilite['repartition_outils'] else ''}" style="--accent:{ROSE}">
-        <div class="icone-compteur">{_ICONES_COMPTEURS['repartition']}</div>
-        <div class="valeur">{repartition_valeur}</div>
-        <div class="libelle">{repartition_libelle}</div>
-      </div>
-      <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{SAUGE}">
-        <div class="icone-compteur">{_ICONES_COMPTEURS['cout']}</div>
-        <div class="valeur">{cout_valeur}</div>
-        <div class="libelle">Coût total{suffixe_trace} — impact carbone : pas encore de méthode fiable</div>
-      </div>
+      {_carte_repartition(tracabilite['repartition_outils'], suffixe_trace)}
     </div>
 
     <div class="bandeau-actions">
@@ -739,8 +814,6 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
         <button type="submit" class="bouton" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
       </form>
     </div>
-
-    {_carte_demandes_rappel(demandes_rappel)}
 
     <div class="grille-suivi-bas">
       <div class="carte carte-tableau">
@@ -766,6 +839,8 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
         {details_appels}
       </div>
     </div>
+
+    {_carte_demandes_rappel(demandes_rappel)}
 
   </div>
 
