@@ -269,7 +269,6 @@ main {{
 .outil {{
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.8rem;
   padding: 0.5rem 0;
   font-size: 0.95rem;

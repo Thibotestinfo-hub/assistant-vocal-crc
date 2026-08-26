@@ -58,10 +58,14 @@ def _en_tete():
 
 
 def lister_voix():
-    """Renvoie [(nom, voice_id), ...] pour toutes les voix du compte."""
+    """Renvoie [(nom, voice_id, preview_url), ...] pour toutes les voix
+    du compte. preview_url : champ documenté par ElevenLabs sur chaque
+    voix (échantillon audio existant, hébergé par eux) — pas encore
+    vérifié sur une vraie réponse à cette date (voir docstring de
+    lister_conversations pour le même genre de réserve)."""
     reponse = httpx.get(f"{BASE_URL}/voices", headers=_en_tete(), timeout=15)
     reponse.raise_for_status()
-    return [(v["name"], v["voice_id"]) for v in reponse.json()["voices"]]
+    return [(v["name"], v["voice_id"], v.get("preview_url")) for v in reponse.json()["voices"]]
 
 
 def obtenir_agent():
@@ -155,8 +159,9 @@ if __name__ == "__main__":
     import json as _json
 
     print("Voix du compte :")
-    for nom, voice_id in lister_voix():
+    for nom, voice_id, preview_url in lister_voix():
         print(f"  {nom} -> {voice_id}")
+        print(f"    preview_url : {preview_url}")
     print()
     print("Voix actuelle de l'agent :", voix_actuelle())
     print()
