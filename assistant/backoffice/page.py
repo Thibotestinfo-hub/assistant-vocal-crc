@@ -393,17 +393,10 @@ main {{
 button[name="qualite"][value="bonne"] {{ background: {SAUGE}77; border-color: {SAUGE}; }}
 button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color: {ROUGE}77; }}
 
-/* --- Suivi : tableau + panneau de détail --- */
-.grille-suivi-bas {{
-  display: grid;
-  grid-template-columns: 3fr 1.1fr;
-  gap: 1.6rem;
-  align-items: start;
-}}
-@media (max-width: 1000px) {{
-  .grille-suivi-bas {{ grid-template-columns: 1fr; }}
-}}
-.carte-tableau {{ padding: 0; overflow-x: auto; }}
+/* --- Suivi : tableau pleine largeur + panneau de détail en dessous,
+   qui s'ouvre au clic sur l'œil (les deux tables — appels et demandes
+   de rappel — ont ainsi la même largeur, voir maquette du 26/08) --- */
+.carte-tableau {{ padding: 0; overflow-x: auto; margin-bottom: 1.5rem; }}
 .carte-tableau table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
 .carte-tableau th {{
   text-align: left;
@@ -431,13 +424,7 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
   padding: 0.2rem 0.4rem;
 }}
 .bouton-voir.actif {{ background: {BLEU}44; border-radius: 6px; }}
-.carte-detail-appel {{
-  position: sticky;
-  top: 1.5rem;
-  max-height: calc(100vh - 3rem);
-  overflow-y: auto;
-}}
-.detail-vide {{ color: var(--texte-doux); font-size: 0.88rem; font-style: italic; margin: 0; }}
+.carte-detail-appel {{ margin-bottom: 1.5rem; }}
 .detail-appel-contenu pre {{
   background: var(--fond);
   padding: 0.9rem;
@@ -815,29 +802,27 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
       </form>
     </div>
 
-    <div class="grille-suivi-bas">
-      <div class="carte carte-tableau">
-        <table>
-          <thead>
-            <tr>
-              <th>Call #</th>
-              <th>Voix</th>
-              <th>Jour</th>
-              <th>Heure</th>
-              <th>Durée</th>
-              <th>Motif</th>
-              <th>Voir</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lignes_tableau}
-          </tbody>
-        </table>
-      </div>
-      <div class="carte carte-detail-appel" id="panneau-detail">
-        <p class="detail-vide" id="detail-vide">Cliquez sur 👁 pour voir le détail d'un appel.</p>
-        {details_appels}
-      </div>
+    <div class="carte carte-tableau">
+      <table>
+        <thead>
+          <tr>
+            <th>Call #</th>
+            <th>Voix</th>
+            <th>Jour</th>
+            <th>Heure</th>
+            <th>Durée</th>
+            <th>Motif</th>
+            <th>Voir</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lignes_tableau}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="carte carte-detail-appel" id="panneau-detail" style="display:none">
+      {details_appels}
     </div>
 
     {_carte_demandes_rappel(demandes_rappel)}
@@ -861,10 +846,13 @@ function afficherDetail(id) {{
   document.querySelectorAll('.bouton-voir').forEach(function(b) {{
     b.classList.remove('actif');
   }});
-  var vide = document.getElementById('detail-vide');
-  if (vide) vide.style.display = 'none';
+  var panneau = document.getElementById('panneau-detail');
   var cible = document.getElementById('detail-' + id);
-  if (cible) cible.style.display = '';
+  if (cible) {{
+    cible.style.display = '';
+    panneau.style.display = '';
+    panneau.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+  }}
   var bouton = document.getElementById('bouton-voir-' + id);
   if (bouton) bouton.classList.add('actif');
 }}
