@@ -140,7 +140,8 @@ def route_backoffice_changer_voix(voice_id: str = Form(""), ton: str = Form(""),
             stability=float(ton) if ton else None,
             style=float(autre) if autre else None,
         )
-    except Exception:
+    except Exception as erreur:
+        print(f"changer_reglages_voix a échoué : {erreur!r}", flush=True)
         return RedirectResponse("/backoffice/appels?erreur_voix=1", status_code=303)
     return RedirectResponse("/backoffice/appels", status_code=303)
 
@@ -152,12 +153,17 @@ def route_backoffice_apercu_voix(voice_id: str):
     ElevenLabs à chaque clic (jamais stocké — voir apercu_voix, certaines
     URLs sont probablement à durée de vie limitée). Statut 502 si
     ElevenLabs est indisponible : le <audio> du navigateur échoue
-    silencieusement plutôt que de faire planter le back-office."""
+    silencieusement plutôt que de faire planter le back-office. L'erreur
+    est quand même loggée côté serveur (onglet Logs de Clever Cloud) —
+    un <audio> qui échoue en silence ne doit pas nous laisser sans piste
+    pour diagnostiquer."""
     try:
         url = apercu_voix(voice_id)
-    except Exception:
+    except Exception as erreur:
+        print(f"apercu_voix({voice_id!r}) a échoué : {erreur!r}", flush=True)
         return Response(status_code=502)
     if not url:
+        print(f"apercu_voix({voice_id!r}) : pas de preview_url renvoyé par ElevenLabs", flush=True)
         return Response(status_code=404)
     return RedirectResponse(url, status_code=302)
 
