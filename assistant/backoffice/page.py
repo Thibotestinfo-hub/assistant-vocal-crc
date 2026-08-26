@@ -222,6 +222,12 @@ main {{
   flex: 1;
   min-width: 10rem;
 }}
+.bouton-icone {{
+  padding: 0.55rem 0.7rem;
+  font-size: 1rem;
+  line-height: 1;
+  flex-shrink: 0;
+}}
 .champ-label {{
   display: block;
   font-style: italic;
@@ -539,10 +545,11 @@ def _carte_voix(erreur_voix):
   <h2>Paramétrages <em>voix</em></h2>
   <form class="voix-form-complete" method="post" action="/backoffice/voix/changer">
     <div class="voix-form">
-      <select name="voice_id">
+      <select name="voice_id" id="select-voix">
         <option value="" selected>Ne pas changer la voix</option>
         {options}
       </select>
+      <button type="button" class="bouton-icone" onclick="ecouterVoix()" title="Écouter cette voix">🔊</button>
     </div>
     <label class="champ-label">ton <span class="info-icone" title="Stabilité de la voix ElevenLabs (stability) : plus haut = plus régulier, plus bas = plus de variation.">i</span></label>
     <input type="range" name="ton" min="0" max="1" step="0.05" value="0.5" class="curseur">
@@ -550,6 +557,7 @@ def _carte_voix(erreur_voix):
     <input type="range" name="autre" min="0" max="1" step="0.05" value="0" class="curseur">
     <button type="submit" class="bouton accent" style="margin-top:1rem">Appliquer</button>
   </form>
+  <audio id="lecteur-voix" style="display:none"></audio>
   {erreur_html}
   <p class="note-a-venir">Les curseurs repartent d'une valeur par défaut à chaque affichage — cette page n'interroge pas ElevenLabs pour connaître le réglage en cours (pour rester rapide et indépendante).</p>
 </div>"""
@@ -830,6 +838,14 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
 
 </main>
 <script>
+function ecouterVoix() {{
+  var select = document.getElementById('select-voix');
+  var voiceId = select.value;
+  if (!voiceId) return;
+  var lecteur = document.getElementById('lecteur-voix');
+  lecteur.src = '/backoffice/voix/' + voiceId + '/apercu';
+  lecteur.play().catch(function() {{}});
+}}
 function afficherOnglet(nom) {{
   document.querySelectorAll('.contenu-onglet').forEach(function(el) {{
     el.style.display = (el.id === 'onglet-' + nom) ? '' : 'none';

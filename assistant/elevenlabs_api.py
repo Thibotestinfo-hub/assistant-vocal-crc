@@ -68,6 +68,19 @@ def lister_voix():
     return [(v["name"], v["voice_id"], v.get("preview_url")) for v in reponse.json()["voices"]]
 
 
+def apercu_voix(voice_id):
+    """URL d'un échantillon audio de la voix, récupérée en direct (jamais
+    mise en cache ni stockée) : sur un vrai appel le 26/08/2026, les voix
+    "custom" (comme Hugo) renvoient une URL signée avec un horodatage
+    embarqué, probablement à durée de vie limitée — contrairement aux
+    voix "premade" (comme Lucie, Jade), dont l'URL est un fichier fixe.
+    Par prudence, on la redemande à chaque écoute plutôt que de la figer
+    dans data/config.yaml, pour ne jamais risquer un lien expiré."""
+    reponse = httpx.get(f"{BASE_URL}/voices/{voice_id}", headers=_en_tete(), timeout=10)
+    reponse.raise_for_status()
+    return reponse.json().get("preview_url")
+
+
 def obtenir_agent():
     """Config complète de l'agent telle que renvoyée par ElevenLabs —
     utile pour vérifier avant/après un changement."""

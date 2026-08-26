@@ -28,7 +28,7 @@ from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel,
 )
 from assistant.backoffice.page import page_backoffice
-from assistant.elevenlabs_api import appels_en_cours, changer_reglages_voix
+from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
@@ -143,6 +143,23 @@ def route_backoffice_changer_voix(voice_id: str = Form(""), ton: str = Form(""),
     except Exception:
         return RedirectResponse("/backoffice/appels?erreur_voix=1", status_code=303)
     return RedirectResponse("/backoffice/appels", status_code=303)
+
+
+@app.get("/backoffice/voix/{voice_id}/apercu",
+         dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_apercu_voix(voice_id: str):
+    """Redirige vers un échantillon audio de la voix, demandé à
+    ElevenLabs à chaque clic (jamais stocké — voir apercu_voix, certaines
+    URLs sont probablement à durée de vie limitée). Statut 502 si
+    ElevenLabs est indisponible : le <audio> du navigateur échoue
+    silencieusement plutôt que de faire planter le back-office."""
+    try:
+        url = apercu_voix(voice_id)
+    except Exception:
+        return Response(status_code=502)
+    if not url:
+        return Response(status_code=404)
+    return RedirectResponse(url, status_code=302)
 
 
 @app.post("/backoffice/appels/{appel_id}/evaluer",
