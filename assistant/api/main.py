@@ -28,7 +28,7 @@ from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel,
 )
 from assistant.backoffice.page import page_backoffice
-from assistant.elevenlabs_api import changer_reglages_voix
+from assistant.elevenlabs_api import appels_en_cours, changer_reglages_voix
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
@@ -103,10 +103,16 @@ async def route_webhook_fin_appel(request: Request):
 @app.get("/backoffice/appels", response_class=HTMLResponse,
          dependencies=[Depends(verifier_acces_backoffice)])
 def route_backoffice_liste_appels(erreur_voix: bool = False):
+    try:
+        en_cours = appels_en_cours()
+    except Exception:
+        # None : on ne sait pas (ElevenLabs indisponible/lent), à distinguer
+        # d'une liste vide (on sait qu'il n'y a personne en ligne).
+        en_cours = None
     return page_backoffice(
         lister_appels_avec_details(), lister_activations(), compter_appels(),
         resumer_evaluations(), resumer_tracabilite(), lister_demandes_rappel(),
-        erreur_voix=erreur_voix,
+        en_cours, erreur_voix=erreur_voix,
     )
 
 

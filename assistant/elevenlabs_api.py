@@ -118,26 +118,37 @@ def changer_reglages_voix(voice_id=None, stability=None, style=None):
     return obtenir_agent()["conversation_config"]["tts"]
 
 
-def lister_conversations(exclude_statuses=None):
+def lister_conversations(exclude_statuses=None, timeout=15):
     """Conversations de l'agent telles que renvoyées par ElevenLabs.
-    D'après leur documentation, chaque conversation porte un statut
-    (initiated / in-progress / processing / done / failed) — de quoi
-    construire un panneau "appels en cours" sans attendre le webhook de
-    fin d'appel, qui lui n'arrive qu'à la toute fin.
-
-    Jamais appelée depuis le back-office pour l'instant : la vraie forme
-    de la réponse n'a pas encore été vérifiée sur un appel réel (réseau
-    ElevenLabs bloqué depuis l'environnement où cette fonction a été
-    écrite — voir python3 -m assistant.elevenlabs_api, à exécuter
-    depuis un environnement qui a accès à internet, ex. Codespaces).
-    Ne pas construire d'écran dessus avant d'avoir vérifié cette forme
-    pour de vrai (CLAUDE.md, Vérifiabilité)."""
+    Forme de la réponse vérifiée sur un vrai appel le 26/08/2026 (voir
+    docs/prochaines-etapes.md) : chaque conversation porte bien un champ
+    "status" (vu "done" et "failed" en pratique ; "initiated",
+    "in-progress" et "processing" documentés par ElevenLabs mais pas
+    encore observés faute d'appel en cours au moment du test), plus
+    start_time_unix_secs, conversation_initiation_source
+    ("widget"/"twilio"/"react_sdk") et direction."""
     params = {"agent_id": _agent_id()}
     if exclude_statuses:
         params["exclude_statuses"] = exclude_statuses
-    reponse = httpx.get(f"{BASE_URL}/convai/conversations", headers=_en_tete(), params=params, timeout=15)
+    reponse = httpx.get(f"{BASE_URL}/convai/conversations", headers=_en_tete(), params=params, timeout=timeout)
     reponse.raise_for_status()
     return reponse.json()
+
+
+def appels_en_cours():
+    """Appels actuellement en cours (statut ni "done" ni "failed"), pour
+    l'écran "Appels en cours" du Live. Timeout court (5 s) : cet appel se
+    fait pendant le rendu de la page back-office, il ne doit pas la
+    bloquer longtemps si ElevenLabs est lent ou indisponible — à charge
+    de l'appelant (voir assistant/api/main.py) d'attraper l'exception et
+    de l'afficher comme "indisponible" plutôt que de faire planter la
+    page. Revérifie aussi côté client (pas seulement exclude_statuses)
+    au cas où l'API renverrait un statut qu'on n'a pas encore vu."""
+    donnees = lister_conversations(exclude_statuses=["done", "failed"], timeout=5)
+    return [
+        c for c in donnees.get("conversations", [])
+        if c.get("status") not in ("done", "failed")
+    ]
 
 
 if __name__ == "__main__":

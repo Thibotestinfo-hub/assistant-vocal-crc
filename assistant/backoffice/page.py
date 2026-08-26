@@ -7,7 +7,9 @@ Structure et disposition reprises fidèlement de la maquette PDF fournie
 par l'équipe (25/08/2026, revue le 25/08 après un premier essai trop
 éloigné) :
 - Live : bouton d'arrêt général en anneau, réglages voix, appels en
-  cours (à venir), activation des outils avec interrupteurs.
+  cours (interrogé en direct chez ElevenLabs à chaque affichage, voir
+  assistant/elevenlabs_api.py:appels_en_cours), activation des outils
+  avec interrupteurs.
 - Suivi : indicateurs en tuiles, tableau des appels + panneau de détail
   latéral qui s'ouvre au clic (comme dans la maquette).
 
@@ -18,6 +20,7 @@ et l'anneau du bouton, comme dans la maquette."""
 
 import html
 import json
+import time
 
 from assistant.elevenlabs_api import nom_voix, voix_disponibles
 
@@ -52,6 +55,12 @@ _NOMS_MOTIFS = {
     "scolaire": "Transport scolaire",
     "hors_perimetre": "Hors périmètre du réseau",
     "demande_agent": "Demande d'agent",
+}
+
+_NOMS_SOURCES_APPEL = {
+    "twilio": "Appel téléphonique",
+    "widget": "Test (widget)",
+    "react_sdk": "Test (react_sdk)",
 }
 
 _ICONES_COMPTEURS = {
@@ -229,6 +238,14 @@ main {{
   font-style: italic;
   margin: 0;
 }}
+.ligne-appel-en-cours {{
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--bordure);
+  font-size: 0.88rem;
+}}
+.ligne-appel-en-cours:last-child {{ border-bottom: none; }}
 
 /* --- Live : grille des outils --- */
 .outils-grille {{
@@ -548,10 +565,26 @@ def _carte_demandes_rappel(demandes):
 </div>"""
 
 
-def _carte_appels_en_cours():
-    return """<div class="carte carte-appels-cours">
+def _ligne_appel_en_cours(c):
+    source = _NOMS_SOURCES_APPEL.get(c.get("conversation_initiation_source"), c.get("conversation_initiation_source") or "—")
+    debut = c.get("start_time_unix_secs")
+    duree = _formater_duree(int(time.time()) - debut) if debut else "à l'instant"
+    return f"""<div class="ligne-appel-en-cours">
+  <span>{html.escape(source)}</span>
+  <span>{duree}</span>
+</div>"""
+
+
+def _carte_appels_en_cours(en_cours):
+    if en_cours is None:
+        contenu = '<p class="a-venir-message">ElevenLabs indisponible ou trop lent pour l\'instant — réessayez en rechargeant la page.</p>'
+    elif not en_cours:
+        contenu = '<p class="a-venir-message">Aucun appel en cours.</p>'
+    else:
+        contenu = "\n".join(_ligne_appel_en_cours(c) for c in en_cours)
+    return f"""<div class="carte carte-appels-cours">
   <h2>Appels en cours</h2>
-  <p class="a-venir-message">Pas encore disponible : ElevenLabs ne nous transmet les données qu'à la fin de l'appel, pas pendant.</p>
+  {contenu}
 </div>"""
 
 
@@ -591,7 +624,7 @@ def _formater_repartition(repartition):
     return f"{libelle_principal} ({n}/{total})", f"Type de requête le plus fréquent — {detail}"
 
 
-def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, demandes_rappel, erreur_voix=False):
+def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, demandes_rappel, en_cours, erreur_voix=False):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -641,7 +674,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
     <div class="grille-live-haut">
       {_carte_power(activations)}
       {_carte_voix(erreur_voix)}
-      {_carte_appels_en_cours()}
+      {_carte_appels_en_cours(en_cours)}
     </div>
 
     <div class="carte">
