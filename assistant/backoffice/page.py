@@ -45,6 +45,15 @@ _DESCRIPTIONS_OUTILS = {
     "transferer_agent": "Bascule l'appel vers un conseiller humain.",
 }
 
+_NOMS_MOTIFS = {
+    "amende": "Amende",
+    "reclamation": "Réclamation",
+    "tad": "Transport à la demande",
+    "scolaire": "Transport scolaire",
+    "hors_perimetre": "Hors périmètre du réseau",
+    "demande_agent": "Demande d'agent",
+}
+
 _ICONES_COMPTEURS = {
     "appels": "📞",
     "satisfaction": "👍",
@@ -201,11 +210,11 @@ main {{
   font-size: 0.85rem;
   margin: 0.9rem 0 0.3rem;
 }}
-.curseur-desactive {{
+.curseur {{
   width: 100%;
-  opacity: 0.5;
   accent-color: var(--sauge);
 }}
+.voix-form-complete {{ margin: 0; }}
 .note-a-venir {{
   color: var(--texte-doux);
   font-size: 0.78rem;
@@ -334,9 +343,9 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 @media (max-width: 1000px) {{
   .grille-suivi-bas {{ grid-template-columns: 1fr; }}
 }}
-.carte-table-appels {{ padding: 0; overflow-x: auto; }}
-.carte-table-appels table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
-.carte-table-appels th {{
+.carte-tableau {{ padding: 0; overflow-x: auto; }}
+.carte-tableau table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
+.carte-tableau th {{
   text-align: left;
   font-size: 0.72rem;
   font-weight: 700;
@@ -346,14 +355,14 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
   border-bottom: 1px solid var(--bordure);
   white-space: nowrap;
 }}
-.carte-table-appels td {{
+.carte-tableau td {{
   padding: 0.7rem 1rem;
   border-bottom: 1px solid var(--bordure);
   vertical-align: middle;
   white-space: nowrap;
 }}
-.carte-table-appels tr:last-child td {{ border-bottom: none; }}
-.carte-table-appels td.col-motif-table {{ white-space: normal; }}
+.carte-tableau tr:last-child td {{ border-bottom: none; }}
+.carte-tableau td.col-motif-table {{ white-space: normal; }}
 .bouton-voir {{
   background: none;
   border: none;
@@ -476,25 +485,66 @@ def _carte_voix(erreur_voix):
         for v in voix_disponibles()
     )
     erreur_html = (
-        '<p class="erreur-voix">Le changement de voix a échoué (ElevenLabs indisponible '
+        '<p class="erreur-voix">Le changement a échoué (ElevenLabs indisponible '
         "ou clé API manquante). Réessayez dans un instant.</p>"
         if erreur_voix else ""
     )
     return f"""<div class="carte">
   <h2>Paramétrages <em>voix</em></h2>
-  <form class="voix-form" method="post" action="/backoffice/voix/changer">
-    <select name="voice_id" required>
-      <option value="" disabled selected>Choisir une voix…</option>
-      {options}
-    </select>
-    <button type="submit" class="bouton accent">Appliquer</button>
+  <form class="voix-form-complete" method="post" action="/backoffice/voix/changer">
+    <div class="voix-form">
+      <select name="voice_id">
+        <option value="" selected>Ne pas changer la voix</option>
+        {options}
+      </select>
+    </div>
+    <label class="champ-label">ton <span class="info-icone" title="Stabilité de la voix ElevenLabs (stability) : plus haut = plus régulier, plus bas = plus de variation.">i</span></label>
+    <input type="range" name="ton" min="0" max="1" step="0.05" value="0.5" class="curseur">
+    <label class="champ-label">autre <span class="info-icone" title="Style ElevenLabs (style) : plus haut = plus expressif.">i</span></label>
+    <input type="range" name="autre" min="0" max="1" step="0.05" value="0" class="curseur">
+    <button type="submit" class="bouton accent" style="margin-top:1rem">Appliquer</button>
   </form>
   {erreur_html}
-  <label class="champ-label">ton</label>
-  <input type="range" class="curseur-desactive" disabled>
-  <label class="champ-label">autre</label>
-  <input type="range" class="curseur-desactive" disabled>
-  <p class="note-a-venir">Réglages fins pas encore reliés à l'API ElevenLabs — à explorer.</p>
+  <p class="note-a-venir">Les curseurs repartent d'une valeur par défaut à chaque affichage — cette page n'interroge pas ElevenLabs pour connaître le réglage en cours (pour rester rapide et indépendante).</p>
+</div>"""
+
+
+def _ligne_tableau_demande(d):
+    date, _, heure = (d["cree_le"] or "").partition("T")
+    opt_in = "Oui" if d["opt_in_marketing"] else "Non"
+    return f"""<tr>
+  <td>{html.escape(d['nom'] or '—')}</td>
+  <td>{html.escape(d['telephone'] or '—')}</td>
+  <td>{html.escape(date)} {html.escape(heure)}</td>
+  <td>{html.escape(_NOMS_MOTIFS.get(d['motif'], d['motif'] or '—'))}</td>
+  <td>{opt_in}</td>
+</tr>"""
+
+
+def _carte_demandes_rappel(demandes):
+    lignes = (
+        "\n".join(_ligne_tableau_demande(d) for d in demandes)
+        if demandes else '<tr><td colspan="5">Aucune demande pour l\'instant.</td></tr>'
+    )
+    return f"""<div class="carte carte-tableau" style="margin-bottom:1.5rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1rem 0">
+    <h2 style="margin:0">Demandes de rappel ({len(demandes)})</h2>
+    <a class="bouton" href="/backoffice/exports/demandes_rappel.csv">⬇ Télécharger (CSV)</a>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Nom</th>
+        <th>Téléphone</th>
+        <th>Heure d'appel</th>
+        <th>Motif</th>
+        <th>Opt-in marketing</th>
+      </tr>
+    </thead>
+    <tbody>
+      {lignes}
+    </tbody>
+  </table>
 </div>"""
 
 
@@ -541,7 +591,7 @@ def _formater_repartition(repartition):
     return f"{libelle_principal} ({n}/{total})", f"Type de requête le plus fréquent — {detail}"
 
 
-def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, erreur_voix=False):
+def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, demandes_rappel, erreur_voix=False):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -638,16 +688,16 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, e
     </div>
 
     <div class="bandeau-actions">
-      <a class="bouton" href="/backoffice/exports/contacts_marketing.csv">⬇ Contacts marketing (CSV)</a>
       <a class="bouton" href="/backoffice/exports/objets_perdus.csv">⬇ Objets perdus (CSV)</a>
-      <a class="bouton" href="/backoffice/exports/demandes_rappel.csv">⬇ Demandes de rappel (CSV)</a>
       <form method="post" action="/backoffice/appels/retraiter-tracabilite" style="display:inline">
         <button type="submit" class="bouton" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
       </form>
     </div>
 
+    {_carte_demandes_rappel(demandes_rappel)}
+
     <div class="grille-suivi-bas">
-      <div class="carte carte-table-appels">
+      <div class="carte carte-tableau">
         <table>
           <thead>
             <tr>

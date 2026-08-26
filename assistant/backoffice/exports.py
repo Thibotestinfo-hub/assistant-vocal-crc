@@ -44,27 +44,16 @@ def exporter_demandes_rappel():
     return _exporter_csv("demandes_rappel", COLONNES_DEMANDES_RAPPEL)
 
 
-COLONNES_CONTACTS = ["source", "cree_le", "nom", "telephone", "email", "opt_in_marketing"]
-
-
-def exporter_contacts_marketing():
-    """Combine les coordonnées collectées dans les deux tables (objets
-    perdus, demandes de rappel) en un seul export, avec leur consentement
-    marketing — c'est ce que l'équipe CRC réutilise réellement, pas les
-    objets perdus en tant que tels. Toutes les lignes sont incluses (avec
-    ou sans consentement) : le filtre sur opt_in_marketing se fait à la
-    lecture du CSV, pas à l'export, pour ne rien perdre par erreur."""
+def lister_demandes_rappel(limite=200):
+    """Pour l'affichage direct dans le back-office (Suivi) : les demandes
+    de rappel les plus récentes, avec leur consentement marketing. Colonnes
+    volontairement réduites par rapport à l'export CSV complet (pas de
+    resume/email affichés ici) — l'export CSV reste la source complète."""
     conn = connexion_app()
-    lignes = []
-    for table in ("objets_perdus", "demandes_rappel"):
-        for l in conn.execute(
-            f"SELECT cree_le, nom, telephone, email, opt_in_marketing FROM {table} ORDER BY id"
-        ).fetchall():
-            lignes.append([table] + [l[c] for c in ("cree_le", "nom", "telephone", "email", "opt_in_marketing")])
+    lignes = conn.execute(
+        "SELECT id, cree_le, nom, telephone, motif, opt_in_marketing FROM demandes_rappel "
+        "ORDER BY id DESC LIMIT ?",
+        (limite,),
+    ).fetchall()
     conn.close()
-
-    tampon = io.StringIO()
-    ecrivain = csv.writer(tampon, delimiter=";")
-    ecrivain.writerow(COLONNES_CONTACTS)
-    ecrivain.writerows(lignes)
-    return tampon.getvalue()
+    return [dict(l) for l in lignes]

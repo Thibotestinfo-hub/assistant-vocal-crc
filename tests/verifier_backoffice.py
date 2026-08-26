@@ -85,10 +85,6 @@ def main():
     ok = r.status_code == 200 and r.headers.get("content-type", "").startswith("text/csv")
     resultats.append(verifier("GET export demandes_rappel.csv", ok, r, d))
 
-    r, d = appeler("GET", "/backoffice/exports/contacts_marketing.csv", auth=auth_backoffice)
-    ok = r.status_code == 200 and r.headers.get("content-type", "").startswith("text/csv")
-    resultats.append(verifier("GET export contacts_marketing.csv", ok, r, d))
-
     # --- Activation des outils ---
     # transferer_agent : choisi parce qu'une brève désactivation pendant
     # ce script n'a aucune conséquence dangereuse. Le bloc finally
