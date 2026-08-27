@@ -18,29 +18,37 @@ l'historique Git pour le détail des commits.
 
 ## A. Expérience voyageur (voix)
 
-- [ ] **"Collège F. Léger" non corrigé par le dictionnaire** malgré une
-      règle présente : tester d'autres entrées avec un point dans
-      l'abréviation (ex. "GS P. Picasso", "Collège C. Claud", "Collège E.
-      Mirab") pour savoir si c'est systématique (le point casserait la
-      correspondance côté ElevenLabs) ou un cas isolé.
-- [ ] **"Chateau de la Pl"** : nom tronqué dans le GTFS, resté sans alias
-      (la cellule du fichier contenait une note, pas un vrai alias) —
-      vérifier le nom complet sur le site du réseau ou une carte, puis
-      compléter `data/prononciation.pls`.
-- [ ] **"Est-ce que bien de l'arrêt X qu'il s'agit"** : faute de français
-      entendue en test, absente de nos fichiers — vient soit d'une
-      improvisation du modèle, soit d'un réglage "Comportement de l'agent"
-      à inspecter côté ElevenLabs.
+- [x] **"Collège F. Léger" non corrigé malgré une règle présente** —
+      cause trouvée (27/08) : les 18 abréviations avec un point dans le
+      dictionnaire cassaient la correspondance côté ElevenLabs. Corrigé
+      en développant nous-mêmes ces noms avant de les renvoyer à l'agent
+      (`assistant/ingestion/prononciation.py`), sans dépendre de ce
+      mécanisme ElevenLabs. Vérifié sur les 18 entrées via
+      `rechercher_arret()`.
+- [x] **"Chateau de la Pl"** — confirmé par l'utilisateur : "Château de la
+      Plantade". Ajouté à `data/prononciation.pls` et actif immédiatement.
+- [x] **"Est-ce que bien de l'arrêt X qu'il s'agit"** — source trouvée
+      dans le prompt système (section "Identifier un arrêt", cas
+      "confiance moyenne") : le modèle paraphrase l'exemple donné au lieu
+      de le reprendre tel quel. Consigne ajoutée au prompt côté ElevenLabs
+      le 27/08 ("reprends cette formulation telle quelle, mot pour mot").
+      **À vérifier au prochain test téléphonique** : pas de garantie
+      qu'un LLM suive une consigne à 100 %.
 - [ ] **Latence perçue** signalée comme un peu longue en test vocal — à
       objectiver (mesurer précisément où le temps passe) avant de chercher
-      à l'améliorer.
+      à l'améliorer. Prévu au protocole de test téléphonique (E).
 - [ ] Continuer le cycle mesure-ajustement sur la prononciation au fil des
       tests — ce n'est jamais "terminé" (voir CLAUDE.md, pièges connus).
+      Nouveau point relevé en scannant tout le GTFS (27/08) : "Chemin des
+      Pinet" ressemblait à un nom tronqué mais n'en est pas un — c'est un
+      nom de *station* GTFS, jamais renvoyé par nos outils (le véritable
+      arrêt embarquable s'appelle "Pinettes", un mot complet). Aucune
+      action nécessaire, gardé en note pour ne pas se reposer la question.
 - [ ] **Discuter à qui revient la maintenance du dictionnaire de
       prononciation à terme** : l'équipe de chaque réseau connaît mieux
-      que nous la prononciation locale — évaluer un transfert de cette
-      tâche vers eux une fois un outil d'édition en place (voir point C
-      "dictionnaire depuis le back-office" ci-dessous).
+      que nous la prononciation locale — un outil d'édition existe
+      maintenant côté back-office (voir B, onglet Prononciation), ce qui
+      rend ce transfert plus concret à envisager.
 
 ## B. Expérience équipe (back-office)
 
@@ -90,6 +98,38 @@ l'historique Git pour le détail des commits.
       réel complet depuis un environnement avec accès réseau — à
       contrôler sur un vrai appel récent.
 
+### Fait le 27/08/2026
+
+- [x] **Onglet "Prononciation" dans le back-office** : dictionnaire éditable
+      sans passer par ElevenLabs — le levier de paramétrage prioritaire
+      identifié la veille. Ajout/suppression de règles, persistantes
+      (table `regles_prononciation` dans `data/etat/assistant.db`,
+      survit aux déploiements contrairement au fichier `.pls`),
+      appliquées immédiatement à `rechercher_arret`. Dictionnaire de
+      référence (`data/prononciation.pls`, 324 règles) affiché en lecture
+      seule avec filtre.
+      **Limite connue** : ne synchronise pas (encore) le dictionnaire
+      ElevenLabs lui-même — nécessite l'identifiant de ce dictionnaire,
+      pas encore récupéré.
+- [x] **Évaluation par appel — décision de garder le binaire** (bonne/
+      mauvaise + note libre) plutôt qu'une échelle, pour ce POC : le
+      volume d'appels ne justifie pas la granularité, et la note libre
+      capture déjà l'essentiel. Sujet à rouvrir si le volume augmente.
+- [x] **Clarifié : aucun sondage de satisfaction côté appelant** (téléphone
+      ou SMS) n'a jamais été prompté ni construit — vérifié dans la spec
+      et le prompt système. Reste un sujet ouvert si l'équipe le souhaite
+      (ferait probablement l'objet d'un chantier à part, la capacité SMS
+      n'étant pas câblée dans le projet).
+- [x] **Clarifié : le like/dislike ne fait pas "apprendre" le bot
+      automatiquement** — aucun mécanisme de fine-tuning accessible côté
+      ElevenLabs. Le vrai cycle est médié par un humain : relecture →
+      pattern repéré → modification manuelle (prompt, dictionnaire,
+      base de connaissance) → déploiement. C'est exactement ce qui a été
+      fait cette session (le prompt "Est-ce que bien...", ci-dessus).
+      Piste non développée : agréger les notes des mauvaises évaluations
+      par thème pour accélérer la relecture humaine — à construire si
+      utile une fois le volume d'appels réel connu.
+
 ### Restant
 
 - [ ] **Corriger le bug d'écoute des voix** (voir ci-dessus) — probablement
@@ -104,15 +144,23 @@ l'historique Git pour le détail des commits.
       vérifier la limite affichée côté ElevenLabs (Paramètres/Abonnement),
       (2) tester réellement 2-3 appels simultanés (téléphone ou widget)
       pour confirmer que notre back-end encaisse sans souci.
-- [ ] **Dictionnaire de prononciation depuis le back-office** : prochain
-      levier de paramétrage identifié avec l'équipe (ElevenLabs expose une
-      API pour ça, `/v1/pronunciation-dictionaries`) — même logique que le
-      changement de voix. Priorité proposée pour la suite de ce chantier
-      "paramétrable sans ElevenLabs".
+- [ ] **Synchroniser le dictionnaire de prononciation vers ElevenLabs**
+      (voir ci-dessus) : récupérer l'identifiant du dictionnaire déjà
+      publié côté ElevenLabs, puis appeler leur API `add-rules` depuis
+      le bouton "Ajouter" du back-office.
 - [ ] **Curseurs "ton"/"style"** : fonctionnels mais leur valeur par défaut
       ne reflète pas le réglage réellement en place (page volontairement
       indépendante d'ElevenLabs au chargement) — à surveiller à l'usage,
       pas gênant en soi mais à expliquer à l'équipe CRC.
+- [ ] **Numéro Twilio français** : les exigences françaises ont été
+      significativement simplifiées par Twilio en septembre 2025 (plus
+      besoin de pièce d'identité ni de preuve d'autorisation — juste un
+      K-bis, l'email du représentant, un site web/page entreprise). Coût
+      quasi nul pour l'utilisateur (forfait illimité Europe) contre un
+      numéro US potentiellement coûteux à plusieurs tests en parallèle.
+      À confirmer dans la console Twilio avant de se lancer (recherche
+      web uniquement, pas de lecture directe de la doc Twilio possible
+      depuis cet environnement).
 
 ## C. Dupliquer pour un autre réseau (nouveau chantier, pas commencé)
 
