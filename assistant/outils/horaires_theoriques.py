@@ -35,6 +35,19 @@ def _formater_heure(secondes):
     return f"{h % 24:02d}:{m:02d}"
 
 
+def _parser_heure(hhmm):
+    """"HH:MM" -> secondes depuis minuit. None si absent ou mal formé —
+    jamais d'exception : une plage mal formée doit dégrader la réponse,
+    pas faire planter l'outil (voir horaires_theoriques)."""
+    if not hhmm:
+        return None
+    try:
+        h, m = hhmm.strip().split(":")
+        return int(h) * 3600 + int(m) * 60
+    except (ValueError, AttributeError):
+        return None
+
+
 def _services_actifs(conn, date):
     """service_id actifs ce jour-là : règle hebdomadaire de calendar.txt,
     corrigée par les exceptions de calendar_dates.txt."""
@@ -117,7 +130,7 @@ def _departs_du_jour(conn, membres, date, ligne=None, direction=None):
 
 
 def horaires_theoriques(arret_id, ligne=None, direction=None, type="prochains",
-                         date=None, nb=3, conn=None):
+                         date=None, nb=3, heure_debut=None, heure_fin=None, conn=None):
     fermer = conn is None
     conn = conn or connexion_gtfs()
 
@@ -167,6 +180,21 @@ def horaires_theoriques(arret_id, ligne=None, direction=None, type="prochains",
                 "heure": _formater_heure(d["_secondes"]),
                 "dans_minutes": dans_minutes,
             })
+    elif type == "creneau":
+        secondes_debut = _parser_heure(heure_debut)
+        secondes_fin = _parser_heure(heure_fin)
+        if secondes_debut is None or secondes_fin is None:
+            if fermer:
+                conn.close()
+            return {"erreur": "heure_debut et heure_fin (format HH:MM) sont obligatoires avec type='creneau'"}
+        for d in departs_jour:
+            if secondes_debut <= d["_secondes"] <= secondes_fin:
+                departs_reponse.append({
+                    "ligne": d["ligne"],
+                    "destination": d["destination"],
+                    "heure": _formater_heure(d["_secondes"]),
+                    "dans_minutes": None,
+                })
 
     if fermer:
         conn.close()

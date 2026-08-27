@@ -54,9 +54,11 @@ class HorairesRequete(BaseModel):
     arret_id: str
     ligne: Optional[str] = None
     direction: Optional[str] = None
-    type: Literal["prochains", "premier", "dernier", "circulation"] = "prochains"
+    type: Literal["prochains", "premier", "dernier", "circulation", "creneau"] = "prochains"
     date: Optional[str] = None
     nb: int = 3
+    heure_debut: Optional[str] = None  # "HH:MM", avec type="creneau" uniquement
+    heure_fin: Optional[str] = None    # "HH:MM", avec type="creneau" uniquement
 
 
 class Depart(BaseModel):
@@ -67,11 +69,12 @@ class Depart(BaseModel):
 
 
 class HorairesReponse(BaseModel):
-    type_service: str
-    circule_aujourdhui: bool
-    departs: list[Depart]
-    premier: Optional[str]
-    dernier: Optional[str]
+    type_service: Optional[str] = None
+    circule_aujourdhui: Optional[bool] = None
+    departs: Optional[list[Depart]] = None
+    premier: Optional[str] = None
+    dernier: Optional[str] = None
+    erreur: Optional[str] = None
 
 
 # --- enregistrer_objet_perdu ---

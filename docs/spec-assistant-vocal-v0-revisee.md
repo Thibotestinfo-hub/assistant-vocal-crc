@@ -134,9 +134,11 @@ L'index phonétique est généré depuis `stops.txt` (forme normalisée + double
     "arret_id": { "type": "string" },
     "ligne": { "type": "string", "required": false },
     "direction": { "type": "string", "required": false },
-    "type": { "type": "string", "enum": ["prochains", "premier", "dernier", "circulation"] },
+    "type": { "type": "string", "enum": ["prochains", "premier", "dernier", "circulation", "creneau"] },
     "date": { "type": "string", "description": "ISO, défaut aujourd'hui", "required": false },
-    "nb": { "type": "integer", "default": 3 }
+    "nb": { "type": "integer", "default": 3 },
+    "heure_debut": { "type": "string", "description": "HH:MM, avec type=creneau uniquement", "required": false },
+    "heure_fin": { "type": "string", "description": "HH:MM, avec type=creneau uniquement", "required": false }
   }
 }
 ```
@@ -156,6 +158,7 @@ Retour :
 ```
 
 - `type = circulation` répond à « est-ce que ça roule le dimanche ». C'est un motif d'appel fréquent et souvent mal traité.
+- `type = creneau` répond à « quels sont les départs entre 14h et 16h ? ». `heure_debut` et `heure_fin` sont alors obligatoires (HH:MM) ; `departs` contient tous les passages dans la plage, bornes incluses, sans `dans_minutes` (la plage n'est pas nécessairement centrée sur maintenant).
 - Si `circule_aujourdhui` est faux, l'agent le dit **avant** de donner le moindre horaire.
 - Après le dernier départ, renvoyer le premier du lendemain.
 - Toute réponse est explicitement présentée comme un horaire prévu, jamais comme une position en direct.

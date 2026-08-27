@@ -61,6 +61,7 @@ def route_horaires_theoriques(requete: HorairesRequete):
     return horaires_theoriques(
         requete.arret_id, requete.ligne, requete.direction,
         requete.type, requete.date, requete.nb,
+        requete.heure_debut, requete.heure_fin,
     )
 
 
