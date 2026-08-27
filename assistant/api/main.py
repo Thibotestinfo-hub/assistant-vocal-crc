@@ -17,12 +17,13 @@ from assistant.api.schemas import (
     ObjetPerduRequete, ObjetPerduReponse,
     RappelRequete, RappelReponse,
     RechercherArretRequete, RechercherArretReponse,
+    SatisfactionRequete, SatisfactionReponse,
     TransfertRequete, TransfertReponse,
 )
 from assistant.backoffice.activation import basculer, lister_activations, verifier_outil_actif
 from assistant.backoffice.appels import (
     compter_appels, enregistrer_appel, enregistrer_evaluation, lister_appels_avec_details,
-    resumer_evaluations, resumer_tracabilite, retraiter_tracabilite,
+    resumer_evaluations, resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
 )
 from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel,
@@ -35,6 +36,7 @@ from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
 from assistant.outils.rechercher_arret import rechercher_arret
 from assistant.outils.rechercher_information import rechercher_information
+from assistant.outils.satisfaction import enregistrer_satisfaction
 from assistant.outils.transfert import transferer_agent
 
 app = FastAPI(title="Assistant vocal — API des outils")
@@ -86,6 +88,15 @@ def route_rechercher_information(requete: InformationRequete):
     return rechercher_information(requete.question, requete.categorie)
 
 
+@app.post("/outils/enregistrer_satisfaction", response_model=SatisfactionReponse,
+          dependencies=[Depends(verifier_jeton)])
+def route_enregistrer_satisfaction(requete: SatisfactionRequete):
+    """Pas de verifier_outil_actif : ce n'est pas une fonctionnalité que
+    l'équipe CRC activerait/désactiverait comme les autres outils, juste
+    de l'instrumentation."""
+    return enregistrer_satisfaction(requete.conversation_id, requete.satisfait)
+
+
 # --- Back-office (Étape 6) ---
 
 @app.post("/webhooks/elevenlabs/fin_appel", dependencies=[Depends(verifier_jeton_requete)])
@@ -112,8 +123,8 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, erreur_prononciatio
         en_cours = None
     return page_backoffice(
         lister_appels_avec_details(), lister_activations(), compter_appels(),
-        resumer_evaluations(), resumer_tracabilite(), lister_demandes_rappel(),
-        en_cours, lister_toutes_regles(),
+        resumer_evaluations(), resumer_satisfaction_client(), resumer_tracabilite(),
+        lister_demandes_rappel(), en_cours, lister_toutes_regles(),
         erreur_voix=erreur_voix, erreur_prononciation=erreur_prononciation,
     )
 

@@ -124,3 +124,17 @@ class TransfertRequete(BaseModel):
 class TransfertReponse(BaseModel):
     succes: bool
     transfert_id: int
+
+
+# --- enregistrer_satisfaction ---
+# conversation_id : fourni par ElevenLabs via la variable dynamique
+# {{system__conversation_id}}, à déclarer dans la configuration de
+# l'outil côté agent (voir assistant/outils/satisfaction.py).
+
+class SatisfactionRequete(BaseModel):
+    conversation_id: str
+    satisfait: bool
+
+
+class SatisfactionReponse(BaseModel):
+    succes: bool

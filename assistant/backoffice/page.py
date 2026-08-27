@@ -496,6 +496,9 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 .badge-origine {{ padding: 0.15rem 0.55rem; border-radius: 5px; font-size: 0.72rem; }}
 .badge-origine.reference {{ background: var(--fond); color: var(--texte-doux); border: 1px solid var(--bordure); }}
 .badge-origine.equipe {{ background: {SAUGE}88; }}
+
+.badge-satisfaction-client {{ font-size: 0.95rem; }}
+.badge-satisfaction-client.aucune {{ color: var(--texte-doux); font-size: 0.8rem; }}
 .form-edition-regle {{ display: flex; gap: 0.4rem; align-items: center; }}
 .champ-edition-regle {{
   font-family: inherit;
@@ -526,6 +529,16 @@ def _voix_appel(voix_utilisees):
     return ", ".join(nom_voix(v) for v in voix)
 
 
+def _badge_satisfaction_client(satisfaction_client):
+    """satisfaction_client vient d'un LEFT JOIN (voir lister_appels_avec_details) :
+    1 = satisfait, 0 = pas satisfait, None = l'appelant n'a pas répondu."""
+    if satisfaction_client is None:
+        return '<span class="badge-satisfaction-client aucune" title="L\'appelant n\'a pas répondu">—</span>'
+    if satisfaction_client:
+        return '<span class="badge-satisfaction-client positive" title="Appelant satisfait">👍</span>'
+    return '<span class="badge-satisfaction-client negative" title="Appelant non satisfait">👎</span>'
+
+
 def _ligne_tableau_appel(a, numero):
     date, _, heure = (a["cree_le"] or "").partition("T")
     return f"""<tr>
@@ -535,6 +548,7 @@ def _ligne_tableau_appel(a, numero):
   <td>{html.escape(heure)}</td>
   <td>{_formater_duree(a.get('duree_secs'))}</td>
   <td class="col-motif-table">{html.escape(_motif_appel(a.get('outils_utilises')))}</td>
+  <td>{_badge_satisfaction_client(a.get('satisfaction_client'))}</td>
   <td><button type="button" class="bouton-voir" id="bouton-voir-{a['id']}" onclick="afficherDetail({a['id']})" title="Voir le détail">👁</button></td>
 </tr>"""
 
@@ -864,8 +878,8 @@ def _carte_dictionnaire_prononciation(regles):
 </div>"""
 
 
-def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, demandes_rappel, en_cours,
-                     regles_prononciation, erreur_voix=False, erreur_prononciation=False):
+def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_client, tracabilite,
+                     demandes_rappel, en_cours, regles_prononciation, erreur_voix=False, erreur_prononciation=False):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -873,6 +887,14 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
     else:
         pct = "—"
         libelle_satisfaction = "aucune évaluation pour l'instant"
+
+    satisfaits_client, total_client = satisfaction_client
+    if total_client:
+        pct_client = f"{round(100 * satisfaits_client / total_client)}%"
+        libelle_client = f"{satisfaits_client}/{total_client} appelants ont répondu"
+    else:
+        pct_client = "—"
+        libelle_client = "aucune réponse pour l'instant"
 
     duree_valeur = _formater_duree(tracabilite["duree_moyenne_secs"])
     horaire_valeur = tracabilite["horaire_moyen"] or "à venir"
@@ -939,8 +961,15 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
         <div class="compteur" style="--accent:{ROSE}">
           <div class="icone-compteur">{_ICONES_COMPTEURS['satisfaction']}</div>
           <div class="compteur-corps">
+            <div class="valeur">{pct_client}</div>
+            <div class="libelle">Satisfaction client — {libelle_client}</div>
+          </div>
+        </div>
+        <div class="compteur" style="--accent:{ROSE}">
+          <div class="icone-compteur">👤</div>
+          <div class="compteur-corps">
             <div class="valeur">{pct}</div>
-            <div class="libelle">Satisfaction — {libelle_satisfaction}</div>
+            <div class="libelle">Évaluation équipe — {libelle_satisfaction}</div>
           </div>
         </div>
         <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{SAUGE}">
@@ -985,6 +1014,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
             <th>Heure</th>
             <th>Durée</th>
             <th>Motif</th>
+            <th>Satisfaction client</th>
             <th>Voir</th>
           </tr>
         </thead>

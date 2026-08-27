@@ -119,6 +119,19 @@ CREATE TABLE IF NOT EXISTS regles_prononciation (
     alias TEXT NOT NULL,
     cree_le TEXT NOT NULL
 );
+
+-- Satisfaction déclarée par l'appelant lui-même (à distinguer de
+-- evaluations_appels, qui est l'avis de l'équipe sur la qualité d'un
+-- appel a posteriori). Enregistrée par l'outil enregistrer_satisfaction,
+-- appelé PENDANT l'appel (avant le webhook de fin d'appel qui crée la
+-- ligne dans "appels") : table à part, jointe par conversation_id à
+-- l'affichage plutôt qu'une colonne dans "appels", pour ne pas dépendre
+-- de l'ordre d'arrivée entre les deux (voir assistant/backoffice/appels.py).
+CREATE TABLE IF NOT EXISTS satisfaction_appels (
+    conversation_id TEXT PRIMARY KEY,
+    satisfait INTEGER NOT NULL,
+    cree_le TEXT NOT NULL
+);
 """
 
 NOMS_OUTILS = [

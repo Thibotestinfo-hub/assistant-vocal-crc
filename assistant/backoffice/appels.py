@@ -158,12 +158,16 @@ def lister_appels_avec_details(limite=100):
     """Comme lister_appels, mais avec la charge brute et les évaluations
     de chaque appel déjà chargées — utilisé par la page back-office
     consolidée, qui affiche tout sur un seul écran (accordéon HTML natif,
-    sans rechargement de page par appel)."""
+    sans rechargement de page par appel). satisfaction_client : jointe
+    par conversation_id (voir satisfaction_appels dans assistant/outils/db.py) —
+    None si l'appelant n'a pas répondu ou si l'outil n'a pas été appelé,
+    à distinguer d'un "non" explicite (0)."""
     conn = connexion_app()
     appels = conn.execute(
-        "SELECT id, cree_le, conversation_id, agent_id, statut, donnees_brutes, "
-        "duree_secs, outils_utilises, voix_utilisees FROM appels "
-        "ORDER BY id DESC LIMIT ?",
+        "SELECT a.id, a.cree_le, a.conversation_id, a.agent_id, a.statut, a.donnees_brutes, "
+        "a.duree_secs, a.outils_utilises, a.voix_utilisees, s.satisfait AS satisfaction_client "
+        "FROM appels a LEFT JOIN satisfaction_appels s ON s.conversation_id = a.conversation_id "
+        "ORDER BY a.id DESC LIMIT ?",
         (limite,),
     ).fetchall()
     resultat = []
@@ -206,6 +210,19 @@ def resumer_evaluations():
     total = len(lignes)
     bonnes = sum(1 for l in lignes if l["qualite"] == "bonne")
     return bonnes, total
+
+
+def resumer_satisfaction_client():
+    """(nb_satisfaits, nb_total) déclarés par les appelants eux-mêmes —
+    à distinguer de resumer_evaluations(), qui est l'avis de l'équipe.
+    Une réponse par conversation_id (clé primaire de satisfaction_appels),
+    donc pas de risque de double-compte."""
+    conn = connexion_app()
+    lignes = conn.execute("SELECT satisfait FROM satisfaction_appels").fetchall()
+    conn.close()
+    total = len(lignes)
+    satisfaits = sum(1 for l in lignes if l["satisfait"])
+    return satisfaits, total
 
 
 def resumer_tracabilite():
