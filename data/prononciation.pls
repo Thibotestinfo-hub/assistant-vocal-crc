@@ -226,6 +226,10 @@
     <alias>Champigni</alias>
   </lexeme>
   <lexeme>
+    <grapheme>Chateau de la Pl</grapheme>
+    <alias>Château de la Plantade</alias>
+  </lexeme>
+  <lexeme>
     <grapheme>Chemin de Fer</grapheme>
     <alias>Chemin de fèr</alias>
   </lexeme>
