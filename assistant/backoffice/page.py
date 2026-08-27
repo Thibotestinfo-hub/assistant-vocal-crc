@@ -21,6 +21,7 @@ et l'anneau du bouton, comme dans la maquette."""
 import html
 import json
 import time
+from urllib.parse import quote
 
 from assistant.elevenlabs_api import nom_voix, voix_disponibles
 
@@ -129,7 +130,7 @@ main {{
 .onglets {{
   display: flex;
   margin-bottom: 1.8rem;
-  max-width: 34rem;
+  max-width: 46rem;
 }}
 .onglet-btn {{
   font-family: inherit;
@@ -403,6 +404,8 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
    de rappel — ont ainsi la même largeur, voir maquette du 26/08) --- */
 .carte-tableau {{ padding: 0; overflow-x: auto; margin-bottom: 1.5rem; }}
 .carte-tableau table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
+.tableau-scroll {{ max-height: 28rem; overflow-y: auto; }}
+.tableau-scroll th {{ position: sticky; top: 0; background: var(--carte); }}
 .carte-tableau th {{
   text-align: left;
   font-size: 0.72rem;
@@ -776,7 +779,91 @@ def _carte_repartition(repartition, suffixe_trace):
 </div>"""
 
 
-def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, demandes_rappel, en_cours, erreur_voix=False):
+def _carte_ajout_regle(erreur):
+    erreur_html = (
+        '<p class="erreur-voix">Le nom et la prononciation sont obligatoires tous les deux.</p>'
+        if erreur else ""
+    )
+    return f"""<div class="carte" style="margin-bottom:1.5rem">
+  <h2>Ajouter une règle</h2>
+  <form method="post" action="/backoffice/prononciation/ajouter" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:flex-end">
+    <div>
+      <label class="champ-label" style="margin:0 0 0.3rem">Nom tel qu'il apparaît (GTFS)</label>
+      <input type="text" name="grapheme" required placeholder="ex. Chemin des Pinet"
+             style="padding:0.55rem 0.8rem;border-radius:7px;border:1px solid var(--bordure);min-width:16rem">
+    </div>
+    <div>
+      <label class="champ-label" style="margin:0 0 0.3rem">Prononciation voulue</label>
+      <input type="text" name="alias" required placeholder="ex. Chemin des Pinèdes"
+             style="padding:0.55rem 0.8rem;border-radius:7px;border:1px solid var(--bordure);min-width:16rem">
+    </div>
+    <button type="submit" class="bouton accent">Ajouter</button>
+  </form>
+  {erreur_html}
+  <p class="note-a-venir">S'applique immédiatement à ce que dit rechercher_arret. Ne modifie pas (encore) le dictionnaire ElevenLabs lui-même.</p>
+</div>"""
+
+
+def _ligne_regle_backoffice(regle):
+    grapheme_url = quote(regle["grapheme"], safe="")
+    return f"""<tr>
+  <td>{html.escape(regle['grapheme'])}</td>
+  <td>{html.escape(regle['alias'])}</td>
+  <td>{html.escape(regle['cree_le'])}</td>
+  <td>
+    <form method="post" action="/backoffice/prononciation/{grapheme_url}/supprimer" style="margin:0">
+      <button type="submit" class="bouton-voir" title="Supprimer">🗑</button>
+    </form>
+  </td>
+</tr>"""
+
+
+def _carte_regles_backoffice(regles):
+    lignes = (
+        "\n".join(_ligne_regle_backoffice(r) for r in regles)
+        if regles else '<tr><td colspan="4">Aucune règle ajoutée pour l\'instant.</td></tr>'
+    )
+    return f"""<div class="carte carte-tableau" style="margin-bottom:1.5rem">
+  <div style="padding:1rem 1rem 0">
+    <h2 style="margin:0">Règles ajoutées depuis le back-office ({len(regles)})</h2>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Nom</th><th>Prononciation</th><th>Ajoutée le</th><th></th></tr>
+    </thead>
+    <tbody>{lignes}</tbody>
+  </table>
+</div>"""
+
+
+def _ligne_regle_fichier(grapheme, alias):
+    return f"""<tr>
+  <td>{html.escape(grapheme)}</td>
+  <td>{html.escape(alias)}</td>
+</tr>"""
+
+
+def _carte_regles_fichier(regles):
+    lignes = "\n".join(_ligne_regle_fichier(g, a) for g, a in regles)
+    return f"""<div class="carte carte-tableau">
+  <div style="padding:1rem 1rem 0;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+    <h2 style="margin:0">Dictionnaire de référence ({len(regles)}) — data/prononciation.pls</h2>
+    <input type="text" id="filtre-regles" placeholder="Filtrer..." oninput="filtrerReglesFichier()"
+           style="padding:0.5rem 0.8rem;border-radius:7px;border:1px solid var(--bordure)">
+  </div>
+  <div class="tableau-scroll">
+    <table id="table-regles-fichier">
+      <thead>
+        <tr><th>Nom</th><th>Prononciation</th></tr>
+      </thead>
+      <tbody>{lignes}</tbody>
+    </table>
+  </div>
+</div>"""
+
+
+def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, demandes_rappel, en_cours,
+                     regles_backoffice, regles_fichier, erreur_voix=False, erreur_prononciation=False):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -819,6 +906,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
   <div class="onglets">
     <button type="button" class="onglet-btn actif" data-cible="live" onclick="afficherOnglet('live')">Live</button>
     <button type="button" class="onglet-btn" data-cible="suivi" onclick="afficherOnglet('suivi')">Suivi</button>
+    <button type="button" class="onglet-btn" data-cible="prononciation" onclick="afficherOnglet('prononciation')">Prononciation</button>
   </div>
 
   <div id="onglet-live" class="contenu-onglet">
@@ -913,8 +1001,20 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
 
   </div>
 
+  <div id="onglet-prononciation" class="contenu-onglet" style="display:none">
+    {_carte_ajout_regle(erreur_prononciation)}
+    {_carte_regles_backoffice(regles_backoffice)}
+    {_carte_regles_fichier(regles_fichier)}
+  </div>
+
 </main>
 <script>
+function filtrerReglesFichier() {{
+  var filtre = document.getElementById('filtre-regles').value.toLowerCase();
+  document.querySelectorAll('#table-regles-fichier tbody tr').forEach(function(tr) {{
+    tr.style.display = tr.textContent.toLowerCase().indexOf(filtre) === -1 ? 'none' : '';
+  }});
+}}
 function ecouterVoix() {{
   var select = document.getElementById('select-voix');
   var voiceId = select.value;
@@ -967,6 +1067,8 @@ document.addEventListener('DOMContentLoaded', function() {{
     afficherOnglet('suivi');
     var id = location.hash.indexOf('#appel-') === 0 ? location.hash.slice(7) : null;
     if (id) afficherDetail(id);
+  }} else if (location.hash === '#prononciation') {{
+    afficherOnglet('prononciation');
   }}
 }});
 </script>

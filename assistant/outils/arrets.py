@@ -10,7 +10,7 @@ horaires_theoriques (pour interroger tous les quais d'un même arrêt).
 import unicodedata
 
 from assistant.ingestion.phonetique import code_phonetique
-from assistant.ingestion.prononciation import nom_prononcable
+from assistant.ingestion.prononciation import nom_prononcable, regles_backoffice
 from assistant.outils.db import connexion_gtfs
 
 
@@ -43,13 +43,14 @@ def charger_arrets_logiques(conn=None):
         """
     ).fetchall()
 
+    overrides = regles_backoffice()  # une seule requête pour tout le lot, pas une par arrêt
     arrets = []
     for row in lignes_par_arret:
         membres = row["stop_ids"].split(",")
         arrets.append({
             "stop_id": membres[0],
             "stop_name": row["stop_name"],
-            "nom_prononcable": nom_prononcable(row["stop_name"]),
+            "nom_prononcable": nom_prononcable(row["stop_name"], overrides),
             "commune": row["commune"],
             "membres": membres,
             "lignes": sorted(row["lignes"].split(","), key=lambda x: (len(x), x)),

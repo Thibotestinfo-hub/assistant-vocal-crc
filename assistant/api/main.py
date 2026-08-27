@@ -28,6 +28,9 @@ from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel,
 )
 from assistant.backoffice.page import page_backoffice
+from assistant.backoffice.prononciation import (
+    ajouter_regle, lister_regles_backoffice, lister_regles_fichier, supprimer_regle,
+)
 from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
@@ -102,7 +105,7 @@ async def route_webhook_fin_appel(request: Request):
 
 @app.get("/backoffice/appels", response_class=HTMLResponse,
          dependencies=[Depends(verifier_acces_backoffice)])
-def route_backoffice_liste_appels(erreur_voix: bool = False):
+def route_backoffice_liste_appels(erreur_voix: bool = False, erreur_prononciation: bool = False):
     try:
         en_cours = appels_en_cours()
     except Exception:
@@ -112,7 +115,8 @@ def route_backoffice_liste_appels(erreur_voix: bool = False):
     return page_backoffice(
         lister_appels_avec_details(), lister_activations(), compter_appels(),
         resumer_evaluations(), resumer_tracabilite(), lister_demandes_rappel(),
-        en_cours, erreur_voix=erreur_voix,
+        en_cours, lister_regles_backoffice(), lister_regles_fichier(),
+        erreur_voix=erreur_voix, erreur_prononciation=erreur_prononciation,
     )
 
 
@@ -200,3 +204,19 @@ def route_export_demandes_rappel():
 def route_backoffice_basculer(outil: str):
     basculer(outil)
     return RedirectResponse("/backoffice/appels", status_code=303)
+
+
+@app.post("/backoffice/prononciation/ajouter",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_ajouter_prononciation(grapheme: str = Form(...), alias: str = Form(...)):
+    resultat = ajouter_regle(grapheme, alias)
+    if not resultat["succes"]:
+        return RedirectResponse("/backoffice/appels?erreur_prononciation=1#prononciation", status_code=303)
+    return RedirectResponse("/backoffice/appels#prononciation", status_code=303)
+
+
+@app.post("/backoffice/prononciation/{grapheme}/supprimer",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_supprimer_prononciation(grapheme: str):
+    supprimer_regle(grapheme)
+    return RedirectResponse("/backoffice/appels#prononciation", status_code=303)

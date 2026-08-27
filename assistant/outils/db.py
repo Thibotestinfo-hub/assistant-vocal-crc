@@ -106,6 +106,19 @@ CREATE TABLE IF NOT EXISTS evaluations_appels (
     qualite TEXT NOT NULL CHECK (qualite IN ('bonne', 'mauvaise')),
     note TEXT
 );
+
+-- Règles de prononciation ajoutées depuis le back-office, en plus de
+-- data/prononciation.pls (versionné, mais réécrit à neuf à chaque
+-- déploiement comme tout data/ hors data/etat/ — voir l'en-tête de ce
+-- fichier). Une règle ajoutée ici prévaut sur celle du fichier pour le
+-- même nom (voir assistant/ingestion/prononciation.py), et survit aux
+-- déploiements puisqu'elle vit dans data/etat/, comme les autres
+-- tables de cette base.
+CREATE TABLE IF NOT EXISTS regles_prononciation (
+    grapheme TEXT PRIMARY KEY,
+    alias TEXT NOT NULL,
+    cree_le TEXT NOT NULL
+);
 """
 
 NOMS_OUTILS = [
