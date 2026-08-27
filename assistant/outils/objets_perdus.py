@@ -2,9 +2,7 @@
 Outil `enregistrer_objet_perdu`. Contrat : spec §4.
 """
 
-from datetime import datetime
-
-from assistant.outils.db import connexion_app
+from assistant.outils.db import connexion_app, horodatage
 
 CHAMPS_OBLIGATOIRES = [
     "nature", "description", "date_perte", "creneau_horaire", "lieu",
@@ -26,7 +24,7 @@ def enregistrer_objet_perdu(**donnees):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            datetime.now().isoformat(timespec="seconds"),
+            horodatage(),
             donnees["nature"], donnees["description"],
             donnees.get("ligne"), donnees.get("sens"),
             donnees["date_perte"], donnees["creneau_horaire"], donnees["lieu"],

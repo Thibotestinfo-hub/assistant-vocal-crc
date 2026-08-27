@@ -10,9 +10,8 @@ que widget, par exemple) aurait une structure différente.
 """
 
 import json
-from datetime import datetime
 
-from assistant.outils.db import connexion_app
+from assistant.outils.db import connexion_app, horodatage
 
 
 def _extraire_tracabilite(donnees):
@@ -94,7 +93,7 @@ def enregistrer_appel(charge_brute: dict):
             voix_utilisees = excluded.voix_utilisees
         """,
         (
-            datetime.now().isoformat(timespec="seconds"),
+            horodatage(),
             conversation_id, agent_id, statut,
             json.dumps(charge_brute, ensure_ascii=False),
             tracabilite["duree_secs"], tracabilite["cout_usd"],
@@ -294,7 +293,7 @@ def enregistrer_evaluation(appel_id, qualite, note=None):
     conn = connexion_app()
     conn.execute(
         "INSERT INTO evaluations_appels (appel_id, cree_le, qualite, note) VALUES (?, ?, ?, ?)",
-        (appel_id, datetime.now().isoformat(timespec="seconds"), qualite, note or None),
+        (appel_id, horodatage(), qualite, note or None),
     )
     conn.commit()
     conn.close()

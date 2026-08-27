@@ -16,10 +16,8 @@ d'arrêt (rechercher_arret), pas d'éventuelles autres lectures du nom par
 la voix ailleurs dans la conversation.
 """
 
-from datetime import datetime
-
 from assistant.ingestion.prononciation import dictionnaire_fichier
-from assistant.outils.db import connexion_app
+from assistant.outils.db import connexion_app, horodatage
 
 
 def ajouter_regle(grapheme, alias):
@@ -31,7 +29,7 @@ def ajouter_regle(grapheme, alias):
     conn.execute(
         "INSERT INTO regles_prononciation (grapheme, alias, cree_le) VALUES (?, ?, ?) "
         "ON CONFLICT(grapheme) DO UPDATE SET alias = excluded.alias, cree_le = excluded.cree_le",
-        (grapheme, alias, datetime.now().isoformat(timespec="seconds")),
+        (grapheme, alias, horodatage()),
     )
     conn.commit()
     conn.close()

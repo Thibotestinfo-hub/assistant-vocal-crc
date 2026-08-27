@@ -2,9 +2,7 @@
 Outil `demander_rappel`. Contrat : spec §4.
 """
 
-from datetime import datetime
-
-from assistant.outils.db import connexion_app
+from assistant.outils.db import connexion_app, horodatage
 
 MOTIFS_VALIDES = {"amende", "reclamation", "tad", "scolaire", "hors_perimetre", "demande_agent"}
 
@@ -22,7 +20,7 @@ def demander_rappel(telephone, motif, resume, nom=None, email=None, opt_in_marke
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            datetime.now().isoformat(timespec="seconds"),
+            horodatage(),
             telephone, nom, email, motif, resume, int(bool(opt_in_marketing)),
         ),
     )

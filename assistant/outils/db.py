@@ -27,11 +27,26 @@ Connexions aux deux bases du projet.
 """
 
 import sqlite3
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 RACINE = Path(__file__).resolve().parent.parent.parent
 DB_GTFS_PATH = RACINE / "data" / "gtfs.db"
 DB_APP_PATH = RACINE / "data" / "etat" / "assistant.db"
+
+# Le serveur (Clever Cloud) tourne en UTC, pas en heure française (même
+# piège que dans assistant/outils/horaires_theoriques.py). Sans ce
+# recentrage, tout cree_le stocké avec datetime.now().isoformat() était
+# affiché 1 à 2h en retard dans le back-office selon la saison.
+_FUSEAU = ZoneInfo("Europe/Paris")
+
+
+def horodatage():
+    """Horodatage ISO (YYYY-MM-DDTHH:MM:SS) en heure française, sans
+    suffixe de fuseau — pour rester compatible avec le code existant qui
+    tranche cree_le par position de caractère (ex. cree_le[11:16])."""
+    return datetime.now(_FUSEAU).replace(tzinfo=None).isoformat(timespec="seconds")
 
 _SCHEMA_APP = """
 CREATE TABLE IF NOT EXISTS objets_perdus (
