@@ -57,7 +57,7 @@ def rechercher_arret(texte, commune=None, ligne=None, conn=None):
         "candidats": [
             {
                 "arret_id": c["stop_id"],
-                "nom": c["stop_name"],
+                "nom": c["nom_prononcable"],
                 "commune": c["commune"],
                 "lignes": c["lignes"],
                 "score": round(score, 2),
