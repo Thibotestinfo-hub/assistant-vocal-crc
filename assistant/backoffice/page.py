@@ -638,16 +638,16 @@ def _carte_power(activations):
 </div>"""
 
 
-def _carte_voix(erreur_voix):
+def _carte_voix(erreur_voix, detail_voix=""):
     options = "".join(
         f'<option value="{html.escape(v["id"])}">{html.escape(v["nom"])}</option>'
         for v in voix_disponibles()
     )
-    erreur_html = (
-        '<p class="erreur-voix">Le changement a échoué (ElevenLabs indisponible '
-        "ou clé API manquante). Réessayez dans un instant.</p>"
-        if erreur_voix else ""
-    )
+    if erreur_voix:
+        detail = f" — détail : {html.escape(detail_voix)}" if detail_voix else ""
+        erreur_html = f'<p class="erreur-voix">Le changement a échoué (ElevenLabs indisponible ou clé API manquante){detail}.</p>'
+    else:
+        erreur_html = ""
     return f"""<div class="carte carte-voix">
   <h2>Paramétrages <em>voix</em></h2>
   <form class="voix-form-complete" method="post" action="/backoffice/voix/changer">
@@ -879,7 +879,8 @@ def _carte_dictionnaire_prononciation(regles):
 
 
 def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_client, tracabilite,
-                     demandes_rappel, en_cours, regles_prononciation, erreur_voix=False, erreur_prononciation=False):
+                     demandes_rappel, en_cours, regles_prononciation, erreur_voix=False, detail_voix="",
+                     erreur_prononciation=False):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -936,7 +937,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
   <div id="onglet-live" class="contenu-onglet">
     <div class="grille-live-haut">
       {_carte_power(activations)}
-      {_carte_voix(erreur_voix)}
+      {_carte_voix(erreur_voix, detail_voix)}
       {_carte_appels_en_cours(en_cours)}
       <div class="carte carte-outils">
         <h2>Outils actifs</h2>

@@ -6,6 +6,7 @@ Lancer en local : uv run uvicorn assistant.api.main:app --reload
 """
 
 from typing import Literal
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -115,7 +116,7 @@ async def route_webhook_fin_appel(request: Request):
 
 @app.get("/backoffice/appels", response_class=HTMLResponse,
          dependencies=[Depends(verifier_acces_backoffice)])
-def route_backoffice_liste_appels(erreur_voix: bool = False, erreur_prononciation: bool = False):
+def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = "", erreur_prononciation: bool = False):
     try:
         en_cours = appels_en_cours()
     except Exception:
@@ -126,7 +127,7 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, erreur_prononciatio
         lister_appels_avec_details(), lister_activations(), compter_appels(),
         resumer_evaluations(), resumer_satisfaction_client(), resumer_tracabilite(),
         lister_demandes_rappel(), en_cours, lister_toutes_regles(),
-        erreur_voix=erreur_voix, erreur_prononciation=erreur_prononciation,
+        erreur_voix=erreur_voix, detail_voix=detail_voix, erreur_prononciation=erreur_prononciation,
     )
 
 
@@ -155,8 +156,13 @@ def route_backoffice_changer_voix(voice_id: str = Form(""), ton: str = Form(""),
             style=float(autre) if autre else None,
         )
     except Exception as erreur:
+        # Message affiché directement dans le back-office plutôt que
+        # seulement loggé côté serveur (onglet Logs de Clever Cloud) :
+        # constaté en usage réel que cet onglet peut rester vide sans
+        # explication, donc ne pas en dépendre pour diagnostiquer.
         print(f"changer_reglages_voix a échoué : {erreur!r}", flush=True)
-        return RedirectResponse("/backoffice/appels?erreur_voix=1", status_code=303)
+        detail = quote(str(erreur)[:300])
+        return RedirectResponse(f"/backoffice/appels?erreur_voix=1&detail_voix={detail}", status_code=303)
     return RedirectResponse("/backoffice/appels", status_code=303)
 
 
