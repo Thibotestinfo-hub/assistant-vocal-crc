@@ -491,6 +491,20 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 .badge-eval {{ padding: 0.1rem 0.5rem; border-radius: 5px; font-size: 0.75rem; }}
 .badge-eval.bonne {{ background: {SAUGE}88; }}
 .badge-eval.mauvaise {{ background: {ROUGE}33; }}
+
+/* --- Prononciation : dictionnaire fusionné, édition en ligne --- */
+.badge-origine {{ padding: 0.15rem 0.55rem; border-radius: 5px; font-size: 0.72rem; }}
+.badge-origine.reference {{ background: var(--fond); color: var(--texte-doux); border: 1px solid var(--bordure); }}
+.badge-origine.equipe {{ background: {SAUGE}88; }}
+.form-edition-regle {{ display: flex; gap: 0.4rem; align-items: center; }}
+.champ-edition-regle {{
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--bordure);
+  min-width: 14rem;
+}}
 """
 
 
@@ -781,80 +795,68 @@ def _carte_repartition(repartition, suffixe_trace):
 
 def _carte_ajout_regle(erreur):
     erreur_html = (
-        '<p class="erreur-voix">Le nom et la prononciation sont obligatoires tous les deux.</p>'
+        '<p class="erreur-voix">Le mot et la prononciation sont obligatoires tous les deux.</p>'
         if erreur else ""
     )
     return f"""<div class="carte" style="margin-bottom:1.5rem">
-  <h2>Ajouter une règle</h2>
+  <h2>Signaler une prononciation</h2>
   <form method="post" action="/backoffice/prononciation/ajouter" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:flex-end">
     <div>
-      <label class="champ-label" style="margin:0 0 0.3rem">Nom tel qu'il apparaît (GTFS)</label>
-      <input type="text" name="grapheme" required placeholder="ex. Chemin des Pinet"
-             style="padding:0.55rem 0.8rem;border-radius:7px;border:1px solid var(--bordure);min-width:16rem">
+      <label class="champ-label" style="margin:0 0 0.3rem">Mot ou expression mal prononcé(e)</label>
+      <input type="text" name="grapheme" required placeholder="ex. un nom d'arrêt, ou tout autre mot entendu à l'oral"
+             style="padding:0.55rem 0.8rem;border-radius:7px;border:1px solid var(--bordure);min-width:18rem">
     </div>
     <div>
       <label class="champ-label" style="margin:0 0 0.3rem">Prononciation voulue</label>
-      <input type="text" name="alias" required placeholder="ex. Chemin des Pinèdes"
+      <input type="text" name="alias" required placeholder="ex. comment ça doit se dire"
              style="padding:0.55rem 0.8rem;border-radius:7px;border:1px solid var(--bordure);min-width:16rem">
     </div>
     <button type="submit" class="bouton accent">Ajouter</button>
   </form>
   {erreur_html}
-  <p class="note-a-venir">S'applique immédiatement à ce que dit rechercher_arret. Ne modifie pas (encore) le dictionnaire ElevenLabs lui-même.</p>
+  <p class="note-a-venir">Pour une erreur récurrente entendue en appel, même sans lien avec un nom d'arrêt. S'applique immédiatement à ce que dit rechercher_arret. Ne modifie pas (encore) le dictionnaire ElevenLabs lui-même.</p>
 </div>"""
 
 
-def _ligne_regle_backoffice(regle):
+def _ligne_regle_prononciation(regle, index):
     grapheme_url = quote(regle["grapheme"], safe="")
+    badge_classe = "equipe" if regle["origine"] == "équipe" else "reference"
+    suppression = (
+        f"""<form method="post" action="/backoffice/prononciation/{grapheme_url}/supprimer" style="margin:0;display:inline">
+      <button type="submit" class="bouton-voir" title="Revenir à la référence / supprimer">🗑</button>
+    </form>"""
+        if regle["modifiable"] else ""
+    )
     return f"""<tr>
   <td>{html.escape(regle['grapheme'])}</td>
-  <td>{html.escape(regle['alias'])}</td>
-  <td>{html.escape(regle['cree_le'])}</td>
   <td>
-    <form method="post" action="/backoffice/prononciation/{grapheme_url}/supprimer" style="margin:0">
-      <button type="submit" class="bouton-voir" title="Supprimer">🗑</button>
+    <span class="valeur-prononciation" id="valeur-{index}">{html.escape(regle['alias'])}</span>
+    <form method="post" action="/backoffice/prononciation/ajouter" class="form-edition-regle" id="edition-{index}" style="display:none">
+      <input type="hidden" name="grapheme" value="{html.escape(regle['grapheme'])}">
+      <input type="text" name="alias" value="{html.escape(regle['alias'])}" class="champ-edition-regle" required>
+      <button type="submit" title="Enregistrer">✓</button>
     </form>
+  </td>
+  <td><span class="badge-origine {badge_classe}">{html.escape(regle['origine'])}</span></td>
+  <td>
+    <button type="button" class="bouton-voir" onclick="editerRegle({index})" title="Modifier">✏️</button>
+    {suppression}
   </td>
 </tr>"""
 
 
-def _carte_regles_backoffice(regles):
-    lignes = (
-        "\n".join(_ligne_regle_backoffice(r) for r in regles)
-        if regles else '<tr><td colspan="4">Aucune règle ajoutée pour l\'instant.</td></tr>'
-    )
-    return f"""<div class="carte carte-tableau" style="margin-bottom:1.5rem">
-  <div style="padding:1rem 1rem 0">
-    <h2 style="margin:0">Règles ajoutées depuis le back-office ({len(regles)})</h2>
-  </div>
-  <table>
-    <thead>
-      <tr><th>Nom</th><th>Prononciation</th><th>Ajoutée le</th><th></th></tr>
-    </thead>
-    <tbody>{lignes}</tbody>
-  </table>
-</div>"""
-
-
-def _ligne_regle_fichier(grapheme, alias):
-    return f"""<tr>
-  <td>{html.escape(grapheme)}</td>
-  <td>{html.escape(alias)}</td>
-</tr>"""
-
-
-def _carte_regles_fichier(regles):
-    lignes = "\n".join(_ligne_regle_fichier(g, a) for g, a in regles)
+def _carte_dictionnaire_prononciation(regles):
+    lignes = "\n".join(_ligne_regle_prononciation(r, i) for i, r in enumerate(regles))
     return f"""<div class="carte carte-tableau">
   <div style="padding:1rem 1rem 0;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
-    <h2 style="margin:0">Dictionnaire de référence ({len(regles)}) — data/prononciation.pls</h2>
+    <h2 style="margin:0">Dictionnaire de prononciation ({len(regles)})</h2>
     <input type="text" id="filtre-regles" placeholder="Filtrer..." oninput="filtrerReglesFichier()"
            style="padding:0.5rem 0.8rem;border-radius:7px;border:1px solid var(--bordure)">
   </div>
   <div class="tableau-scroll">
     <table id="table-regles-fichier">
       <thead>
-        <tr><th>Nom</th><th>Prononciation</th></tr>
+        <tr><th>Mot</th><th>Prononciation</th><th>Origine</th><th></th></tr>
       </thead>
       <tbody>{lignes}</tbody>
     </table>
@@ -863,7 +865,7 @@ def _carte_regles_fichier(regles):
 
 
 def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, demandes_rappel, en_cours,
-                     regles_backoffice, regles_fichier, erreur_voix=False, erreur_prononciation=False):
+                     regles_prononciation, erreur_voix=False, erreur_prononciation=False):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -1003,12 +1005,15 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, tracabilite, d
 
   <div id="onglet-prononciation" class="contenu-onglet" style="display:none">
     {_carte_ajout_regle(erreur_prononciation)}
-    {_carte_regles_backoffice(regles_backoffice)}
-    {_carte_regles_fichier(regles_fichier)}
+    {_carte_dictionnaire_prononciation(regles_prononciation)}
   </div>
 
 </main>
 <script>
+function editerRegle(index) {{
+  document.getElementById('valeur-' + index).style.display = 'none';
+  document.getElementById('edition-' + index).style.display = '';
+}}
 function filtrerReglesFichier() {{
   var filtre = document.getElementById('filtre-regles').value.toLowerCase();
   document.querySelectorAll('#table-regles-fichier tbody tr').forEach(function(tr) {{

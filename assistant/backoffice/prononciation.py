@@ -55,9 +55,27 @@ def lister_regles_backoffice():
     return [dict(l) for l in lignes]
 
 
-def lister_regles_fichier():
-    """Règles du fichier data/prononciation.pls versionné (relecture
-    systématique de l'équipe) — affichées en lecture seule dans le
-    back-office, pour qu'on voie tout au même endroit sans dupliquer la
-    liste ailleurs."""
-    return sorted(dictionnaire_fichier().items())
+def lister_toutes_regles():
+    """Vue fusionnée pour l'onglet Prononciation (retour utilisateur du
+    27/08 : une seule liste à parcourir et corriger ligne par ligne,
+    plutôt que deux tables séparées) : chaque règle du dictionnaire de
+    référence (data/prononciation.pls), sa valeur remplacée par celle du
+    back-office quand une correction a été apportée, plus les règles
+    ajoutées depuis le back-office qui n'existent pas dans le fichier
+    (ex. une erreur de prononciation récurrente signalée par l'équipe,
+    sans lien avec un nom GTFS). "modifiable" indique si un bouton
+    supprimer a un sens (toujours vrai pour une ligne d'origine
+    "équipe" — la suppression revient au pire à revenir à la valeur du
+    fichier, voir supprimer_regle)."""
+    fichier = dictionnaire_fichier()
+    overrides = {r["grapheme"]: r["alias"] for r in lister_regles_backoffice()}
+    regles = []
+    for grapheme in sorted(set(fichier) | set(overrides)):
+        si_modifiee = grapheme in overrides
+        regles.append({
+            "grapheme": grapheme,
+            "alias": overrides.get(grapheme, fichier.get(grapheme)),
+            "origine": "équipe" if si_modifiee else "référence",
+            "modifiable": si_modifiee,
+        })
+    return regles

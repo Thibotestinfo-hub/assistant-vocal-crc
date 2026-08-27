@@ -28,9 +28,7 @@ from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel,
 )
 from assistant.backoffice.page import page_backoffice
-from assistant.backoffice.prononciation import (
-    ajouter_regle, lister_regles_backoffice, lister_regles_fichier, supprimer_regle,
-)
+from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
 from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
@@ -115,7 +113,7 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, erreur_prononciatio
     return page_backoffice(
         lister_appels_avec_details(), lister_activations(), compter_appels(),
         resumer_evaluations(), resumer_tracabilite(), lister_demandes_rappel(),
-        en_cours, lister_regles_backoffice(), lister_regles_fichier(),
+        en_cours, lister_toutes_regles(),
         erreur_voix=erreur_voix, erreur_prononciation=erreur_prononciation,
     )
 
