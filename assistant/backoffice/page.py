@@ -1058,14 +1058,23 @@ function ecouterVoix() {{
     alert("Choisissez d'abord une voix dans la liste.");
     return;
   }}
-  var lecteur = document.getElementById('lecteur-voix');
-  lecteur.onerror = function() {{
-    alert('Impossible de lire cet extrait pour le moment (ElevenLabs indisponible ?).');
-  }};
-  lecteur.src = '/backoffice/voix/' + voiceId + '/apercu';
-  lecteur.play().catch(function() {{
-    alert('Impossible de lire cet extrait pour le moment (ElevenLabs indisponible ?).');
-  }});
+  // fetch() plutôt que <audio src=...> directement : un <audio> qui échoue
+  // ne donne accès qu'à un événement "error" générique, jamais au corps de
+  // la réponse — donc jamais au détail de l'erreur renvoyé par le serveur.
+  fetch('/backoffice/voix/' + voiceId + '/apercu')
+    .then(function(reponse) {{
+      if (!reponse.ok) {{
+        return reponse.text().then(function(texte) {{
+          throw new Error(texte || ('Erreur ' + reponse.status));
+        }});
+      }}
+      var lecteur = document.getElementById('lecteur-voix');
+      lecteur.src = reponse.url;
+      return lecteur.play();
+    }})
+    .catch(function(erreur) {{
+      alert('Impossible de lire cet extrait pour le moment — détail : ' + erreur.message);
+    }});
 }}
 function afficherOnglet(nom) {{
   document.querySelectorAll('.contenu-onglet').forEach(function(el) {{

@@ -181,10 +181,13 @@ def route_backoffice_apercu_voix(voice_id: str):
         url = apercu_voix(voice_id)
     except Exception as erreur:
         print(f"apercu_voix({voice_id!r}) a échoué : {erreur!r}", flush=True)
-        return Response(status_code=502)
+        return Response(content=str(erreur)[:300], status_code=502, media_type="text/plain")
     if not url:
         print(f"apercu_voix({voice_id!r}) : pas de preview_url renvoyé par ElevenLabs", flush=True)
-        return Response(status_code=404)
+        return Response(
+            content="ElevenLabs n'a renvoyé aucun aperçu pour cette voix",
+            status_code=404, media_type="text/plain",
+        )
     return RedirectResponse(url, status_code=302)
 
 
