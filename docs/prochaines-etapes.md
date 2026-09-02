@@ -241,6 +241,30 @@ sécurisé.
       réel du service, pas avant — la formule actuelle du prompt convient
       pour l'instant selon l'utilisateur.
 
+## F. Routage téléphonique / horaires CRC / débordement (nouveau, 02/09)
+
+Sujet neuf, pas encore scopé. Tout ce qui existe suppose que 100% des
+appels arrivant sur le numéro Twilio parlent au bot, le transfert humain
+étant une décision prise *pendant* la conversation (déjà en place). Ce que
+l'utilisateur envisage pour la mise à disposition à ses collègues est
+différent : un aiguillage *avant* que le bot décroche (hors horaires CRC,
+et/ou en débordement si les lignes humaines sont occupées).
+
+Probablement pas qu'une question Twilio — dépend de l'infrastructure
+téléphonique existante du CRC. Questions à répondre ensemble avant de
+proposer une architecture :
+1. Aujourd'hui, comment un appel arrive-t-il à un agent CRC (standard
+   existant, logiciel de centre d'appels, postes directs) ?
+2. Mode souhaité : bot hors horaires uniquement, bot en débordement
+   uniquement, ou les deux ?
+3. Le débordement nécessite de savoir si les agents humains sont occupés
+   — probablement une intégration avec le système d'appels existant du
+   CRC, pas seulement une configuration Twilio.
+
+Potentiellement le sujet le plus structurant de tous ceux en attente,
+puisqu'il conditionne comment ce POC devient testable par l'équipe CRC à
+petite échelle (MVP).
+
 ## E. Protocole de test téléphonique réel (après le numéro Twilio français)
 
 Toujours en attente du numéro Twilio français (voir B). Une fois le numéro
@@ -260,6 +284,9 @@ grille de recueil des résultats — probablement dans le back-office
    proprement une fois ce point éclairci.
 3. **Valider le redécoupage des catégories du Live** avec l'utilisateur
    (proposition détaillée ci-dessus) avant de commencer l'implémentation.
+4. **Cadrer le routage téléphonique / horaires CRC / débordement** (section
+   F ci-dessus) — potentiellement le sujet le plus structurant pour rendre
+   ce POC testable par l'équipe.
 
 Autres points en attente, moins prioritaires que les 3 ci-dessus :
 - Une fois le numéro Twilio actif : relier le numéro à l'agent ElevenLabs,
