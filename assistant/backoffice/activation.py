@@ -55,6 +55,36 @@ def basculer(outil):
     conn.close()
 
 
+_PHRASES_CAPACITES = {
+    "horaires_theoriques": "les horaires",
+    "rechercher_information": "les tarifs et modalités pratiques",
+    "enregistrer_objet_perdu": "les déclarations d'objet perdu",
+}
+
+
+def phrase_outils_actifs():
+    """Phrase française prête à insérer dans le message d'accueil de
+    l'agent (variable dynamique {{outils_actifs}}), listant les sujets
+    réellement actifs d'après l'activation en base — pour que l'agent ne
+    promette jamais une capacité coupée depuis le back-office (voir
+    docs/prochaines-etapes.md, point B). Ne couvre que les 3 outils
+    qu'un appelant demande spontanément (horaires, tarifs, objet perdu) :
+    rechercher_arret/demander_rappel/transferer_agent sont des mécanismes
+    internes, pas des "sujets" qu'on annonce à l'accueil."""
+    activations = lister_activations()
+    if not activations["tous"]:
+        return "rien pour le moment"
+    sujets = [
+        phrase for outil, phrase in _PHRASES_CAPACITES.items()
+        if activations["outils"].get(outil, True)
+    ]
+    if not sujets:
+        return "vous mettre en relation avec un conseiller"
+    if len(sujets) == 1:
+        return sujets[0]
+    return ", ".join(sujets[:-1]) + " et " + sujets[-1]
+
+
 def verifier_outil_actif(nom_outil):
     """Fabrique une dépendance FastAPI pour un outil donné : à utiliser
     comme Depends(verifier_outil_actif("rechercher_arret")) sur chaque

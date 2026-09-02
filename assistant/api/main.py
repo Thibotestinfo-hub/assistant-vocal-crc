@@ -21,7 +21,9 @@ from assistant.api.schemas import (
     SatisfactionRequete, SatisfactionReponse,
     TransfertRequete, TransfertReponse,
 )
-from assistant.backoffice.activation import basculer, lister_activations, verifier_outil_actif
+from assistant.backoffice.activation import (
+    basculer, lister_activations, phrase_outils_actifs, verifier_outil_actif,
+)
 from assistant.backoffice.appels import (
     compter_appels, enregistrer_appel, enregistrer_evaluation, lister_appels_avec_details,
     resumer_evaluations, resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
@@ -112,6 +114,28 @@ async def route_webhook_fin_appel(request: Request):
     charge_brute = await request.json()
     enregistrer_appel(charge_brute)
     return JSONResponse({"recu": True})
+
+
+@app.post("/webhooks/elevenlabs/personnalisation", dependencies=[Depends(verifier_jeton)])
+def route_webhook_personnalisation():
+    """Appelé par ElevenLabs juste avant qu'une conversation démarre
+    (Twilio/SIP/WhatsApp), en parallèle de la connexion téléphonique —
+    donc sans latence perçue supplémentaire (documenté par ElevenLabs :
+    "Twilio personalization"). Sert uniquement à fournir la variable
+    dynamique {{outils_actifs}}, pour que le message d'accueil ne
+    promette jamais une capacité coupée depuis le back-office (voir
+    assistant/backoffice/activation.py, phrase_outils_actifs).
+
+    Contrairement à /webhooks/elevenlabs/fin_appel, celui-ci accepte un
+    en-tête Authorization personnalisé côté configuration ElevenLabs
+    (documenté comme "header secrets" sur l'onglet Security de l'agent),
+    donc même mécanisme d'authentification que les outils plutôt qu'un
+    jeton en paramètre d'URL.
+
+    On ignore volontairement le corps de la requête (caller_id,
+    called_number, call_sid...) : on ne personnalise pas par appelant,
+    seulement selon l'état d'activation global des outils."""
+    return {"dynamic_variables": {"outils_actifs": phrase_outils_actifs()}}
 
 
 @app.get("/backoffice/appels", response_class=HTMLResponse,
