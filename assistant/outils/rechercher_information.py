@@ -37,8 +37,18 @@ from pathlib import Path
 import numpy as np
 from fastembed import TextEmbedding
 
-INDEX_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "corpus_index.json"
+RACINE = Path(__file__).resolve().parent.parent.parent
+INDEX_PATH = RACINE / "data" / "corpus_index.json"
 MODELE = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+# Cache du modèle d'embeddings dans data/etat/ (le seul dossier qui
+# survit aux redéploiements Clever Cloud, voir assistant/outils/db.py) :
+# sans ça, fastembed retélécharge le modèle depuis Hugging Face à chaque
+# redémarrage de l'application (cache par défaut dans un dossier non
+# persistant), ce qui peut dépasser le délai d'attente de Clever Cloud
+# et faire échouer le tout premier appel après chaque déploiement (502,
+# constaté en production le 02/09/2026).
+CACHE_MODELE = RACINE / "data" / "etat" / "modeles"
 
 # Repli temporaire depuis e5-large (voir indexer_corpus.py) : ce modèle
 # n'est pas un modèle de recherche asymétrique, pas de préfixe "query: ".
@@ -80,7 +90,10 @@ def _charger_index():
 def _charger_modele():
     global _modele
     if _modele is None:
-        _modele = TextEmbedding(MODELE)
+        # En local, data/etat/ n'existe pas forcément encore (sur Clever
+        # Cloud, c'est le point de montage du FS Bucket, déjà présent).
+        CACHE_MODELE.mkdir(parents=True, exist_ok=True)
+        _modele = TextEmbedding(MODELE, cache_dir=str(CACHE_MODELE))
     return _modele
 
 
