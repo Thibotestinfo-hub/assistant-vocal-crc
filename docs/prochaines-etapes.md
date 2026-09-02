@@ -133,21 +133,32 @@ d'outil, et découverte de la panne ci-dessus.
       "Évaluation équipe" (renommée pour éviter la confusion entre l'avis
       de l'appelant et celui de l'équipe).
 
+### Fait le 02/09/2026
+
+- [x] **Cohérence "outils désactivés" / discours de l'agent** — remontée le
+      28/08. Deux volets traités :
+      - **Dégradation gracieuse (C)** : consigne ajoutée au prompt — si un
+        outil échoue, l'agent s'excuse et propose systématiquement un
+        transfert/rappel plutôt que d'inventer une réponse ou d'échouer
+        sec. **Testée et confirmée fonctionnelle** via le widget.
+      - **Message d'accueil reflétant l'état réel (B)** : nouveau webhook
+        `/webhooks/elevenlabs/personnalisation`, appelé par ElevenLabs
+        avant le début d'un appel Twilio/SIP/WhatsApp (pas le widget),
+        fournit la variable `{{outils_actifs}}` insérée dans le premier
+        message. Backend testé et fonctionnel (curl direct). **Pas encore
+        vérifié en conditions réelles** — voir point ouvert juste en
+        dessous, le panneau de test utilisé n'affichait pas le bon
+        message d'accueil, faussant potentiellement l'observation.
+- [x] **rechercher_information (502 en production)** — voir section tout en
+      haut de ce document, résolu et vérifié.
+- [x] **5 voix ajoutées**, **créneau horaire**, **décalage horaire** — voir
+      section A et le haut de ce document.
+
 ### Restant / nouveau
 
-- [ ] **⚠️ Nouveau, remonté par l'utilisateur (28/08)** : les interrupteurs
-      "Outils actifs" du Live (Live) ne contrôlent que l'exécution
-      backend (l'outil renvoie 503 si désactivé) — ils n'ont **aucun
-      effet** sur ce que l'agent dit de ses propres capacités. Exemple
-      concret : "Objet perdu" décoché, mais l'agent s'est quand même
-      présenté en disant pouvoir "enregistrer un objet perdu". Cause :
-      le premier message et le prompt système sont fixes côté ElevenLabs,
-      complètement indépendants de notre état d'activation. Pas de
-      correctif ce soir — plusieurs pistes possibles (message d'accueil
-      plus générique pour ne rien promettre de précis ; variable
-      dynamique injectée à l'initiation de l'appel pour refléter l'état
-      réel ; consigne de dégradation gracieuse si un outil échoue) à
-      discuter ensemble avant de choisir.
+- [ ] **⚠️ Nouveau (02/09)** : proposition de redécoupage des catégories
+      du Live, à valider avec l'utilisateur avant implémentation — voir
+      section dédiée ci-dessous ("Redécoupage des catégories du Live").
 - [ ] **Le sélecteur de voix repart sur "Ne pas changer la voix" après un
       "Appliquer"** — comportement volontaire déjà documenté dans l'UI
       (la page ne réinterroge pas ElevenLabs pour rester rapide et
@@ -170,6 +181,43 @@ d'outil, et découverte de la panne ci-dessus.
       côté Twilio** à la fin de cette session, plus longue que prévu.
       À reprendre/recalibrer en premier la semaine prochaine avant de
       pouvoir relier le numéro et passer un vrai appel test.
+
+## Redécoupage des catégories du Live (proposition du 02/09, à valider)
+
+Un collègue de l'utilisateur a partagé la grille de classification réelle
+des demandes CRC : **Objets perdus, Horaires, Commercial, Vélo en libre
+service, Transport à la demande, Amendes** (un 7e élément "%" dans le
+message d'origine était une erreur de copie, pas une vraie catégorie).
+
+Le vrai décalage : "Horaires" et "Objets perdus" correspondent déjà
+chacun à un outil/interrupteur dédié, mais "Commercial", "Vélo en libre
+service", "Transport à la demande" et "Amendes" sont **tous fondus dans un
+seul interrupteur** aujourd'hui ("Questions tarifs / pratique FAQ" =
+l'outil `rechercher_information`). Bonne nouvelle : cet outil a déjà une
+catégorisation interne plus fine (héritée du contenu scrapé du site) qui
+correspond bien :
+
+| Catégorie CRC | Catégorie technique existante |
+|---|---|
+| Horaires | `horaires_theoriques` (outil séparé, inchangé) |
+| Objets perdus | `enregistrer_objet_perdu` (outil séparé, inchangé) |
+| Commercial | `rechercher_information` / catégorie `tarifs` (+ `agences` ?) |
+| Vélo en libre service | `rechercher_information` / catégorie `vls` |
+| Transport à la demande | `rechercher_information` / catégorie `tad` |
+| Amendes | `rechercher_information` / catégorie `procedures` (la page "amendes" du site y est déjà classée) |
+
+**À trancher avec l'utilisateur** : les catégories `conditions` (CGU,
+conseils de voyage...) et `accessibilite` n'ont pas de correspondance
+évidente dans la liste CRC — les rattacher à "Commercial" par défaut, ou
+en faire une 7e case à part ?
+
+**Implication technique (pas un simple renommage)** : aujourd'hui
+l'activation se fait par outil (une ligne en base par outil, vérifiée
+avant même de lire le corps de la requête). Découper `rechercher_information`
+par catégorie demanderait que la vérification d'activation regarde la
+catégorie demandée dans chaque appel — touche la base de données, le code
+d'activation (`assistant/backoffice/activation.py`), et l'écran Live. Un
+vrai chantier, pas fait avant validation du découpage final avec l'utilisateur.
 
 ## C. Dupliquer pour un autre réseau (pas commencé)
 
@@ -202,18 +250,23 @@ d'erreur/hors périmètre et le nouveau créneau horaire), points de mesure
 grille de recueil des résultats — probablement dans le back-office
 (évaluation par appel, déjà existante).
 
-## Suggestion pour la reprise (semaine prochaine)
+## Suggestion pour la reprise (03/09, priorités explicites de l'utilisateur)
 
-1. **Recalibrer/finaliser le bundle réglementaire Twilio France** — bloquant
-   pour tout le reste de cette liste.
-2. Une fois le numéro actif : **relier le numéro à l'agent ElevenLabs**
-   (même mécanisme que le numéro US), puis **vrai test téléphonique** (E).
-3. **Discuter la cohérence "outils désactivés" / "ce que dit l'agent"**
-   (nouveau point B ci-dessus) — choisir une approche avant qu'elle ne
-   cause une vraie confusion en situation réelle.
-4. Vérifier la concurrence d'appels simultanés réellement (2-3 appels en
-   parallèle), avant le test live.
-5. Nettoyer la fausse déclaration d'objet perdu créée par le bug de
-   satisfaction (si toujours présente).
-6. Vérifier le format des balises audio `[chaleureusement]` etc. sur un
-   vrai appel avec Clémence.
+1. **Twilio France** — reprendre où la certification réglementaire en est
+   (relancée en fin de session du 02/09, "under review").
+2. **Ajustement du message d'accueil** — élucider d'abord l'incohérence du
+   panneau "En ligne" ElevenLabs (voir point ouvert plus haut) avant de
+   conclure quoi que ce soit sur `{{outils_actifs}}` ; refaire le test
+   proprement une fois ce point éclairci.
+3. **Valider le redécoupage des catégories du Live** avec l'utilisateur
+   (proposition détaillée ci-dessus) avant de commencer l'implémentation.
+
+Autres points en attente, moins prioritaires que les 3 ci-dessus :
+- Une fois le numéro Twilio actif : relier le numéro à l'agent ElevenLabs,
+  puis vrai test téléphonique (E).
+- Vérifier la concurrence d'appels simultanés réellement (2-3 appels en
+  parallèle), avant le test live.
+- Nettoyer la fausse déclaration d'objet perdu créée par le bug de
+  satisfaction (si toujours présente).
+- Vérifier le format des balises audio `[chaleureusement]` etc. sur un
+  vrai appel avec Clémence.
