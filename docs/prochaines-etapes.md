@@ -1,29 +1,25 @@
 # Prochaines étapes — état au 02/09/2026
 
-## ⚠️ Urgent — rechercher_information en panne en production
+## ✅ Résolu ce soir — rechercher_information (502 en production)
 
-Constaté le 02/09 : `POST /outils/rechercher_information` renvoie **502 Bad
-Gateway** (confirmé 2 fois via curl direct, `/sante` répond normalement —
-donc l'application tourne, seul cet outil est en cause). Hypothèse la plus
-probable, à vérifier en premier à la reprise : le modèle d'embeddings
-(`paraphrase-multilingual-MiniLM-L12-v2`, chargé au premier appel via
-`fastembed`) doit être retéléchargé à chaque redémarrage de l'application
-(cache disque non persistant, hors `data/etat/`) — même piège que celui
-déjà documenté pour `corpus_index.json`. Le téléchargement dépasserait le
-délai d'attente de Clever Cloud.
+Constaté le 02/09 : `POST /outils/rechercher_information` renvoyait **502
+Bad Gateway** en production (`/sante` répondait normalement — seul cet
+outil était en cause). Cause confirmée : le modèle d'embeddings
+(`paraphrase-multilingual-MiniLM-L12-v2`, chargé via `fastembed`) était
+retéléchargé à chaque redémarrage de l'application (cache disque non
+persistant, hors `data/etat/`) — même piège que celui déjà documenté pour
+`corpus_index.json`, cette fois sur le modèle lui-même.
 
-**Mitigation appliquée en attendant** : l'outil "Questions tarifs /
-pratique (FAQ)" a été redésactivé depuis le back-office, pour que les
-appelants reçoivent un message de dégradation gracieuse (transfert/rappel)
-plutôt qu'un plantage silencieux. **Ne pas le réactiver avant d'avoir
-diagnostiqué et corrigé la cause réelle.**
+**Corrigé** : `cache_dir` de `fastembed.TextEmbedding` pointé vers
+`data/etat/modeles/` (persistant, survit aux redéploiements). Vérifié en
+production après déploiement : `rechercher_information` répond de nouveau
+200 avec une vraie réponse. Outil réactivé dans le back-office.
 
-Pistes à explorer à la reprise : vérifier si le modèle peut être mis en
-cache dans `data/etat/` (persistant) plutôt que rechargé à chaque
-déploiement ; vérifier les limites mémoire/CPU du plan Clever Cloud actuel
-pour ce modèle ; envisager de précharger le modèle au démarrage de
-l'application plutôt qu'au premier appel, pour échouer au déploiement (donc
-visible) plutôt qu'au premier vrai appel d'un voyageur.
+**Point de vigilance mineur, sans rapport avec la panne** : sur le test de
+validation ("Comment souscrire un abonnement ?"), la réponse retournée
+("Dépositaires agréés") était d'une pertinence discutable — probablement
+un sujet de calibrage des seuils/corpus plutôt qu'un bug, à surveiller à
+l'usage sans urgence.
 
 ## Autre point non résolu ce soir (02/09)
 
