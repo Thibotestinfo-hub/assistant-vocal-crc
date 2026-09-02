@@ -4,6 +4,12 @@
 
 gtfs_url: "https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=2b7a3b3b084c750566663c2e09726b19171f275c"
 
+# Site public du réseau — c'est aussi la source scrapée par
+# assistant/ingestion/extraire_corpus.py (BASE_URL) pour la base de
+# connaissance. Vérifié le 02/09/2026 : correspond bien au réseau de
+# bus de la zone Étang (mêmes communes : Vitrolles, Rognac...).
+site_web: "https://www.salonetangcotebleue.fr/"
+
 # Identifiant de l'agent ElevenLabs de ce réseau (pas un secret, juste
 # une référence — la clé pour agir dessus est ELEVENLABS_API_KEY, dans
 # .env, jamais ici).
