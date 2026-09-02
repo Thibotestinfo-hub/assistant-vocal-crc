@@ -150,6 +150,12 @@ sécurisé.
     dans les échanges de cette session (nécessaire pour diagnostiquer les
     pannes de production sans accès aux logs) — à régénérer avant mise en
     production réelle avec de vrais appelants.
+- [ ] **Horaires d'ouverture réels du CRC** — remonté par l'utilisateur
+      (02/09) : le prompt distingue déjà "CRC ouvert" / "CRC fermé" (section
+      "Sorties", transfert vs rappel), mais rien ne précise aujourd'hui les
+      vraies plages horaires d'ouverture. À préciser au moment du lancement
+      réel du service, pas avant — la formule actuelle du prompt convient
+      pour l'instant selon l'utilisateur.
 
 ## E. Protocole de test téléphonique réel (après le numéro Twilio français)
 
