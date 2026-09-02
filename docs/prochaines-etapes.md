@@ -1,9 +1,49 @@
-# Prochaines étapes — état au 28/08/2026
+# Prochaines étapes — état au 02/09/2026
+
+## ⚠️ Urgent — rechercher_information en panne en production
+
+Constaté le 02/09 : `POST /outils/rechercher_information` renvoie **502 Bad
+Gateway** (confirmé 2 fois via curl direct, `/sante` répond normalement —
+donc l'application tourne, seul cet outil est en cause). Hypothèse la plus
+probable, à vérifier en premier à la reprise : le modèle d'embeddings
+(`paraphrase-multilingual-MiniLM-L12-v2`, chargé au premier appel via
+`fastembed`) doit être retéléchargé à chaque redémarrage de l'application
+(cache disque non persistant, hors `data/etat/`) — même piège que celui
+déjà documenté pour `corpus_index.json`. Le téléchargement dépasserait le
+délai d'attente de Clever Cloud.
+
+**Mitigation appliquée en attendant** : l'outil "Questions tarifs /
+pratique (FAQ)" a été redésactivé depuis le back-office, pour que les
+appelants reçoivent un message de dégradation gracieuse (transfert/rappel)
+plutôt qu'un plantage silencieux. **Ne pas le réactiver avant d'avoir
+diagnostiqué et corrigé la cause réelle.**
+
+Pistes à explorer à la reprise : vérifier si le modèle peut être mis en
+cache dans `data/etat/` (persistant) plutôt que rechargé à chaque
+déploiement ; vérifier les limites mémoire/CPU du plan Clever Cloud actuel
+pour ce modèle ; envisager de précharger le modèle au démarrage de
+l'application plutôt qu'au premier appel, pour échouer au déploiement (donc
+visible) plutôt qu'au premier vrai appel d'un voyageur.
+
+## Autre point non résolu ce soir (02/09)
+
+Observé pendant les tests : le panneau "En ligne" côté ElevenLabs a affiché
+un message d'accueil ("Bonjour. Que puis-je faire pour vous ?") qui ne
+correspond pas du tout au "Premier message" configuré dans l'onglet Agent
+(celui avec `{{outils_actifs}}`). Pas eu le temps d'investiguer — à vérifier
+en premier à la reprise si possible : ce panneau teste peut-être une
+version non publiée, ou un canal différent du widget "Widget"/téléphone
+réel. Peut avoir faussé une partie des observations sur `{{outils_actifs}}`
+ce soir (résultat vide) : à revérifier une fois ce point éclairci.
+
+---
 
 Ce document sert de point de reprise après une pause. Session très dense
 (28/08) sur la satisfaction appelant, le créneau horaire, et une série de
 bugs de production liés à `ELEVENLABS_API_KEY` — voir l'historique Git pour
-le détail des commits.
+le détail des commits. Session du 02/09 : personnalisation du message
+d'accueil selon les outils actifs, dégradation gracieuse en cas d'échec
+d'outil, et découverte de la panne ci-dessus.
 
 ## Où on en est
 
