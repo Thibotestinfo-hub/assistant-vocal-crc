@@ -116,7 +116,7 @@ async def route_webhook_fin_appel(request: Request):
     return JSONResponse({"recu": True})
 
 
-@app.post("/webhooks/elevenlabs/personnalisation", dependencies=[Depends(verifier_jeton_requete)])
+@app.post("/webhooks/elevenlabs/personnalisation", dependencies=[Depends(verifier_jeton)])
 def route_webhook_personnalisation():
     """Appelé par ElevenLabs juste avant qu'une conversation démarre
     (Twilio/SIP/WhatsApp), en parallèle de la connexion téléphonique —
@@ -126,11 +126,11 @@ def route_webhook_personnalisation():
     promette jamais une capacité coupée depuis le back-office (voir
     assistant/backoffice/activation.py, phrase_outils_actifs).
 
-    Authentification par jeton en paramètre d'URL (?jeton=...), comme
-    /webhooks/elevenlabs/fin_appel : constaté dans la configuration
-    ElevenLabs (28/08) que ce type de webhook se déclare comme une entité
-    réutilisable (URL + jeton dans l'URL), pas via un en-tête personnalisé
-    — pas de "Security tab" avec en-tête distinct comme supposé au départ.
+    Authentification par en-tête Authorization : le formulaire "Ajouter
+    un webhook" côté ElevenLabs (28/08) propose bien un champ en-tête
+    personnalisé (nom + valeur, avec un mode "Secret" pour ne pas
+    l'afficher en clair une fois enregistré) — préféré à un jeton dans
+    l'URL (comme /webhooks/elevenlabs/fin_appel), moins exposé.
 
     On ignore volontairement le corps de la requête (caller_id,
     called_number, call_sid...) : on ne personnalise pas par appelant,
