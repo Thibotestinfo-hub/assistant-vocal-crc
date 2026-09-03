@@ -191,28 +191,33 @@ def chercher_blocs(question, categorie=None, n=5, categories_actives=None):
 
 
 def rechercher_information(question, categorie=None, categories_actives=None):
-    resultats = chercher_blocs(question, categorie, n=1, categories_actives=categories_actives)
-    if not resultats:
-        return {"trouve": False}
-
-    meilleur_score, bloc = resultats[0]
-
-    # Aucun mot de la question ne se retrouve dans la meilleure réponse :
-    # quel que soit le score sémantique, ce n'est pas une réponse fiable
-    # (c'est ce signal, pas le score sémantique, qui distingue le mieux
-    # les questions pièges — voir docstring du module).
+    """N'examinait auparavant que le tout premier candidat (n=1) : si
+    celui-ci ne partageait aucun mot avec la question (véto lexical), on
+    répondait trouve=False même quand un candidat suivant, tout aussi
+    bien classé, aurait parfaitement répondu — mesuré à l'évaluation du
+    03/09/2026 (rappel top-5 100%, réponse outil seulement 80%, l'écart
+    venait presque entièrement de ce cas). On regarde maintenant les 5
+    meilleurs candidats dans l'ordre et on renvoie le premier qui passe
+    les deux vérifications, plutôt que d'abandonner au premier échec."""
+    resultats = chercher_blocs(question, categorie, n=5, categories_actives=categories_actives)
     mots_question = _mots_significatifs(question)
-    if mots_question and _score_lexical(mots_question, bloc) == 0.0:
-        return {"trouve": False}
 
-    if meilleur_score < SEUIL_BASSE:
-        return {"trouve": False}
-
-    return {
-        "trouve": True,
-        "reponse_source": bloc["texte"],
-        "source": bloc["source"],
-        "url": bloc["url"],
-        "maj": bloc["maj"],
-        "confiance": "haute" if meilleur_score >= SEUIL_HAUTE else "moyenne",
-    }
+    for score, bloc in resultats:
+        if score < SEUIL_BASSE:
+            break  # trié décroissant : les suivants ne passeront pas non plus
+        # Aucun mot de la question ne se retrouve dans ce candidat : quel
+        # que soit son score sémantique, ce n'est pas une réponse fiable
+        # (c'est ce signal, pas le score sémantique, qui distingue le
+        # mieux les questions pièges — voir docstring du module) — on
+        # regarde le candidat suivant plutôt que d'abandonner.
+        if mots_question and _score_lexical(mots_question, bloc) == 0.0:
+            continue
+        return {
+            "trouve": True,
+            "reponse_source": bloc["texte"],
+            "source": bloc["source"],
+            "url": bloc["url"],
+            "maj": bloc["maj"],
+            "confiance": "haute" if score >= SEUIL_HAUTE else "moyenne",
+        }
+    return {"trouve": False}
