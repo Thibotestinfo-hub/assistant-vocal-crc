@@ -182,42 +182,33 @@ d'outil, et découverte de la panne ci-dessus.
       À reprendre/recalibrer en premier la semaine prochaine avant de
       pouvoir relier le numéro et passer un vrai appel test.
 
-## Redécoupage des catégories du Live (proposition du 02/09, à valider)
+## ✅ Fait le 03/09 — Redécoupage des catégories du Live
 
-Un collègue de l'utilisateur a partagé la grille de classification réelle
-des demandes CRC : **Objets perdus, Horaires, Commercial, Vélo en libre
-service, Transport à la demande, Amendes** (un 7e élément "%" dans le
-message d'origine était une erreur de copie, pas une vraie catégorie).
+Grille de classification réelle du CRC (partagée par un collègue de
+l'utilisateur) : **Objets perdus, Horaires, Commercial, Vélo en libre
+service, Transport à la demande, Amendes**. "Horaires" et "Objets perdus"
+avaient déjà chacun un interrupteur dédié ; les 4 autres étaient fondus
+dans un seul interrupteur ("Questions tarifs / pratique FAQ" =
+`rechercher_information`).
 
-Le vrai décalage : "Horaires" et "Objets perdus" correspondent déjà
-chacun à un outil/interrupteur dédié, mais "Commercial", "Vélo en libre
-service", "Transport à la demande" et "Amendes" sont **tous fondus dans un
-seul interrupteur** aujourd'hui ("Questions tarifs / pratique FAQ" =
-l'outil `rechercher_information`). Bonne nouvelle : cet outil a déjà une
-catégorisation interne plus fine (héritée du contenu scrapé du site) qui
-correspond bien :
+**Implémenté** : 4 interrupteurs distincts pour `rechercher_information`
+(Commercial, Vélo en libre service, Transport à la demande, Amendes),
+alignés sur sa catégorisation interne déjà existante. `conditions` et
+`accessibilite` rangés dans "Commercial" (décision utilisateur).
 
-| Catégorie CRC | Catégorie technique existante |
-|---|---|
-| Horaires | `horaires_theoriques` (outil séparé, inchangé) |
-| Objets perdus | `enregistrer_objet_perdu` (outil séparé, inchangé) |
-| Commercial | `rechercher_information` / catégorie `tarifs` (+ `agences` ?) |
-| Vélo en libre service | `rechercher_information` / catégorie `vls` |
-| Transport à la demande | `rechercher_information` / catégorie `tad` |
-| Amendes | `rechercher_information` / catégorie `procedures` (la page "amendes" du site y est déjà classée) |
+Découverte en creusant : la catégorie technique `procedures` mélangeait
+la page "Amendes" du site ET la FAQ générale — isolée en une catégorie
+`amendes` à part (2 blocs reclassés dans `corpus_index.json`,
+`extraire_corpus.py` mis à jour) pour que couper les amendes ne coupe pas
+la FAQ générale au passage.
 
-**À trancher avec l'utilisateur** : les catégories `conditions` (CGU,
-conseils de voyage...) et `accessibilite` n'ont pas de correspondance
-évidente dans la liste CRC — les rattacher à "Commercial" par défaut, ou
-en faire une 7e case à part ?
-
-**Implication technique (pas un simple renommage)** : aujourd'hui
-l'activation se fait par outil (une ligne en base par outil, vérifiée
-avant même de lire le corps de la requête). Découper `rechercher_information`
-par catégorie demanderait que la vérification d'activation regarde la
-catégorie demandée dans chaque appel — touche la base de données, le code
-d'activation (`assistant/backoffice/activation.py`), et l'écran Live. Un
-vrai chantier, pas fait avant validation du découpage final avec l'utilisateur.
+Double filtrage pour ne jamais laisser fuiter un sujet coupé : 503 propre
+si la catégorie précisée par le modèle est désactivée, et exclusion
+silencieuse des catégories désactivées de la recherche même quand la
+catégorie n'est pas précisée. Testé et vérifié localement (503 sur
+catégorie désactivée, filtrage confirmé) — **pas encore testé sur un vrai
+appel** (nécessite le modèle d'embeddings, réseau bloqué depuis cet
+environnement).
 
 ## C. Dupliquer pour un autre réseau (pas commencé)
 
@@ -276,14 +267,14 @@ grille de recueil des résultats — probablement dans le back-office
 
 ## Suggestion pour la reprise (03/09, priorités explicites de l'utilisateur)
 
-1. **Twilio France** — reprendre où la certification réglementaire en est
-   (relancée en fin de session du 02/09, "under review").
+1. **Twilio France** — appel en cours côté utilisateur (03/09) pour
+   débloquer la certification réglementaire.
 2. **Ajustement du message d'accueil** — élucider d'abord l'incohérence du
    panneau "En ligne" ElevenLabs (voir point ouvert plus haut) avant de
    conclure quoi que ce soit sur `{{outils_actifs}}` ; refaire le test
    proprement une fois ce point éclairci.
-3. **Valider le redécoupage des catégories du Live** avec l'utilisateur
-   (proposition détaillée ci-dessus) avant de commencer l'implémentation.
+3. ~~Valider le redécoupage des catégories du Live~~ — **fait le 03/09**,
+   voir section dédiée ci-dessus.
 4. **Cadrer le routage téléphonique / horaires CRC / débordement** (section
    F ci-dessus) — potentiellement le sujet le plus structurant pour rendre
    ce POC testable par l'équipe.
