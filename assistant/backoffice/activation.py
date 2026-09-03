@@ -57,7 +57,10 @@ def basculer(outil):
 
 _PHRASES_CAPACITES = {
     "horaires_theoriques": "les horaires",
-    "rechercher_information": "les tarifs et modalités pratiques",
+    "rechercher_information:commercial": "les tarifs et modalités pratiques",
+    "rechercher_information:vls": "le vélo en libre service",
+    "rechercher_information:tad": "le transport à la demande",
+    "rechercher_information:amendes": "les amendes",
     "enregistrer_objet_perdu": "les déclarations d'objet perdu",
 }
 
@@ -83,6 +86,46 @@ def phrase_outils_actifs():
     if len(sujets) == 1:
         return sujets[0]
     return ", ".join(sujets[:-1]) + " et " + sujets[-1]
+
+
+# Regroupement des catégories techniques de rechercher_information (voir
+# assistant/ingestion/extraire_corpus.py) en 4 sujets alignés sur la
+# grille de classification réelle du CRC (03/09/2026) : "conditions" et
+# "accessibilite" rangés dans "commercial" par décision de l'utilisateur.
+GROUPES_CATEGORIES_INFO = {
+    "commercial": ["tarifs", "agences", "conditions", "accessibilite", "procedures"],
+    "vls": ["vls"],
+    "tad": ["tad"],
+    "amendes": ["amendes"],
+}
+
+
+def _cle_activation_categorie(categorie):
+    for groupe, membres in GROUPES_CATEGORIES_INFO.items():
+        if categorie in membres:
+            return f"rechercher_information:{groupe}"
+    return None
+
+
+def categorie_active(categorie):
+    """Une catégorie sans regroupement connu n'est jamais coupée par ce
+    mécanisme (mieux vaut répondre que bloquer sur une catégorie oubliée
+    dans GROUPES_CATEGORIES_INFO)."""
+    cle = _cle_activation_categorie(categorie)
+    return True if cle is None else est_actif(cle)
+
+
+def categories_actives():
+    """Toutes les valeurs de categorie actuellement actives (regroupement
+    confondu) — pour filtrer chercher_blocs() même quand la catégorie
+    n'est pas précisée par l'appelant, voir
+    assistant/outils/rechercher_information.py."""
+    return {
+        cat
+        for groupe, membres in GROUPES_CATEGORIES_INFO.items()
+        if est_actif(f"rechercher_information:{groupe}")
+        for cat in membres
+    }
 
 
 def verifier_outil_actif(nom_outil):

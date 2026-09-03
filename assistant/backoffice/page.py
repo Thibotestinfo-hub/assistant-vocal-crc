@@ -31,6 +31,10 @@ SAUGE = "#C7DFD4"
 ROUGE = "#FF6666"
 ROSE = "#FFB6C8"
 
+# Étiquettes des outils réellement appelés (transcription, répartition
+# des motifs) — clés = noms d'outils tels qu'envoyés par ElevenLabs dans
+# les tool_calls, PAS les clés d'activation ci-dessous (voir
+# _NOMS_LISIBLES_ACTIVATION) qui sont plus fines pour rechercher_information.
 _NOMS_LISIBLES = {
     "rechercher_arret": "Identifier un arrêt",
     "horaires_theoriques": "Horaires théoriques",
@@ -40,10 +44,29 @@ _NOMS_LISIBLES = {
     "transferer_agent": "Transférer vers un conseiller",
 }
 
+# Étiquettes des interrupteurs "Outils actifs" du Live — rechercher_information
+# n'a plus une seule case mais 4, alignées sur la grille de classification
+# du CRC plutôt que sur l'outil technique (voir assistant/backoffice/
+# activation.py, GROUPES_CATEGORIES_INFO).
+_NOMS_LISIBLES_ACTIVATION = {
+    "rechercher_arret": "Identifier un arrêt",
+    "horaires_theoriques": "Horaires théoriques",
+    "rechercher_information:commercial": "Commercial",
+    "rechercher_information:vls": "Vélo en libre service",
+    "rechercher_information:tad": "Transport à la demande",
+    "rechercher_information:amendes": "Amendes",
+    "enregistrer_objet_perdu": "Déclarer un objet perdu",
+    "demander_rappel": "Demander à être rappelé",
+    "transferer_agent": "Transférer vers un conseiller",
+}
+
 _DESCRIPTIONS_OUTILS = {
     "rechercher_arret": "Identifie l'arrêt mentionné par l'appelant (nom, commune, ligne).",
     "horaires_theoriques": "Donne les horaires théoriques des prochains passages à un arrêt.",
-    "rechercher_information": "Répond aux questions tarifs et pratiques depuis la base de connaissance.",
+    "rechercher_information:commercial": "Répond aux questions tarifs, agences, conditions et accessibilité depuis la base de connaissance.",
+    "rechercher_information:vls": "Répond aux questions sur le vélo en libre service.",
+    "rechercher_information:tad": "Répond aux questions sur le transport à la demande.",
+    "rechercher_information:amendes": "Répond aux questions sur les amendes et procès-verbaux.",
     "enregistrer_objet_perdu": "Enregistre une déclaration d'objet perdu.",
     "demander_rappel": "Enregistre une demande de rappel par un conseiller.",
     "transferer_agent": "Bascule l'appel vers un conseiller humain.",
@@ -746,7 +769,7 @@ def _grille_outils(activations):
   </form>
 </div>"""
 
-    return "".join(_ligne(cle, libelle) for cle, libelle in _NOMS_LISIBLES.items())
+    return "".join(_ligne(cle, libelle) for cle, libelle in _NOMS_LISIBLES_ACTIVATION.items())
 
 
 def _formater_duree(secs):

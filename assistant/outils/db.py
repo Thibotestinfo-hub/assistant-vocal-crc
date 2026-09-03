@@ -150,7 +150,14 @@ CREATE TABLE IF NOT EXISTS satisfaction_appels (
 """
 
 NOMS_OUTILS = [
-    "rechercher_arret", "horaires_theoriques", "rechercher_information",
+    "rechercher_arret", "horaires_theoriques",
+    # rechercher_information n'a plus d'interrupteur unique depuis le
+    # 03/09/2026 : activation par regroupement de catégories, alignée sur
+    # la grille de classification du CRC (voir assistant/backoffice/
+    # activation.py, GROUPES_CATEGORIES_INFO) plutôt que sur l'outil
+    # entier — un réseau peut vouloir couper le VLS sans couper les tarifs.
+    "rechercher_information:commercial", "rechercher_information:vls",
+    "rechercher_information:tad", "rechercher_information:amendes",
     "enregistrer_objet_perdu", "demander_rappel", "transferer_agent",
 ]
 

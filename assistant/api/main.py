@@ -8,7 +8,7 @@ Lancer en local : uv run uvicorn assistant.api.main:app --reload
 from typing import Literal
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, Form, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from assistant.api.auth import verifier_acces_backoffice, verifier_jeton, verifier_jeton_requete
@@ -22,7 +22,8 @@ from assistant.api.schemas import (
     TransfertRequete, TransfertReponse,
 )
 from assistant.backoffice.activation import (
-    basculer, lister_activations, phrase_outils_actifs, verifier_outil_actif,
+    basculer, categorie_active, categories_actives, lister_activations,
+    phrase_outils_actifs, verifier_outil_actif,
 )
 from assistant.backoffice.appels import (
     compter_appels, enregistrer_appel, enregistrer_evaluation, lister_appels_avec_details,
@@ -87,9 +88,19 @@ def route_transferer_agent(requete: TransfertRequete):
 
 
 @app.post("/outils/rechercher_information", response_model=InformationReponse,
-          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("rechercher_information"))])
+          dependencies=[Depends(verifier_jeton)])
 def route_rechercher_information(requete: InformationRequete):
-    return rechercher_information(requete.question, requete.categorie)
+    """Pas d'interrupteur unique pour cet outil (voir NOMS_OUTILS,
+    assistant/outils/db.py) : l'activation se fait par regroupement de
+    catégories depuis le 03/09/2026 (assistant/backoffice/activation.py,
+    GROUPES_CATEGORIES_INFO), alignée sur la classification du CRC plutôt
+    que sur l'outil entier."""
+    if requete.categorie and not categorie_active(requete.categorie):
+        raise HTTPException(
+            status_code=503,
+            detail=f"rechercher_information (catégorie {requete.categorie}) temporairement désactivé depuis le back-office",
+        )
+    return rechercher_information(requete.question, requete.categorie, categories_actives=categories_actives())
 
 
 @app.post("/outils/enregistrer_satisfaction", response_model=SatisfactionReponse,

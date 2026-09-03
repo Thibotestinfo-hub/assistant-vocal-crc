@@ -70,7 +70,7 @@ Chaque appel logge : modèle LLM utilisé, tokens entrée/sortie, minutes STT, m
   "parameters": {
     "question": { "type": "string", "description": "La question reformulée clairement" },
     "categorie": { "type": "string",
-      "enum": ["tarifs", "agences", "conditions", "accessibilite", "tad", "vls", "procedures"],
+      "enum": ["tarifs", "agences", "conditions", "accessibilite", "tad", "vls", "procedures", "amendes"],
       "required": false }
   }
 }

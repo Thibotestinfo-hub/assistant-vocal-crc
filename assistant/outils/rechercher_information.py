@@ -131,17 +131,29 @@ def _score_lexical(mots_question, bloc):
     return trouves / len(mots_question)
 
 
-def chercher_blocs(question, categorie=None, n=5):
+def chercher_blocs(question, categorie=None, n=5, categories_actives=None):
     """Renvoie les n blocs les plus proches de la question, triés du
     meilleur au moins bon, sous la forme [(score_combine, bloc), ...].
+
+    categories_actives : si fourni (voir assistant.backoffice.activation,
+    categories_actives()), les blocs dont la categorie n'y figure pas sont
+    exclus des candidats — même quand `categorie` n'est pas précisé par
+    l'appelant, pour qu'un sujet coupé depuis le back-office ne puisse
+    jamais ressortir par une question formulée vaguement. None (par
+    défaut) : pas de filtrage, utilisé par assistant.evalcorpus qui doit
+    évaluer tout le corpus indépendamment de l'activation en cours.
 
     Réutilisé par l'outil rechercher_information (qui ne garde que le
     meilleur) et par assistant.evalcorpus (qui regarde les 5 premiers,
     comme le prévoit la méthode)."""
     index, vecteurs = _charger_index()
 
-    if categorie:
-        indices_retenus = [i for i, b in enumerate(index) if b["categorie"] == categorie]
+    indices_retenus = [
+        i for i, b in enumerate(index)
+        if (categorie is None or b["categorie"] == categorie)
+        and (categories_actives is None or b["categorie"] in categories_actives)
+    ]
+    if categorie or categories_actives is not None:
         if not indices_retenus:
             return []
         index_filtre = [index[i] for i in indices_retenus]
@@ -178,8 +190,8 @@ def chercher_blocs(question, categorie=None, n=5):
     return resultats[:n]
 
 
-def rechercher_information(question, categorie=None):
-    resultats = chercher_blocs(question, categorie, n=1)
+def rechercher_information(question, categorie=None, categories_actives=None):
+    resultats = chercher_blocs(question, categorie, n=1, categories_actives=categories_actives)
     if not resultats:
         return {"trouve": False}
 

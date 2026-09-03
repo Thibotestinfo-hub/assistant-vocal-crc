@@ -14,7 +14,7 @@ from pydantic import BaseModel
 class InformationRequete(BaseModel):
     question: str
     categorie: Optional[Literal[
-        "tarifs", "agences", "conditions", "accessibilite", "tad", "vls", "procedures",
+        "tarifs", "agences", "conditions", "accessibilite", "tad", "vls", "procedures", "amendes",
     ]] = None
 
 

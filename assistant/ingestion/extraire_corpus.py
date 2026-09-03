@@ -26,12 +26,15 @@ CORPUS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "corpus"
 # (chemin, nom de fichier, catégorie). Le nom de fichier est choisi à la
 # main pour rester lisible ; le chemin vient du "Plan du site" du réseau.
 # La catégorie reprend l'enum de rechercher_information dans la spec
-# (tarifs, agences, conditions, accessibilite, tad, vls, procedures).
+# (tarifs, agences, conditions, accessibilite, tad, vls, procedures,
+# amendes — cette dernière isolée de procedures le 03/09/2026, pour
+# permettre de désactiver les amendes depuis le back-office sans couper
+# la FAQ générale au passage, voir docs/prochaines-etapes.md).
 PAGES = [
     ("/fr/aide-et-accessibilite/54", "accessibilite", "accessibilite"),
     ("/fr/faq/12", "faq", "procedures"),
     ("/fr/transports-a-la-demande-tad/1035", "tad", "tad"),
-    ("/fr/proces-verbaux-pv-/1034", "amendes", "procedures"),
+    ("/fr/proces-verbaux-pv-/1034", "amendes", "amendes"),
     ("/fr/nos-boutiques/74", "boutiques", "agences"),
     ("/fr/depositaires-agrees/1036", "depositaires-agrees", "agences"),
     ("/fr/nos-dat-distributeurs/1041", "distributeurs", "agences"),
