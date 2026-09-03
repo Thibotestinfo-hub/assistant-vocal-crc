@@ -40,6 +40,17 @@ def exporter_objets_perdus():
     return _exporter_csv("objets_perdus", COLONNES_OBJETS_PERDUS)
 
 
+def supprimer_objet_perdu(declaration_id):
+    """Pas d'usage courant prévu (une vraie déclaration ne devrait jamais
+    être supprimée) — sert au nettoyage d'entrées de test ou d'un faux
+    appel d'outil par le modèle (voir docs/prochaines-etapes.md, bug
+    enregistrer_satisfaction du 28/08/2026)."""
+    conn = connexion_app()
+    conn.execute("DELETE FROM objets_perdus WHERE id = ?", (declaration_id,))
+    conn.commit()
+    conn.close()
+
+
 def exporter_demandes_rappel():
     return _exporter_csv("demandes_rappel", COLONNES_DEMANDES_RAPPEL)
 

@@ -30,7 +30,7 @@ from assistant.backoffice.appels import (
     resumer_evaluations, resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
 )
 from assistant.backoffice.exports import (
-    exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel,
+    exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel, supprimer_objet_perdu,
 )
 from assistant.backoffice.page import page_backoffice
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
@@ -259,6 +259,16 @@ def _reponse_csv(contenu, nom_fichier):
 @app.get("/backoffice/exports/objets_perdus.csv", dependencies=[Depends(verifier_acces_backoffice)])
 def route_export_objets_perdus():
     return _reponse_csv(exporter_objets_perdus(), "objets_perdus.csv")
+
+
+@app.post("/backoffice/objets_perdus/{declaration_id}/supprimer",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_supprimer_objet_perdu(declaration_id: int):
+    """Pas de bouton dans l'interface (usage rare, voir
+    assistant/backoffice/exports.py) : à appeler directement, par exemple
+    pour nettoyer une fausse déclaration créée par un raté du modèle."""
+    supprimer_objet_perdu(declaration_id)
+    return RedirectResponse("/backoffice/appels", status_code=303)
 
 
 @app.get("/backoffice/exports/demandes_rappel.csv", dependencies=[Depends(verifier_acces_backoffice)])
