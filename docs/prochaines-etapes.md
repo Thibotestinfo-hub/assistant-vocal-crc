@@ -1,6 +1,59 @@
-# Prochaines étapes — état au 02/09/2026
+# Prochaines étapes — état au 03/09/2026
 
-## ✅ Résolu ce soir — rechercher_information (502 en production)
+## ✅ Fait le 03/09 (soir) — première évaluation réelle du corpus (`assistant.evalcorpus`)
+
+Remonté par l'utilisateur : deux questions simples et légitimes sur les
+tarifs ("abonnement", "prix d'un trajet") n'obtenaient aucune réponse en
+conditions réelles, alors que le bouton Commercial était bien actif.
+Diagnostiqué en faisant tourner `uv run python3 -m assistant.evalcorpus`
+(54 questions, dont 8 pièges) depuis un terminal avec accès réseau (cet
+environnement ne peut pas atteindre Hugging Face).
+
+**Résultat avant correctif** : rappel top-5 100% (54/54 — le bon bloc
+est toujours dans les 5 premiers candidats), mais réponse outil
+seulement 80% (43/54). L'écart venait presque entièrement d'un même
+défaut : `rechercher_information` ne regardait que le tout premier
+candidat ; si celui-ci échouait le véto lexical (aucun mot en commun
+avec la question), la réponse était `trouve=False` même quand un
+candidat suivant, tout aussi bien classé, aurait répondu correctement.
+
+**Corrigé** : la fonction regarde maintenant les 5 meilleurs candidats
+dans l'ordre et renvoie le premier qui passe les deux vérifications
+(score + véto lexical), au lieu d'abandonner au premier échec. Changement
+isolé, sans effet sur la détection des questions pièges. Vérifié
+localement sans régression (`verifier_backoffice.py` 12/12,
+`verifier_api.py` 7/8 — seul échec restant : le test réseau bloqué dans
+ce sandbox, déjà connu). **Poussé sur `main`, déployé.**
+
+**⚠️ Point sérieux découvert au passage, PAS encore traité** : sur les 8
+questions pièges de l'évaluation, 6 ont reçu une réponse alors qu'elles
+auraient dû obtenir `trouve=False` — dont 2 avec une confiance "haute"
+(par exemple une question demandant le numéro de téléphone d'un autre
+opérateur, SNCF, à laquelle l'outil a répondu en utilisant le contenu de
+la page "Nous contacter" de ce réseau-ci). Remonter les seuils ne suffira
+probablement pas à lui seul : plusieurs pièges obtiennent un score aussi
+élevé, voire plus élevé, que de vraies questions légitimes — la
+distribution des scores se chevauche. À traiter par expérimentation
+itérative (ajustement seuils/véto lexical + relance d'`evalcorpus` par
+l'utilisateur à chaque essai), pas par un simple changement de constante.
+
+**Prochaine étape immédiate** : demander à l'utilisateur de relancer
+`uv run python3 -m assistant.evalcorpus` une fois ce correctif déployé,
+pour confirmer que les questions tarifs qui échouaient sont bien
+résolues et qu'aucune régression n'apparaît sur les pièges — avant de
+s'attaquer au point ⚠️ ci-dessus.
+
+**Aussi demandé le même soir, pas encore traité** : clôture d'appel plus
+chaleureuse — le "au revoir" final est actuellement un peu brut. Piste
+proposée : *"Après avoir remercié l'appelant pour son retour, termine
+toujours par une formule de clôture chaleureuse avant de raccrocher (par
+exemple 'Merci de votre appel, bonne journée !'), plutôt qu'un simple
+accusé de réception suivi d'un silence en attendant que l'appelant dise
+au revoir."* — à ajouter au prompt ElevenLabs (à faire par l'utilisateur
+côté ElevenLabs, comme les autres consignes de prompt) et à confirmer
+appliqué.
+
+## ✅ Résolu — rechercher_information (502 en production, 02/09)
 
 Constaté le 02/09 : `POST /outils/rechercher_information` renvoyait **502
 Bad Gateway** en production (`/sante` répondait normalement — seul cet
@@ -106,8 +159,9 @@ d'outil, et découverte de la panne ci-dessus.
         renforcé (consigne impérative, placée en fin de prompt) et
         déplacé en bas du prompt (effet de récence sur les longs prompts).
       - Une fausse déclaration d'objet perdu a été créée par le 2e raté
-        ci-dessus — **à vérifier/nettoyer** dans l'export CSV objets
-        perdus si toujours présente.
+        ci-dessus — **nettoyée le 03/09** (nouvelle route de suppression
+        `assistant/backoffice/exports.py::supprimer_objet_perdu`, testée,
+        puis utilisée pour retirer la ligne concernée en production).
 - [x] **Décalage horaire de -2h corrigé** sur tous les horodatages stockés
       en base (appels, évaluations, objets perdus, demandes de rappel,
       transferts, règles de prononciation, satisfaction) : le serveur
@@ -277,26 +331,33 @@ d'erreur/hors périmètre et le nouveau créneau horaire), points de mesure
 grille de recueil des résultats — probablement dans le back-office
 (évaluation par appel, déjà existante).
 
-## Suggestion pour la reprise (03/09, priorités explicites de l'utilisateur)
+## Suggestion pour la reprise (03/09 soir, priorités explicites de l'utilisateur)
 
-1. **Twilio France** — appel en cours côté utilisateur (03/09) pour
-   débloquer la certification réglementaire.
-2. **Ajustement du message d'accueil** — élucider d'abord l'incohérence du
-   panneau "En ligne" ElevenLabs (voir point ouvert plus haut) avant de
-   conclure quoi que ce soit sur `{{outils_actifs}}` ; refaire le test
-   proprement une fois ce point éclairci.
-3. ~~Valider le redécoupage des catégories du Live~~ — **fait le 03/09**,
-   voir section dédiée ci-dessus.
-4. **Cadrer le routage téléphonique / horaires CRC / débordement** (section
+1. **Relancer `assistant.evalcorpus`** après déploiement du correctif
+   rechercher_information, pour confirmer que les questions tarifs
+   échouées sont résolues et qu'il n'y a pas de régression sur les pièges.
+2. **⚠️ Questions pièges répondues à tort** (6/8, dont 2 en confiance
+   "haute") — le sujet le plus sérieux en attente côté fiabilité, à
+   traiter par expérimentation itérative de seuils avec `evalcorpus`
+   comme instrument de mesure.
+3. **Confirmer la clôture d'appel plus chaleureuse** — texte de consigne
+   déjà proposé (voir section du soir ci-dessus), à appliquer côté
+   ElevenLabs et à valider en test.
+4. **Twilio France** — appel passé côté utilisateur le 03/09 pour
+   débloquer la certification réglementaire ; à vérifier où ça en est.
+5. **Cadrer le routage téléphonique / horaires CRC / débordement** (section
    F ci-dessus) — potentiellement le sujet le plus structurant pour rendre
    ce POC testable par l'équipe.
 
-Autres points en attente, moins prioritaires que les 3 ci-dessus :
+Autres points en attente, moins prioritaires que les 5 ci-dessus :
 - Une fois le numéro Twilio actif : relier le numéro à l'agent ElevenLabs,
-  puis vrai test téléphonique (E).
+  puis vrai test téléphonique (E), y compris vérification de
+  `{{outils_actifs}}` sur un vrai appel (webhook de personnalisation,
+  backend déjà testé et fonctionnel, jamais confirmé sur appel réel).
 - Vérifier la concurrence d'appels simultanés réellement (2-3 appels en
   parallèle), avant le test live.
-- Nettoyer la fausse déclaration d'objet perdu créée par le bug de
-  satisfaction (si toujours présente).
 - Vérifier le format des balises audio `[chaleureusement]` etc. sur un
   vrai appel avec Clémence.
+- Décider si la sélection de tonalité par tags (plutôt que les curseurs
+  ton/style actuels) mérite d'être construite — discuté et validé
+  conceptuellement le 03/09, explicitement pas actionné pour l'instant.
