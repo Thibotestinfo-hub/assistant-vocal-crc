@@ -210,6 +210,18 @@ catégorie désactivée, filtrage confirmé) — **pas encore testé sur un vrai
 appel** (nécessite le modèle d'embeddings, réseau bloqué depuis cet
 environnement).
 
+**Ajustements suite à la relecture de l'utilisateur (même jour)** :
+- **"Identifier un arrêt" fusionné dans "Horaires"** — un interrupteur
+  séparé permettait la combinaison cassée "horaires actif, mais recherche
+  d'arrêt coupée" (horaires en dépend directement). La grille passe de 9
+  à 6 cases : Horaires, Commercial, Vélo en libre service, Transport à la
+  demande, Amendes, Déclarer un objet perdu.
+- **"Demander à être rappelé" et "Transférer vers un conseiller" ne sont
+  plus désactivables du tout** — ce sont les deux seules portes de sortie
+  vers un humain ; les laisser désactivables risquait de laisser un
+  appelant sans aucun recours, contraire au principe fondateur du projet.
+  Retirées de la grille et du mécanisme d'activation en base.
+
 ## C. Dupliquer pour un autre réseau (pas commencé)
 
 Inchangé depuis le 27/08 — voir version précédente de ce document dans
