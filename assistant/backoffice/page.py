@@ -44,32 +44,30 @@ _NOMS_LISIBLES = {
     "transferer_agent": "Transférer vers un conseiller",
 }
 
-# Étiquettes des interrupteurs "Outils actifs" du Live — rechercher_information
+# Étiquettes des interrupteurs "Outils actifs" du Live. rechercher_information
 # n'a plus une seule case mais 4, alignées sur la grille de classification
 # du CRC plutôt que sur l'outil technique (voir assistant/backoffice/
-# activation.py, GROUPES_CATEGORIES_INFO).
+# activation.py, GROUPES_CATEGORIES_INFO). rechercher_arret est fusionné
+# avec horaires_theoriques (une case commune). demander_rappel et
+# transferer_agent ne sont plus désactivables du tout depuis le
+# 03/09/2026 — ce sont les deux seules portes de sortie vers un humain,
+# les rendre coupables ici aurait pu laisser un appelant sans recours.
 _NOMS_LISIBLES_ACTIVATION = {
-    "rechercher_arret": "Identifier un arrêt",
-    "horaires_theoriques": "Horaires théoriques",
+    "horaires_theoriques": "Horaires",
     "rechercher_information:commercial": "Commercial",
     "rechercher_information:vls": "Vélo en libre service",
     "rechercher_information:tad": "Transport à la demande",
     "rechercher_information:amendes": "Amendes",
     "enregistrer_objet_perdu": "Déclarer un objet perdu",
-    "demander_rappel": "Demander à être rappelé",
-    "transferer_agent": "Transférer vers un conseiller",
 }
 
 _DESCRIPTIONS_OUTILS = {
-    "rechercher_arret": "Identifie l'arrêt mentionné par l'appelant (nom, commune, ligne).",
-    "horaires_theoriques": "Donne les horaires théoriques des prochains passages à un arrêt.",
+    "horaires_theoriques": "Identifie l'arrêt mentionné et donne les horaires théoriques des prochains passages.",
     "rechercher_information:commercial": "Répond aux questions tarifs, agences, conditions et accessibilité depuis la base de connaissance.",
     "rechercher_information:vls": "Répond aux questions sur le vélo en libre service.",
     "rechercher_information:tad": "Répond aux questions sur le transport à la demande.",
     "rechercher_information:amendes": "Répond aux questions sur les amendes et procès-verbaux.",
     "enregistrer_objet_perdu": "Enregistre une déclaration d'objet perdu.",
-    "demander_rappel": "Enregistre une demande de rappel par un conseiller.",
-    "transferer_agent": "Bascule l'appel vers un conseiller humain.",
 }
 
 _NOMS_MOTIFS = {

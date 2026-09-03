@@ -150,7 +150,11 @@ CREATE TABLE IF NOT EXISTS satisfaction_appels (
 """
 
 NOMS_OUTILS = [
-    "rechercher_arret", "horaires_theoriques",
+    # rechercher_arret n'a plus d'interrupteur propre depuis le 03/09/2026 :
+    # fusionné avec horaires_theoriques (gaté par la même clé côté route,
+    # voir assistant/api/main.py), pour éviter la combinaison cassée
+    # "horaires actif mais recherche d'arrêt coupée".
+    "horaires_theoriques",
     # rechercher_information n'a plus d'interrupteur unique depuis le
     # 03/09/2026 : activation par regroupement de catégories, alignée sur
     # la grille de classification du CRC (voir assistant/backoffice/
@@ -158,7 +162,11 @@ NOMS_OUTILS = [
     # entier — un réseau peut vouloir couper le VLS sans couper les tarifs.
     "rechercher_information:commercial", "rechercher_information:vls",
     "rechercher_information:tad", "rechercher_information:amendes",
-    "enregistrer_objet_perdu", "demander_rappel", "transferer_agent",
+    "enregistrer_objet_perdu",
+    # demander_rappel et transferer_agent n'ont plus d'interrupteur depuis
+    # le 03/09/2026 : ce sont les deux seules portes de sortie vers un
+    # humain, les rendre désactivables risquait de laisser un appelant
+    # sans aucun moyen de joindre quelqu'un (voir assistant/api/main.py).
 ]
 
 # Traçabilité par appel (CLAUDE.md, contrainte non négociable) : ajoutées

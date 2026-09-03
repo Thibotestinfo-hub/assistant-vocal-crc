@@ -54,8 +54,13 @@ def sante():
 
 
 @app.post("/outils/rechercher_arret", response_model=RechercherArretReponse,
-          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("rechercher_arret"))])
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("horaires_theoriques"))])
 def route_rechercher_arret(requete: RechercherArretRequete):
+    """Gaté par l'activation de horaires_theoriques, pas la sienne propre
+    (fusionnés le 03/09/2026) : rechercher_arret n'est presque jamais
+    utile seul, c'est l'étape technique qui précède un appel horaires —
+    un interrupteur séparé ne faisait que permettre une combinaison
+    cassée (horaires actif mais recherche d'arrêt coupée)."""
     return rechercher_arret(requete.texte, requete.commune, requete.ligne)
 
 
@@ -76,14 +81,22 @@ def route_enregistrer_objet_perdu(requete: ObjetPerduRequete):
 
 
 @app.post("/outils/demander_rappel", response_model=RappelReponse,
-          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("demander_rappel"))])
+          dependencies=[Depends(verifier_jeton)])
 def route_demander_rappel(requete: RappelRequete):
+    """Pas de verifier_outil_actif (retiré le 03/09/2026) : c'est une des
+    deux seules portes de sortie vers un humain (avec transferer_agent).
+    La rendre désactivable depuis le back-office créait un risque réel
+    qu'un appelant se retrouve sans aucun moyen de joindre quelqu'un —
+    contraire au principe fondateur du projet (le bot reste un outil
+    entre les mains d'un agent humain, jamais une impasse)."""
     return demander_rappel(**requete.model_dump())
 
 
 @app.post("/outils/transferer_agent", response_model=TransfertReponse,
-          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("transferer_agent"))])
+          dependencies=[Depends(verifier_jeton)])
 def route_transferer_agent(requete: TransfertRequete):
+    """Pas de verifier_outil_actif, même raison que demander_rappel
+    ci-dessus."""
     return transferer_agent(requete.motif, requete.resume)
 
 

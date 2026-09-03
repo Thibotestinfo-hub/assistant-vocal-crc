@@ -86,28 +86,34 @@ def main():
     resultats.append(verifier("GET export demandes_rappel.csv", ok, r, d))
 
     # --- Activation des outils ---
-    # transferer_agent : choisi parce qu'une brève désactivation pendant
-    # ce script n'a aucune conséquence dangereuse. Le bloc finally
+    # enregistrer_objet_perdu : choisi parce qu'une brève désactivation
+    # pendant ce script n'a aucune conséquence dangereuse. Depuis le
+    # 03/09/2026, demander_rappel et transferer_agent ne sont plus
+    # désactivables du tout (ce sont les deux seules portes de sortie vers
+    # un humain), donc plus utilisables pour ce test. Le bloc finally
     # garantit la réactivation même si une vérification échoue en cours
     # de route, pour ne jamais laisser l'assistant en production avec un
     # outil coupé par erreur.
+    objet_perdu_payload = {
+        "nature": "test", "description": "vérification back-office",
+        "date_perte": "2026-01-01", "creneau_horaire": "matin", "lieu": "incertain",
+        "nom": "test", "telephone": "0600000000", "opt_in_marketing": False,
+    }
     try:
-        r, d = appeler("POST", "/backoffice/activation/transferer_agent/basculer", auth=auth_backoffice)
-        resultats.append(verifier("POST bascule transferer_agent (désactive)", r.status_code == 200, r, d))
+        r, d = appeler("POST", "/backoffice/activation/enregistrer_objet_perdu/basculer", auth=auth_backoffice)
+        resultats.append(verifier("POST bascule enregistrer_objet_perdu (désactive)", r.status_code == 200, r, d))
 
-        r, d = appeler("POST", "/outils/transferer_agent", headers=en_tete,
-                        json={"motif": "test", "resume": "vérification back-office"})
+        r, d = appeler("POST", "/outils/enregistrer_objet_perdu", headers=en_tete, json=objet_perdu_payload)
         ok = r.status_code == 503
         resultats.append(verifier("POST outil désactivé -> 503", ok, r, d))
     finally:
-        r, d = appeler("POST", "/backoffice/activation/transferer_agent/basculer", auth=auth_backoffice)
-        reactive = verifier("POST bascule transferer_agent (réactive)", r.status_code == 200, r, d)
+        r, d = appeler("POST", "/backoffice/activation/enregistrer_objet_perdu/basculer", auth=auth_backoffice)
+        reactive = verifier("POST bascule enregistrer_objet_perdu (réactive)", r.status_code == 200, r, d)
         resultats.append(reactive)
         if not reactive:
-            print("       ⚠️  ATTENTION : transferer_agent pourrait être resté désactivé, à vérifier à la main sur /backoffice/appels")
+            print("       ⚠️  ATTENTION : enregistrer_objet_perdu pourrait être resté désactivé, à vérifier à la main sur /backoffice/appels")
 
-    r, d = appeler("POST", "/outils/transferer_agent", headers=en_tete,
-                    json={"motif": "test", "resume": "vérification back-office, après réactivation"})
+    r, d = appeler("POST", "/outils/enregistrer_objet_perdu", headers=en_tete, json=objet_perdu_payload)
     resultats.append(verifier("POST outil réactivé -> fonctionne", r.status_code == 200, r, d))
 
     print()
