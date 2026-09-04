@@ -1,4 +1,64 @@
-# Prochaines étapes — état au 03/09/2026
+# Prochaines étapes — état au 04/09/2026
+
+## ✅ Fait le 04/09 — itération sur le véto lexical, une régression détectée et annulée
+
+Suite directe du point du 03/09 ci-dessous. Deux choses à retenir pour la
+méthode de travail avant le détail technique :
+
+- **Push automatique côté Claude, pull manuel côté toi** : chaque commit
+  que je fais est poussé immédiatement sur GitHub. Mais ton terminal
+  Codespaces est une copie locale indépendante qui ne se met à jour que
+  sur `git pull origin main` explicite — rien d'automatique comme sur
+  Clever Cloud (qui a un webhook GitHub configuré pour se redéployer
+  seul). Premier run d'evalcorpus du 04/09 fait sans pull préalable :
+  résultats identiques au run de la veille, ce qui a permis de repérer le
+  problème avant de mal interpréter des chiffres obsolètes.
+
+- **Piste testée et abandonnée le jour même** : exiger 2 mots
+  significatifs partagés (au lieu d'1 seul) pour accepter un candidat,
+  dans l'idée de réduire les faux positifs en position 1 (voir point du
+  03/09). Résultat mesuré après déploiement : **69% au lieu de 80%** — net
+  recul, malgré une légère amélioration sur les pièges (4/8 au lieu de
+  2/8). Cause : sur une question courte à 2 mots significatifs dont un
+  mot interrogatif ("C'est combien un ticket ?" → "combien", "ticket"),
+  "combien" ne peut structurellement jamais apparaître dans un texte de
+  réponse — exiger 2 mots revient à rejeter systématiquement ce genre de
+  question. Cassé au passage : "vélo ?", "chien ?", désinscription SMS,
+  entre autres questions auparavant correctes. **Annulé, retour à 1 mot
+  minimum.**
+
+- **Correctif conservé, indépendant de la régression ci-dessus** : le
+  `break` sur `SEUIL_BASSE` (score sémantique trop bas) remplacé par un
+  `continue`, pour que le bon document puisse être trouvé même en 3e
+  position avec un score déjà sous ce seuil (cas "abonnement" du 03/09).
+  Pas encore confirmé sur un run propre (le run avec le seuil à 2 mots
+  masquait son effet sur ce cas précis) — **à revérifier au prochain
+  evalcorpus**.
+
+- **⚠️ Nouvelle observation, non expliquée** : entre deux runs d'evalcorpus
+  utilisant exactement le même corpus et modèle (aucun changement de code
+  qui les concerne), le rappel top-5 est passé de 100% à 94% et les
+  scores sur les questions "amendes" ont changé (ex. "Comment payer une
+  amende ?" : `amendes.md` premier avec score 1.000 sur un run, absent du
+  top-5 avec score 0.997 sur `faq.md` à sa place sur l'autre run). Piste
+  la plus probable : le modèle d'embeddings est retéléchargé à chaque run
+  dans cet environnement Codespaces (`data/etat/` n'y persiste pas comme
+  sur Clever Cloud), et son identifiant Hugging Face
+  (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`) n'est
+  pas figé sur une révision précise — si le dépôt HF est mis à jour entre
+  deux téléchargements, les vecteurs de `corpus_index.json` (calculés une
+  fois, figés) et les vecteurs de question (calculés à la volée) peuvent
+  ne plus venir exactement du même modèle. À vérifier avant de tirer une
+  conclusion (pourrait aussi être un phénomène plus anodin) — **pas
+  traité, priorité à discuter avec l'utilisateur** : c'est un sujet de
+  fond (reproductibilité, "Vérifiabilité" au sens de CLAUDE.md), pas
+  urgent au jour le jour puisque Clever Cloud garde son propre modèle en
+  cache une fois téléchargé.
+
+**Prochaine étape immédiate** : repull + relancer `assistant.evalcorpus`
+pour confirmer qu'on est bien revenu à la base (80%, rappel 100%, pièges
+2/8) et que le cas "abonnement" est cette fois résolu proprement par le
+`continue` seul.
 
 ## ✅ Fait le 03/09 (soir) — première évaluation réelle du corpus (`assistant.evalcorpus`)
 
