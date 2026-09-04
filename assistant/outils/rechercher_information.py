@@ -204,7 +204,14 @@ def rechercher_information(question, categorie=None, categories_actives=None):
 
     for score, bloc in resultats:
         if score < SEUIL_BASSE:
-            break  # trié décroissant : les suivants ne passeront pas non plus
+            # Pas de break ici : contrairement à un premier réflexe, un
+            # candidat plus bas dans le score sémantique combiné n'est pas
+            # forcément moins pertinent — mesuré le 04/09 sur "abonnement",
+            # où le bon document tombait sous SEUIL_BASSE en 3e position et
+            # n'était donc jamais atteint. C'est le test lexical juste
+            # dessous, pas ce seuil, qui porte la décision "je ne sais pas"
+            # (voir docstring du module).
+            continue
         # Aucun mot de la question ne se retrouve dans ce candidat : quel
         # que soit son score sémantique, ce n'est pas une réponse fiable
         # (c'est ce signal, pas le score sémantique, qui distingue le

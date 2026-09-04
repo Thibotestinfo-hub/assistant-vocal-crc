@@ -61,12 +61,20 @@ def evaluer(lignes):
         meilleur_score = top5[0][0] if top5 else None
         second_score = top5[1][0] if len(top5) > 1 else None
         marge = (meilleur_score - second_score) if second_score is not None else None
-        fichier_rendu = top5[0][1]["fichier"] if top5 else None
         if piege:
             outil_ok = not reponse["trouve"]
+            fichier_rendu = None
         else:
             # rechercher_information ne renvoie pas le champ "fichier" (pas dans le
-            # contrat spec) : on le retrouve via le meilleur bloc de chercher_blocs.
+            # contrat spec) : on retrouve le bloc réellement utilisé en comparant le
+            # texte renvoyé à celui des candidats de chercher_blocs. Depuis le
+            # correctif du 03/09 (on regarde jusqu'à 5 candidats), ce n'est plus
+            # forcément le premier du top-5 : le comparer à top5[0] comme avant
+            # aurait pu déclarer un FAIL sur une réponse en réalité correcte.
+            fichier_rendu = next(
+                (bloc["fichier"] for _, bloc in top5 if bloc["texte"] == reponse.get("reponse_source")),
+                None,
+            )
             outil_ok = reponse["trouve"] and fichier_rendu in attendus
 
         resultats.append({
