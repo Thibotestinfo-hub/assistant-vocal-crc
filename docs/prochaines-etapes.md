@@ -1,4 +1,131 @@
-# Prochaines étapes — état au 04/09/2026
+# Prochaines étapes — état au 04/09/2026 (fin de session)
+
+## ⚠️ Action bloquante avant toute chose : commiter le nouvel index
+
+`data/corpus_index.json` a été régénéré dans ta session Codespaces (suite au
+nettoyage du pied de page, voir plus bas) mais **n'est pas encore commité** —
+je n'ai pas ce fichier de mon côté, seulement toi. Depuis Codespaces :
+
+```bash
+git add data/corpus_index.json
+git commit -m "Regenere l'index apres le nettoyage du widget acces rapide (04/09)"
+git push origin main
+```
+
+Tant que ce n'est pas fait, la production tourne encore sur l'ancien index
+(sans le nettoyage du pied de page ni le synonyme "abonnement" à jour).
+
+## ✅ Fait le 04/09 (après-midi/soir) — pollution du corpus et exploration modèle
+
+**Deux vrais bugs de contenu trouvés et corrigés** (voir aussi la section
+"itération sur le véto lexical" juste en dessous pour la partie seuils/code) :
+
+1. **Synonyme "abonnement" manquant** : le mécanisme existait déjà dans
+   `extraire_tarifs.py` (`PASS MENSUEL/ANNUEL` → "abonnement") mais l'index
+   commité n'avait jamais été régénéré depuis son ajout. Corrigé par un
+   rafraîchissement complet. "Je voudrais prendre un abonnement, comment je
+   fais ?" passe de `trouve=False` à une réponse correcte.
+2. **Widget "accès rapide" du site scrapé dans chaque page** : un bloc de
+   liens (Itinéraire, Horaires, TAD, Paiement des amendes...) identique en
+   bas de chaque page, sans conteneur dédié à exclure. Corrigé
+   (`assistant/ingestion/extraire_corpus.py`, sélecteur `a.btn-quick-access`
+   ajouté à `SELECTEURS_BRUIT`). Diluait `amendes.md` et faisait gagner à
+   tort `faq.md` sur des questions amendes (le lien contenait littéralement
+   le mot "amendes").
+
+**Reste ouvert malgré ce nettoyage** (vérifié après rafraîchissement complet,
+77 blocs réindexés) :
+- `amendes.md` perd toujours face à `faq.md` sur "Comment payer une amende ?"
+  et 2 questions voisines — cette fois pour une raison différente : le bloc
+  FAQ "Comment payer et valider avec ma carte bleue ?" partage la tournure
+  exacte "Comment payer..." avec la question, alors qu'`amendes.md` dit
+  "réglant votre amende" / "solutions de paiement" (jamais le mot "payer").
+  Les deux blocs ne partagent donc qu'1 mot chacun avec la question — c'est
+  le score sémantique qui tranche, et le modèle actuel se laisse guider par
+  la ressemblance de tournure plus que par le vrai sujet. **Limite du modèle
+  d'embeddings, pas un bug de contenu ou de seuil.**
+- Dépositaires-agréés, courrier/nous-contacter, tad-coûte, Rognac : toujours
+  en échec, même mécanisme (un document voisin mais faux gagne en position 1
+  et passe le véto lexical avec 1 seul mot commun).
+- Recul sur les questions pièges (1/8 correct, contre 2/8 avant le 03/09) :
+  effet de bord confirmé du correctif "regarder les 5 meilleurs candidats" —
+  plus on regarde de candidats, plus une question piège a de chances qu'un
+  candidat partage un mot par coïncidence. Non traité.
+
+**Exploration model — jauge d'impact, puis mesures réelles.** Le budget
+CLAUDE.md (300 ms/endpoint) n'est pas le facteur limitant (marge de 10 à 25x
+avec le modèle actuel) : c'est le **déploiement Clever Cloud** qui l'est —
+e5-large (2,25 Go) avait déjà fait échouer 3 déploiements de suite (mémoire,
+quota CPU, disque) lors d'un essai précédent.
+
+Trois modèles mesurés en local (RAM et latence réelles, pas des specs
+papier) :
+
+| Modèle | RAM mesurée | Latence (régime de croisière) | Palier Clever Cloud nécessaire |
+|---|---|---|---|
+| `paraphrase-multilingual-MiniLM-L12-v2` (actuel) | 654 Mo | 10 ms | 1 Go, ~16€/mois (déjà en place) |
+| `paraphrase-multilingual-mpnet-base-v2` | 1915 Mo | 37 ms | Non viable même à 2 Go (32€/mois) ; sans doute 4 Go (76€/mois) |
+| `antoinelouis/biencoder-distilcamembert-mmarcoFR` (français uniquement, PyTorch) | 993 Mo | 43-60 ms (258 ms au 1er appel, effet de démarrage à froid) | Non viable à 1 Go ; probablement 2 Go (32€/mois), avec une marge correcte cette fois |
+
+Le candidat français (distillation de CamemBERT, entraîné spécifiquement
+pour la recherche documentaire) est le meilleur compromis technique trouvé —
+mais (a) implique soit d'ajouter PyTorch comme dépendance permanente du
+projet (lourd), soit une conversion ONNX (travail d'ingénierie non fait),
+et (b) sa qualité réelle sur nos questions n'a **pas été testée** (seuls le
+poids et la vitesse ont été mesurés) — demanderait de réindexer tout le
+corpus avec ce modèle et de relancer `evalcorpus` pour le savoir.
+
+**Décision** : mise en pause volontaire, aucun engagement budgétaire pris.
+Utilisateur : "pour l'heure, je ne veux pas m'engager sur ces montants."
+On reste sur le modèle actuel (patché au fil de l'eau) en attendant une
+décision, potentiellement après le test de qualité du candidat français.
+
+**Idées soulevées par l'utilisateur, à creuser, pas actionnées :**
+- Trouver une méthode pour identifier systématiquement ce qui est "assez
+  critique" pour mériter un patch ciblé, si on reste sur le modèle actuel
+  patché indéfiniment (plutôt que de continuer au coup par coup comme
+  aujourd'hui).
+- Demander à des collègues de la filiale une base documentaire séparée sur
+  des sujets qui évoluent peu (les amendes, par exemple) — s'émanciper du
+  site web public comme unique source, qui n'est pas forcément écrit pour
+  être une base de connaissance interrogeable.
+
+## Prochaines étapes — reprise de lundi
+
+1. **Vérifier que `data/corpus_index.json` a bien été commité** (action
+   bloquante ci-dessus) et confirmer via `evalcorpus` que la prod reflète
+   bien le nettoyage du pied de page + le synonyme abonnement.
+2. **Twilio** : vérifier l'avancement de la certification réglementaire —
+   l'utilisateur a bon espoir que ça ait avancé. Si débloqué : relier le
+   numéro à l'agent ElevenLabs, vérifier `{{outils_actifs}}` sur un vrai
+   appel, protocole de test téléphonique complet (section E du suivi).
+3. **Décider de la suite sur le modèle d'embeddings** : soit on lance le
+   test de qualité du candidat français (réindexer + evalcorpus), soit on
+   assume le modèle actuel "patché" et on passe au point 4.
+4. **Si on reste sur le modèle actuel patché** : définir une méthode pour
+   trancher rapidement "ce cas mérite-t-il un patch ciblé ou pas" — éviter
+   de refaire une session de plusieurs heures par cas isolé remonté.
+5. **Piste base documentaire alternative** : évaluer avec l'utilisateur si
+   demander une base structurée aux collègues de la filiale (sujets stables
+   comme les amendes) est réaliste, et ce que ça changerait dans le pipeline
+   d'ingestion.
+6. **Bilan de la semaine face à l'objectif initial** : où en est le projet,
+   qu'est-ce qui a été appris, qu'est-ce qui reste flou.
+7. **Duplication sur un autre réseau de transport** : quelles questions se
+   poser avant de s'y engager (voir aussi section C du suivi, jamais
+   commencée).
+8. **Back-office à remettre aux collègues** : être au clair sur ce qui est
+   prêt à être pris en main par l'équipe CRC vs ce qui reste piloté par
+   l'utilisateur seul.
+9. **Échéance concrete la plus proche : démo aux collègues directs** pour un
+   premier retour bienveillant. Deux conditions posées par l'utilisateur :
+   (1) l'expérience d'appel doit être très bonne, (2) les collègues doivent
+   pouvoir se projeter facilement dans l'usage du back-office (le prendre en
+   main eux-mêmes, ou au moins en parler avec aisance). À traduire en
+   checklist concrète avant la démo — scénarios d'appel à tester, parcours
+   back-office à répéter, points de friction à éliminer en priorité.
+
+---
 
 ## ✅ Fait le 04/09 — itération sur le véto lexical, une régression détectée et annulée
 
