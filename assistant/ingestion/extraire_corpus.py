@@ -59,6 +59,15 @@ PAGES = [
 SELECTEURS_BRUIT = [
     "nav[aria-label]", ".tool-links", ".services-list", ".message-container",
     "script", "style", "noscript", "form",
+    # Barre "accès rapide" (Itinéraire, Horaires, TAD, Paiement des
+    # amendes...) répétée à l'identique en bas de chaque page — repéré le
+    # 04/09/2026 via assistant.evalcorpus : ce bloc, mélangé au dernier
+    # paragraphe de chaque page (aucun conteneur ne l'isole, seuls les
+    # liens eux-mêmes portent cette classe), polluait aussi bien la page
+    # qui parle vraiment d'amendes (texte dilué) que des pages sans
+    # rapport (ex. faq.md gagnait à tort sur "comment payer une amende ?"
+    # simplement parce que ce lien contient le mot "amendes").
+    "a.btn-quick-access",
 ]
 
 
