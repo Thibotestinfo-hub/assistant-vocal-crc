@@ -74,6 +74,14 @@ MOTS_VIDES = {
 SEUIL_BASSE = 0.3
 SEUIL_HAUTE = 0.6
 
+# Nombre minimum de mots significatifs partagés pour accepter un candidat
+# (voir rechercher_information). Un seul mot en commun, même significatif,
+# s'est révélé insuffisant pour départager un document correct d'un
+# document seulement voisin par le sujet — mesuré à l'évaluation du
+# 04/09/2026 (4 questions réelles + 5 questions pièges sur 6 mal
+# répondues à cause d'un premier candidat qui ne partageait qu'un mot).
+SEUIL_MOTS_MINIMUM = 2
+
 _index = None
 _vecteurs = None
 _modele = None
@@ -121,14 +129,22 @@ def _radical(mot):
     return mot[:LONGUEUR_RADICAL]
 
 
+def _mots_trouves(mots_question, bloc):
+    """Nombre de mots significatifs de la question dont le radical se
+    retrouve dans le titre et le texte du bloc (compte brut, utilisé par
+    _score_lexical et par le veto à seuil minimum de rechercher_information)."""
+    if not mots_question:
+        return 0
+    texte_normalise = _normaliser(f"{bloc['source']} {bloc['texte']}")
+    return sum(1 for m in mots_question if _radical(m) in texte_normalise)
+
+
 def _score_lexical(mots_question, bloc):
     """Part des mots significatifs de la question dont le radical se
     retrouve dans le titre et le texte du bloc."""
     if not mots_question:
         return 0.0
-    texte_normalise = _normaliser(f"{bloc['source']} {bloc['texte']}")
-    trouves = sum(1 for m in mots_question if _radical(m) in texte_normalise)
-    return trouves / len(mots_question)
+    return _mots_trouves(mots_question, bloc) / len(mots_question)
 
 
 def chercher_blocs(question, categorie=None, n=5, categories_actives=None):
@@ -198,7 +214,15 @@ def rechercher_information(question, categorie=None, categories_actives=None):
     03/09/2026 (rappel top-5 100%, réponse outil seulement 80%, l'écart
     venait presque entièrement de ce cas). On regarde maintenant les 5
     meilleurs candidats dans l'ordre et on renvoie le premier qui passe
-    les deux vérifications, plutôt que d'abandonner au premier échec."""
+    les deux vérifications, plutôt que d'abandonner au premier échec.
+
+    Deux ajustements du 04/09/2026, mesurés sur le même jeu d'évaluation :
+    le score sémantique combiné ne fait plus abandonner la recherche (voir
+    le continue plus bas) et le véto lexical exige maintenant plusieurs
+    mots partagés, pas un seul (voir SEUIL_MOTS_MINIMUM) — un seul mot en
+    commun laissait passer trop de documents seulement voisins par le
+    sujet, aussi bien sur de vraies questions que sur des questions
+    pièges."""
     resultats = chercher_blocs(question, categorie, n=5, categories_actives=categories_actives)
     mots_question = _mots_significatifs(question)
 
@@ -212,12 +236,13 @@ def rechercher_information(question, categorie=None, categories_actives=None):
             # dessous, pas ce seuil, qui porte la décision "je ne sais pas"
             # (voir docstring du module).
             continue
-        # Aucun mot de la question ne se retrouve dans ce candidat : quel
-        # que soit son score sémantique, ce n'est pas une réponse fiable
-        # (c'est ce signal, pas le score sémantique, qui distingue le
-        # mieux les questions pièges — voir docstring du module) — on
+        # Pas assez de mots de la question retrouvés dans ce candidat :
+        # quel que soit son score sémantique, ce n'est pas une réponse
+        # fiable (c'est ce signal, pas le score sémantique, qui distingue
+        # le mieux les questions pièges — voir docstring du module). Un
+        # seul mot en commun ne suffit plus (voir SEUIL_MOTS_MINIMUM) — on
         # regarde le candidat suivant plutôt que d'abandonner.
-        if mots_question and _score_lexical(mots_question, bloc) == 0.0:
+        if mots_question and _mots_trouves(mots_question, bloc) < min(SEUIL_MOTS_MINIMUM, len(mots_question)):
             continue
         return {
             "trouve": True,
