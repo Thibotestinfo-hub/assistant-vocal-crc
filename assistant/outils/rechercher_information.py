@@ -75,12 +75,16 @@ SEUIL_BASSE = 0.3
 SEUIL_HAUTE = 0.6
 
 # Nombre minimum de mots significatifs partagés pour accepter un candidat
-# (voir rechercher_information). Un seul mot en commun, même significatif,
-# s'est révélé insuffisant pour départager un document correct d'un
-# document seulement voisin par le sujet — mesuré à l'évaluation du
-# 04/09/2026 (4 questions réelles + 5 questions pièges sur 6 mal
-# répondues à cause d'un premier candidat qui ne partageait qu'un mot).
-SEUIL_MOTS_MINIMUM = 2
+# (voir rechercher_information). Passé à 2 le 04/09 pour départager un
+# document correct d'un document seulement voisin par le sujet, mais
+# revenu à 1 le jour même : sur une question courte à 2 mots significatifs
+# dont un mot interrogatif ("C'est combien un ticket ?" -> "combien",
+# "ticket"), "combien" ne peut structurellement jamais apparaître dans un
+# texte de réponse — exiger 2 mots revenait à rejeter systématiquement ce
+# genre de question. Mesuré : 69% de bonnes réponses au lieu de 80% avec
+# ce réglage. Le problème des faux positifs en position 1 (voir
+# rechercher_information) reste entier, à traiter autrement.
+SEUIL_MOTS_MINIMUM = 1
 
 _index = None
 _vecteurs = None
@@ -216,13 +220,19 @@ def rechercher_information(question, categorie=None, categories_actives=None):
     meilleurs candidats dans l'ordre et on renvoie le premier qui passe
     les deux vérifications, plutôt que d'abandonner au premier échec.
 
-    Deux ajustements du 04/09/2026, mesurés sur le même jeu d'évaluation :
-    le score sémantique combiné ne fait plus abandonner la recherche (voir
-    le continue plus bas) et le véto lexical exige maintenant plusieurs
-    mots partagés, pas un seul (voir SEUIL_MOTS_MINIMUM) — un seul mot en
-    commun laissait passer trop de documents seulement voisins par le
-    sujet, aussi bien sur de vraies questions que sur des questions
-    pièges."""
+    Ajustement du 04/09/2026, mesuré sur le même jeu d'évaluation : le
+    score sémantique combiné ne fait plus abandonner la recherche (voir
+    le continue plus bas) — le bon document peut être en 3e position avec
+    un score déjà sous SEUIL_BASSE, sans être moins pertinent pour autant.
+
+    Piste testée le même jour et abandonnée : exiger plusieurs mots
+    partagés (pas un seul) pour durcir le véto lexical. Casse trop de
+    questions courtes dont un des rares mots significatifs est un mot
+    interrogatif qui ne peut jamais apparaître dans un texte de réponse
+    ("combien" dans "c'est combien un ticket ?") — mesuré à 69% au lieu de
+    80%. Le problème que ça visait (un premier candidat FAUX qui passe le
+    véto avec un seul mot en commun, générique) reste entier, à traiter
+    autrement — voir docs/prochaines-etapes.md."""
     resultats = chercher_blocs(question, categorie, n=5, categories_actives=categories_actives)
     mots_question = _mots_significatifs(question)
 
@@ -236,11 +246,10 @@ def rechercher_information(question, categorie=None, categories_actives=None):
             # dessous, pas ce seuil, qui porte la décision "je ne sais pas"
             # (voir docstring du module).
             continue
-        # Pas assez de mots de la question retrouvés dans ce candidat :
-        # quel que soit son score sémantique, ce n'est pas une réponse
-        # fiable (c'est ce signal, pas le score sémantique, qui distingue
-        # le mieux les questions pièges — voir docstring du module). Un
-        # seul mot en commun ne suffit plus (voir SEUIL_MOTS_MINIMUM) — on
+        # Aucun mot de la question ne se retrouve dans ce candidat : quel
+        # que soit son score sémantique, ce n'est pas une réponse fiable
+        # (c'est ce signal, pas le score sémantique, qui distingue le
+        # mieux les questions pièges — voir docstring du module) — on
         # regarde le candidat suivant plutôt que d'abandonner.
         if mots_question and _mots_trouves(mots_question, bloc) < min(SEUIL_MOTS_MINIMUM, len(mots_question)):
             continue
