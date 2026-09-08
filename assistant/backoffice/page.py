@@ -109,13 +109,13 @@ _STYLE = f"""
   --rose: {ROSE};
   --texte: #22303c;
   --texte-doux: #6b7a86;
-  --fond: #f4f7f8;
+  --fond: #f8f6f2;
   --carte: #ffffff;
-  --bordure: #e6ebee;
+  --bordure: #e9e6df;
 }}
 * {{ box-sizing: border-box; }}
 body {{
-  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Inter", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--fond);
   color: var(--texte);
   margin: 0;
@@ -994,6 +994,9 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
 <head>
 <meta charset="utf-8">
 <title>Back-office — Assistant vocal CRC, zone Étang</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>{_STYLE}</style>
 </head>
 <body>
