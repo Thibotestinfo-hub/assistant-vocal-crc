@@ -5,6 +5,7 @@ exactement à un outil décrit dans docs/spec-assistant-vocal-v0-revisee.md, §4
 Lancer en local : uv run uvicorn assistant.api.main:app --reload
 """
 
+from datetime import datetime
 from typing import Literal
 from urllib.parse import quote
 
@@ -35,6 +36,7 @@ from assistant.backoffice.exports import (
 from assistant.backoffice.page import page_backoffice
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
 from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix
+from assistant.outils.db import _FUSEAU
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
@@ -140,15 +142,29 @@ async def route_webhook_fin_appel(request: Request):
     return JSONResponse({"recu": True})
 
 
+# Passé cette heure (heure de Paris), la clôture d'appel dit "bonne
+# soirée" plutôt que "bonne journée" (demandé le 08/09/2026).
+HEURE_BASCULE_SOIR = 17 * 60 + 30  # 17h30, en minutes depuis minuit
+
+
+def _formule_cloture():
+    maintenant = datetime.now(_FUSEAU)
+    minutes_depuis_minuit = maintenant.hour * 60 + maintenant.minute
+    return "bonne soirée" if minutes_depuis_minuit >= HEURE_BASCULE_SOIR else "bonne journée"
+
+
 @app.post("/webhooks/elevenlabs/personnalisation", dependencies=[Depends(verifier_jeton)])
 def route_webhook_personnalisation():
     """Appelé par ElevenLabs juste avant qu'une conversation démarre
     (Twilio/SIP/WhatsApp), en parallèle de la connexion téléphonique —
     donc sans latence perçue supplémentaire (documenté par ElevenLabs :
-    "Twilio personalization"). Sert uniquement à fournir la variable
-    dynamique {{outils_actifs}}, pour que le message d'accueil ne
-    promette jamais une capacité coupée depuis le back-office (voir
-    assistant/backoffice/activation.py, phrase_outils_actifs).
+    "Twilio personalization"). Fournit deux variables dynamiques :
+    - {{outils_actifs}}, pour que le message d'accueil ne promette jamais
+      une capacité coupée depuis le back-office (voir
+      assistant/backoffice/activation.py, phrase_outils_actifs) ;
+    - {{formule_cloture}}, "bonne journée" ou "bonne soirée" selon l'heure
+      d'appel, pour que le prompt (côté ElevenLabs) n'ait plus à choisir
+      une formule fixe qui sonne faux en fin de journée.
 
     Authentification par en-tête Authorization : le formulaire "Ajouter
     un webhook" côté ElevenLabs (28/08) propose bien un champ en-tête
@@ -158,8 +174,11 @@ def route_webhook_personnalisation():
 
     On ignore volontairement le corps de la requête (caller_id,
     called_number, call_sid...) : on ne personnalise pas par appelant,
-    seulement selon l'état d'activation global des outils."""
-    return {"dynamic_variables": {"outils_actifs": phrase_outils_actifs()}}
+    seulement selon l'heure et l'état d'activation global des outils."""
+    return {"dynamic_variables": {
+        "outils_actifs": phrase_outils_actifs(),
+        "formule_cloture": _formule_cloture(),
+    }}
 
 
 @app.get("/backoffice/appels", response_class=HTMLResponse,
