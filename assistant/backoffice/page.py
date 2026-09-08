@@ -25,6 +25,13 @@ from urllib.parse import quote
 
 from assistant.elevenlabs_api import nom_voix, voix_disponibles
 
+# Conversion affichage seulement (le montant reste stocké en USD, tel que
+# rapporté par ElevenLabs — cost_fiat) : un chiffre interne à l'équipe pour
+# suivre le budget, pas une donnée annoncée à l'appelant, donc un taux fixe
+# périodiquement à remettre à jour suffit plutôt qu'un appel à une API de
+# change en temps réel. Taux constaté le 08/09/2026 : 1 USD = 0,86 EUR.
+TAUX_USD_VERS_EUR = 0.86
+
 BLEU = "#A6D7E4"
 BLEU_FONCE = "#2f7288"
 SAUGE = "#C7DFD4"
@@ -538,7 +545,18 @@ def _motif_appel(outils_utilises):
     outils = json.loads(outils_utilises)
     if not outils:
         return "—"
-    return ", ".join(_NOMS_LISIBLES.get(o, o) for o in outils)
+    # rechercher_arret est un prérequis technique d'horaires_theoriques
+    # depuis le 03/09/2026, pas un motif à part entière (voir
+    # assistant/backoffice/appels.py, même exclusion pour la répartition en
+    # camembert) : sans ce filtre, presque tous les appels horaires
+    # affichaient "Identifier un arrêt, Horaires théoriques". dict.fromkeys
+    # déduplique tout en gardant l'ordre, au cas où le même outil apparaît
+    # plusieurs fois dans l'appel.
+    pertinents = [o for o in outils if o != "rechercher_arret"]
+    if not pertinents:
+        return "—"
+    libelles = dict.fromkeys(_NOMS_LISIBLES.get(o, o) for o in pertinents)
+    return ", ".join(libelles)
 
 
 def _voix_appel(voix_utilisees):
@@ -920,7 +938,10 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
 
     duree_valeur = _formater_duree(tracabilite["duree_moyenne_secs"])
     horaire_valeur = tracabilite["horaire_moyen"] or "à venir"
-    cout_valeur = f"{tracabilite['cout_total_usd']:.3f} $" if tracabilite["cout_total_usd"] is not None else "à venir"
+    cout_valeur = (
+        f"{tracabilite['cout_total_usd'] * TAUX_USD_VERS_EUR:.3f} €"
+        if tracabilite["cout_total_usd"] is not None else "à venir"
+    )
     n_trace = tracabilite["nb_avec_tracabilite"]
     suffixe_trace = f" — sur {n_trace} appel{'s' if n_trace > 1 else ''}" if n_trace else ""
 

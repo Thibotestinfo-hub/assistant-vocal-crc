@@ -264,6 +264,13 @@ def resumer_tracabilite():
         if not l["outils_utilises"]:
             continue
         for outil in json.loads(l["outils_utilises"]):
+            # rechercher_arret est un prérequis technique d'horaires_theoriques
+            # depuis le 03/09/2026, pas un motif d'appel en soi (voir
+            # assistant/backoffice/activation.py) : il ressort dans presque
+            # tous les appels horaires, ce qui pollue la répartition avec une
+            # part "Identifier un arrêt" qui ne veut rien dire seule.
+            if outil == "rechercher_arret":
+                continue
             repartition[outil] = repartition.get(outil, 0) + 1
 
     horaire_moyen = None
