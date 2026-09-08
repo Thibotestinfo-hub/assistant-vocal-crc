@@ -1,5 +1,78 @@
 # Prochaines étapes — état au 08/09/2026
 
+## ✅ Fait le 08/09 (soir) — tests en appel réel du rappel proactif + ASR
+
+Suite à la mise en prod du rappel proactif abonnement/vélo (voir juste en
+dessous), tests par appel téléphonique réel :
+
+- **Bug trouvé et corrigé** : le premier test échouait avec "problème
+  technique" au moment d'enregistrer le rappel motif "abonnement". Cause :
+  la définition de l'outil `demander_rappel` dans la console ElevenLabs a
+  sa propre liste de valeurs autorisées pour `motif` (séparée du prompt),
+  qui n'avait pas été mise à jour. Corrigé côté ElevenLabs (ajout de
+  `abonnement` et `velo` à la liste). **À garder en tête pour toute
+  évolution future des motifs** : toujours mettre à jour 2 endroits côté
+  ElevenLabs (le prompt ET la définition de l'outil), pas seulement notre
+  code.
+- Une fois corrigé, le parcours complet fonctionne (proposition proactive,
+  collecte prénom/nom/téléphone, résumé).
+- **Bug trouvé, pas corrigé** : "Combien coûte un abonnement mensuel ?"
+  suivi de "pour un adulte ?" fait répondre l'assistant avec les tarifs
+  enfant puis senior, avant de dire qu'il n'a pas l'info pour 43 ans.
+  Recherche documentaire qui ne retrouve pas la bonne fiche tarif pour
+  "adulte" — même famille de problème que les autres cas de retrieval déjà
+  documentés dans ce fichier. Pas traité ce soir.
+- Fausse alerte "bonne journée" au lieu de "bonne soirée" à 18h :
+  `/webhooks/elevenlabs/personnalisation` renvoie la bonne valeur côté
+  serveur (vérifié), et aucune occurrence de "bonne journée" en dur
+  trouvée dans le prompt ElevenLabs. Cause non identifiée, non
+  reproduite depuis — laissé de côté, à surveiller si ça revient.
+- **ASR / termes de domaine** : test sur 3 arrêts piégeux (Pinchinades,
+  Jas de Rhodes, Estroublans) dits naturellement, jamais épelés — les 3
+  reconnus correctement, y compris Estroublans qui a 2 arrêts homonymes
+  (désambiguïsation par commune réussie). Les termes de boost ASR
+  semblent donc bien en place et efficaces.
+
+## Punch-list déploiement réseau réel (à mener, pas commencé)
+
+Discuté le 08/09 en fin de session — ce que l'utilisateur devra avoir en
+tête pour un déploiement sur le vrai réseau, au-delà du POC actuel :
+
+1. **Téléphonie / routage — le plus structurant.**
+   - Comprendre l'existant : comment un appel arrive aujourd'hui à un
+     agent CRC (standard, logiciel de centre d'appels, postes directs) ?
+   - Horaires d'ouverture réels du CRC à préciser en config (aujourd'hui
+     approximatifs dans le prompt).
+   - "CRC ouvert/fermé" n'est vérifié par rien aujourd'hui — c'est le
+     modèle qui devine d'après le prompt, sans horloge réelle. À calculer
+     côté serveur et exposer en variable dynamique, comme
+     `{{formule_cloture}}`.
+   - `transferer_agent` ne fait que logger l'intention en base
+     aujourd'hui — aucune vraie téléphonie. Il faudra un vrai mécanisme
+     de transfert (SIP/Twilio) vers le standard CRC.
+   - Débordement (bot activé quand les lignes humaines sont occupées) :
+     probablement une intégration avec le système d'appels existant du
+     CRC, pas juste une config Twilio.
+   - Numéro Twilio français définitif — à confirmer où ça en est.
+2. **Bouton on/off à clarifier puis connecter.** Aujourd'hui il ne coupe
+   que nos outils back-end, pas la réponse au téléphone (ElevenLabs
+   répond indépendamment). Distinguer avant de coder : arrêt d'urgence
+   (coupe tout) vs bascule horaires automatique (CRC ouvert/fermé, point
+   1) — probablement deux mécanismes différents.
+3. **Sécurité**, déjà identifié dans ce fichier (section D) : signature
+   HMAC des webhooks ElevenLabs, régénération de `API_TOKEN`, revoir
+   l'authentification back-office avant de vraies données de voyageurs.
+4. **Robustesse à l'échelle** : appels en parallèle (SQLite en écriture
+   concurrente, tester en charge, WAL si besoin) ; fenêtre
+   d'indisponibilité au déploiement (le GTFS se retélécharge à chaque
+   déploiement, pas instantané).
+5. **Qualité du contenu en continu** : cycle mesure-ajustement permanent,
+   pas un sujet qu'on referme (cf. bug tarif abonnement adulte ce soir).
+6. **Petits reliquats** : adresse email du pied de page (placeholder
+   accepté pour l'instant), créneau horaire préféré pour le rappel (idée
+   notée, pas implémentée), badge de rappel traité (dash neutre au lieu
+   du vert initialement demandé, pas encore tranché).
+
 ## ✅ Fait le 08/09 — rappel proactif abonnement/vélo, prénom+nom
 
 Deux nouveaux motifs de rappel ajoutés (`abonnement`, `velo`), synchronisés
