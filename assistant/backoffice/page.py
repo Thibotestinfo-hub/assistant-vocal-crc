@@ -149,28 +149,58 @@ header.entete h1 {{
   margin: 0 0 0 0.6rem;
   color: var(--texte);
 }}
+.pied-de-page {{
+  text-align: center;
+  padding: 1.5rem 3rem 2rem;
+  color: var(--texte-doux);
+  font-size: 0.8rem;
+  border-top: 1px solid var(--bordure);
+  margin-top: 1rem;
+}}
+.pied-de-page a {{ color: var(--texte-doux); }}
 header.entete .entete-titres {{ display: flex; align-items: baseline; }}
-main {{
+.mise-en-page {{
   max-width: 100rem;
   margin: 0 auto;
   padding: 1.8rem 3rem;
-}}
-.onglets {{
   display: flex;
-  margin-bottom: 1.8rem;
-  max-width: 46rem;
+  align-items: flex-start;
+  gap: 2rem;
+}}
+.barre-laterale {{
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 13rem;
+  flex-shrink: 0;
+  position: sticky;
+  top: 1.8rem;
+}}
+.contenu-principal {{
+  flex: 1;
+  min-width: 0;
+}}
+@media (max-width: 900px) {{
+  .mise-en-page {{ flex-direction: column; }}
+  .barre-laterale {{ width: 100%; flex-direction: row; position: static; }}
 }}
 .onglet-btn {{
   font-family: inherit;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  padding: 0.9rem 0;
-  flex: 1;
+  padding: 0.75rem 1rem;
   border: none;
+  border-radius: 8px;
   cursor: pointer;
-  background: var(--bleu);
-  color: #ffffffcc;
+  background: transparent;
+  color: var(--texte-doux);
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }}
+.onglet-btn:hover {{ background: var(--bleu)33; }}
+.onglet-icone {{ font-size: 1rem; }}
 .onglet-btn.actif {{
   background: var(--bleu-fonce);
   color: #fff;
@@ -1009,15 +1039,15 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     <h1>Assistant conversationnel — Expérimentation 2026</h1>
   </div>
 </header>
-<main>
+<div class="mise-en-page">
+  <nav class="barre-laterale">
+    <button type="button" class="onglet-btn actif" data-cible="suivi" onclick="afficherOnglet('suivi')"><span class="onglet-icone">📊</span> Suivi</button>
+    <button type="button" class="onglet-btn" data-cible="live" onclick="afficherOnglet('live')"><span class="onglet-icone">⚙️</span> Paramétrage</button>
+    <button type="button" class="onglet-btn" data-cible="prononciation" onclick="afficherOnglet('prononciation')"><span class="onglet-icone">🔤</span> Prononciation</button>
+  </nav>
+  <main class="contenu-principal">
 
-  <div class="onglets">
-    <button type="button" class="onglet-btn actif" data-cible="live" onclick="afficherOnglet('live')">Live</button>
-    <button type="button" class="onglet-btn" data-cible="suivi" onclick="afficherOnglet('suivi')">Suivi</button>
-    <button type="button" class="onglet-btn" data-cible="prononciation" onclick="afficherOnglet('prononciation')">Prononciation</button>
-  </div>
-
-  <div id="onglet-live" class="contenu-onglet">
+  <div id="onglet-live" class="contenu-onglet" style="display:none">
     <div class="grille-live-haut">
       {_carte_power(activations)}
       {_carte_voix(erreur_voix, detail_voix)}
@@ -1031,7 +1061,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     </div>
   </div>
 
-  <div id="onglet-suivi" class="contenu-onglet" style="display:none">
+  <div id="onglet-suivi" class="contenu-onglet">
 
     <div class="section-indicateurs">
       <div class="grille-compteurs">
@@ -1134,7 +1164,11 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     {_carte_dictionnaire_prononciation(regles_prononciation)}
   </div>
 
-</main>
+  </main>
+</div>
+<footer class="pied-de-page">
+  Expérimentation Transdev — <a href="mailto:contact@transdev.com">contact@transdev.com</a>
+</footer>
 <script>
 function editerRegle(index) {{
   document.getElementById('valeur-' + index).style.display = 'none';
