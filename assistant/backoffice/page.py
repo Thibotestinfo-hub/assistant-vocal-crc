@@ -594,6 +594,22 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 
 .badge-satisfaction-client {{ font-size: 0.95rem; }}
 .badge-satisfaction-client.aucune {{ color: var(--texte-doux); font-size: 0.8rem; }}
+.badge-rappel-attente {{ font-size: 1.05rem; }}
+.ligne-rappel-attente {{ background: {ROUGE}11; }}
+.carte-tableau tbody tr.ligne-rappel-attente:nth-child(even) {{ background: {ROUGE}18; }}
+.badge-traite {{ color: var(--texte-doux); font-size: 0.8rem; }}
+.bandeau-rappels {{
+  display: block;
+  background: {ROUGE}22;
+  border: 1px solid {ROUGE}88;
+  color: var(--texte);
+  border-radius: 10px;
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  text-decoration: none;
+}}
+.bandeau-rappels:hover {{ background: {ROUGE}33; }}
 .form-edition-regle {{ display: flex; gap: 0.4rem; align-items: center; }}
 .champ-edition-regle {{
   font-family: inherit;
@@ -645,6 +661,12 @@ def _badge_satisfaction_client(satisfaction_client):
     return '<span class="badge-satisfaction-client negative" title="Appelant non satisfait">👎</span>'
 
 
+def _badge_rappel_attente(rappel_en_attente):
+    if not rappel_en_attente:
+        return '<span class="badge-satisfaction-client aucune">—</span>'
+    return '<span class="badge-rappel-attente" title="Cet appelant a demandé à être rappelé, pas encore traité">📞</span>'
+
+
 def _ligne_tableau_appel(a, numero):
     date, _, heure = (a["cree_le"] or "").partition("T")
     return f"""<tr>
@@ -655,6 +677,7 @@ def _ligne_tableau_appel(a, numero):
   <td>{_formater_duree(a.get('duree_secs'))}</td>
   <td class="col-motif-table">{html.escape(_motif_appel(a.get('outils_utilises')))}</td>
   <td>{_badge_satisfaction_client(a.get('satisfaction_client'))}</td>
+  <td>{_badge_rappel_attente(a.get('rappel_en_attente'))}</td>
   <td><button type="button" class="bouton-voir" id="bouton-voir-{a['id']}" onclick="afficherDetail({a['id']})" title="Voir le détail">👁</button></td>
 </tr>"""
 
@@ -778,24 +801,44 @@ def _carte_voix(erreur_voix, detail_voix=""):
 </div>"""
 
 
+def _bandeau_rappels_attente(n):
+    """Notification en haut de l'onglet Suivi : le but est qu'un agent qui
+    prend son poste (par ex. à 9h, alors que la plateforme tourne depuis
+    7h) voie tout de suite s'il y a des rappels à passer, sans avoir à
+    dérouler toute la page. Rien à afficher si n vaut 0 (pas de bandeau
+    "tout va bien" qui prendrait de la place inutilement)."""
+    if not n:
+        return ""
+    return f"""<a href="#demandes-rappel" class="bandeau-rappels">
+  📞 {n} demande{'s' if n > 1 else ''} de rappel en attente — cliquez pour voir la liste
+</a>"""
+
+
 def _ligne_tableau_demande(d):
     date, _, heure = (d["cree_le"] or "").partition("T")
     opt_in = "Oui" if d["opt_in_marketing"] else "Non"
-    return f"""<tr>
+    if d["traite"]:
+        action = '<span class="badge-traite">✓ Traité</span>'
+    else:
+        action = f"""<form method="post" action="/backoffice/demandes_rappel/{d['id']}/traiter" style="margin:0">
+      <button type="submit" class="bouton" style="font-size:0.78rem;padding:0.35rem 0.7rem">Marquer traité</button>
+    </form>"""
+    return f"""<tr{' class="ligne-rappel-attente"' if not d['traite'] else ''}>
   <td>{html.escape(d['nom'] or '—')}</td>
   <td>{html.escape(d['telephone'] or '—')}</td>
   <td>{html.escape(date)} {html.escape(heure)}</td>
   <td>{html.escape(_NOMS_MOTIFS.get(d['motif'], d['motif'] or '—'))}</td>
   <td>{opt_in}</td>
+  <td>{action}</td>
 </tr>"""
 
 
 def _carte_demandes_rappel(demandes):
     lignes = (
         "\n".join(_ligne_tableau_demande(d) for d in demandes)
-        if demandes else '<tr><td colspan="5">Aucune demande pour l\'instant.</td></tr>'
+        if demandes else '<tr><td colspan="6">Aucune demande pour l\'instant.</td></tr>'
     )
-    return f"""<div class="carte carte-tableau" style="margin-bottom:1.5rem">
+    return f"""<div class="carte carte-tableau" id="demandes-rappel" style="margin-bottom:1.5rem">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1rem 0">
     <h2 style="margin:0">Demandes de rappel ({len(demandes)})</h2>
   </div>
@@ -807,6 +850,7 @@ def _carte_demandes_rappel(demandes):
         <th>Heure d'appel</th>
         <th>Motif</th>
         <th>Opt-in marketing</th>
+        <th>À rappeler</th>
       </tr>
     </thead>
     <tbody>
@@ -986,8 +1030,8 @@ def _carte_dictionnaire_prononciation(regles):
 
 
 def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_client, tracabilite,
-                     demandes_rappel, en_cours, regles_prononciation, erreur_voix=False, detail_voix="",
-                     erreur_prononciation=False):
+                     demandes_rappel, en_cours, regles_prononciation, rappels_en_attente=0,
+                     erreur_voix=False, detail_voix="", erreur_prononciation=False):
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -1015,7 +1059,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
 
     lignes_tableau = (
         "\n".join(_ligne_tableau_appel(a, i) for i, a in enumerate(appels, 1))
-        if appels else '<tr><td colspan="7">Aucun appel pour l\'instant.</td></tr>'
+        if appels else '<tr><td colspan="8">Aucun appel pour l\'instant.</td></tr>'
     )
     details_appels = "\n".join(_detail_appel(a) for a in appels)
 
@@ -1062,6 +1106,8 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
   </div>
 
   <div id="onglet-suivi" class="contenu-onglet">
+
+    {_bandeau_rappels_attente(rappels_en_attente)}
 
     <div class="section-indicateurs">
       <div class="grille-compteurs">
@@ -1141,6 +1187,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
             <th>Durée</th>
             <th>Motif</th>
             <th>Satisfaction client</th>
+            <th>À rappeler</th>
             <th>Voir</th>
           </tr>
         </thead>

@@ -66,6 +66,12 @@ CREATE TABLE IF NOT EXISTS objets_perdus (
     opt_in_marketing INTEGER NOT NULL
 );
 
+-- conversation_id et traite ajoutés après coup via _migrer_colonnes_manquantes
+-- (voir _COLONNES_RAPPEL) : demander_rappel s'exécute PENDANT l'appel, avant
+-- que le webhook de fin d'appel ne crée la ligne dans "appels" — même
+-- problème d'ordre d'arrivée que satisfaction_appels, même solution
+-- (conversation_id en clé de jointure, pas une clé étrangère appel_id qui
+-- n'existerait pas encore au moment de l'insertion).
 CREATE TABLE IF NOT EXISTS demandes_rappel (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cree_le TEXT NOT NULL,
@@ -186,12 +192,25 @@ _COLONNES_TRACABILITE = {
     "voix_utilisees": "TEXT",  # JSON : liste des voice_id ElevenLabs utilisés
 }
 
+# Ajoutées le 08/09/2026 : conversation_id pour relier une demande de
+# rappel à son appel d'origine (voir commentaire sur demandes_rappel
+# ci-dessus), traite pour piloter le badge "à rappeler" et la
+# notification de prise de poste côté back-office.
+_COLONNES_RAPPEL = {
+    "conversation_id": "TEXT",
+    "traite": "INTEGER NOT NULL DEFAULT 0",
+}
+
 
 def _migrer_colonnes_manquantes(conn):
-    colonnes_existantes = {r["name"] for r in conn.execute("PRAGMA table_info(appels)").fetchall()}
-    for nom, type_sql in _COLONNES_TRACABILITE.items():
-        if nom not in colonnes_existantes:
-            conn.execute(f"ALTER TABLE appels ADD COLUMN {nom} {type_sql}")
+    def ajouter_colonnes(table, colonnes):
+        colonnes_existantes = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        for nom, type_sql in colonnes.items():
+            if nom not in colonnes_existantes:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {nom} {type_sql}")
+
+    ajouter_colonnes("appels", _COLONNES_TRACABILITE)
+    ajouter_colonnes("demandes_rappel", _COLONNES_RAPPEL)
 
 
 def connexion_gtfs():

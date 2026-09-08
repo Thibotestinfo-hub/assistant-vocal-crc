@@ -30,8 +30,9 @@ from assistant.backoffice.activation import (
     phrase_outils_actifs, verifier_outil_actif,
 )
 from assistant.backoffice.appels import (
-    compter_appels, enregistrer_appel, enregistrer_evaluation, lister_appels_avec_details,
-    resumer_evaluations, resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
+    compter_appels, compter_rappels_en_attente, enregistrer_appel, enregistrer_evaluation,
+    lister_appels_avec_details, marquer_rappel_traite, resumer_evaluations,
+    resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
 )
 from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel, supprimer_objet_perdu,
@@ -205,6 +206,7 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = 
         lister_appels_avec_details(), lister_activations(), compter_appels(),
         resumer_evaluations(), resumer_satisfaction_client(), resumer_tracabilite(),
         lister_demandes_rappel(), en_cours, lister_toutes_regles(),
+        compter_rappels_en_attente(),
         erreur_voix=erreur_voix, detail_voix=detail_voix, erreur_prononciation=erreur_prononciation,
     )
 
@@ -276,6 +278,13 @@ def route_backoffice_evaluer_appel(
 ):
     enregistrer_evaluation(appel_id, qualite, note.strip() or None)
     return RedirectResponse(f"/backoffice/appels#appel-{appel_id}", status_code=303)
+
+
+@app.post("/backoffice/demandes_rappel/{demande_id}/traiter",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_traiter_rappel(demande_id: int):
+    marquer_rappel_traite(demande_id)
+    return RedirectResponse("/backoffice/appels#suivi", status_code=303)
 
 
 def _reponse_csv(contenu, nom_fichier):

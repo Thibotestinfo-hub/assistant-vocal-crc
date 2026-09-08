@@ -160,11 +160,16 @@ def lister_appels_avec_details(limite=100):
     sans rechargement de page par appel). satisfaction_client : jointe
     par conversation_id (voir satisfaction_appels dans assistant/outils/db.py) —
     None si l'appelant n'a pas répondu ou si l'outil n'a pas été appelé,
-    à distinguer d'un "non" explicite (0)."""
+    à distinguer d'un "non" explicite (0). rappel_en_attente : True si cet
+    appel a généré une demande de rappel pas encore traitée (même
+    jointure par conversation_id, voir demandes_rappel) — sert au badge
+    dans le tableau des appels."""
     conn = connexion_app()
     appels = conn.execute(
         "SELECT a.id, a.cree_le, a.conversation_id, a.agent_id, a.statut, a.donnees_brutes, "
-        "a.duree_secs, a.outils_utilises, a.voix_utilisees, s.satisfait AS satisfaction_client "
+        "a.duree_secs, a.outils_utilises, a.voix_utilisees, s.satisfait AS satisfaction_client, "
+        "EXISTS(SELECT 1 FROM demandes_rappel r WHERE r.conversation_id = a.conversation_id "
+        "AND r.traite = 0) AS rappel_en_attente "
         "FROM appels a LEFT JOIN satisfaction_appels s ON s.conversation_id = a.conversation_id "
         "ORDER BY a.id DESC LIMIT ?",
         (limite,),
@@ -188,6 +193,24 @@ def compter_appels():
     n = conn.execute("SELECT COUNT(*) AS n FROM appels").fetchone()["n"]
     conn.close()
     return n
+
+
+def compter_rappels_en_attente():
+    """Pour la notification en haut de l'onglet Suivi : le nombre de
+    demandes de rappel jamais marquées comme traitées, tous appels
+    confondus (y compris ceux reçus avant l'arrivée de l'équipe le
+    matin — c'est justement le but)."""
+    conn = connexion_app()
+    n = conn.execute("SELECT COUNT(*) AS n FROM demandes_rappel WHERE traite = 0").fetchone()["n"]
+    conn.close()
+    return n
+
+
+def marquer_rappel_traite(demande_id):
+    conn = connexion_app()
+    conn.execute("UPDATE demandes_rappel SET traite = 1 WHERE id = ?", (demande_id,))
+    conn.commit()
+    conn.close()
 
 
 def resumer_evaluations():

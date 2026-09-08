@@ -109,6 +109,10 @@ class RappelRequete(BaseModel):
     motif: Literal["amende", "reclamation", "tad", "scolaire", "hors_perimetre", "demande_agent"]
     resume: str
     opt_in_marketing: bool = False
+    # Optionnel : fourni par ElevenLabs via {{system__conversation_id}} si
+    # câblé côté configuration de l'agent (voir assistant/outils/rappels.py)
+    # — permet de relier la demande à l'appel dans le back-office.
+    conversation_id: Optional[str] = None
 
 
 class RappelReponse(BaseModel):

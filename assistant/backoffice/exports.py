@@ -62,8 +62,8 @@ def lister_demandes_rappel(limite=200):
     resume/email affichés ici) — l'export CSV reste la source complète."""
     conn = connexion_app()
     lignes = conn.execute(
-        "SELECT id, cree_le, nom, telephone, motif, opt_in_marketing FROM demandes_rappel "
-        "ORDER BY id DESC LIMIT ?",
+        "SELECT id, cree_le, nom, telephone, motif, opt_in_marketing, traite FROM demandes_rappel "
+        "ORDER BY traite ASC, id DESC LIMIT ?",
         (limite,),
     ).fetchall()
     conn.close()
