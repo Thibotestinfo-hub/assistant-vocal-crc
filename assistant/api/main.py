@@ -9,8 +9,11 @@ from datetime import datetime
 from typing import Literal
 from urllib.parse import quote
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from assistant.api.auth import verifier_acces_backoffice, verifier_jeton, verifier_jeton_requete
 from assistant.api.schemas import (
@@ -46,6 +49,14 @@ from assistant.outils.satisfaction import enregistrer_satisfaction
 from assistant.outils.transfert import transferer_agent
 
 app = FastAPI(title="Assistant vocal — API des outils")
+
+# Sert le logo du réseau pour l'en-tête du back-office. Public, sans
+# authentification : c'est une image de marque, pas une donnée sensible.
+app.mount(
+    "/backoffice/static",
+    StaticFiles(directory=Path(__file__).resolve().parent.parent / "backoffice" / "static"),
+    name="backoffice-static",
+)
 
 
 @app.get("/sante")

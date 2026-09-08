@@ -131,9 +131,9 @@ header.entete {{
   gap: 0.7rem;
 }}
 header.entete .logo-mark {{
-  color: var(--rouge);
-  font-size: 1.5rem;
-  line-height: 1;
+  height: 2.7rem;
+  width: auto;
+  border-radius: 6px;
 }}
 header.entete .marque {{
   font-size: 0.62rem;
@@ -395,7 +395,16 @@ main {{
 }}
 .compteur .compteur-corps {{ display: flex; flex-direction: column; }}
 .compteur .valeur {{ font-size: 2.1rem; font-weight: 700; line-height: 1.1; }}
-.compteur .libelle {{ color: var(--texte-doux); font-size: 0.78rem; margin-top: 0.2rem; }}
+.compteur .libelle {{
+  color: var(--texte);
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}}
+.compteur .sous-libelle {{ color: var(--texte-doux); font-size: 0.72rem; margin-top: 0.15rem; }}
 .compteur.a-venir {{ opacity: 0.55; }}
 .compteur.a-venir .valeur {{ font-size: 1.05rem; font-weight: 500; }}
 .carte-repartition {{
@@ -414,6 +423,9 @@ main {{
   flex-shrink: 0;
 }}
 
+.carte-exports {{ margin-bottom: 1.5rem; }}
+.carte-exports h2 {{ margin-bottom: 0.9rem; }}
+.exports-boutons {{ display: flex; gap: 1rem; flex-wrap: wrap; }}
 .bandeau-actions {{
   display: flex;
   flex-wrap: wrap;
@@ -521,7 +533,17 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
   font-size: 0.76rem;
   max-height: 18rem;
   overflow-y: auto;
+  margin-top: 0.5rem;
 }}
+.detail-brut {{ margin-top: 1rem; }}
+.detail-brut summary {{
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--texte-doux);
+  padding: 0.3rem 0;
+}}
+.detail-brut summary:hover {{ color: var(--texte); }}
 .detail-appel-contenu textarea {{
   width: 100%;
   height: 3.2rem;
@@ -675,8 +697,10 @@ def _detail_appel(a):
   {bloc_evaluations}
   <h4 style="font-size:0.85rem;margin:1rem 0 0.5rem">Transcription de la conversation</h4>
   {_transcription_appel(donnees)}
-  <h4 style="font-size:0.85rem;margin:1rem 0 0.5rem">Charge brute reçue du webhook</h4>
-  <pre>{html.escape(donnees_brutes)}</pre>
+  <details class="detail-brut">
+    <summary>Charge brute reçue du webhook</summary>
+    <pre>{html.escape(donnees_brutes)}</pre>
+  </details>
 </div>"""
 
 
@@ -744,7 +768,6 @@ def _carte_demandes_rappel(demandes):
     return f"""<div class="carte carte-tableau" style="margin-bottom:1.5rem">
   <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1rem 0">
     <h2 style="margin:0">Demandes de rappel ({len(demandes)})</h2>
-    <a class="bouton accent bouton-grand" href="/backoffice/exports/demandes_rappel.csv">⬇ Télécharger (CSV)</a>
   </div>
   <table>
     <thead>
@@ -975,7 +998,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
 </head>
 <body>
 <header class="entete">
-  <span class="logo-mark">➜</span>
+  <img class="logo-mark" src="/backoffice/static/logo.png" alt="Salon Étang Côte Bleue">
   <div>
     <div class="marque">Assistant vocal · zone Étang</div>
   </div>
@@ -1016,47 +1039,59 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
             <div class="libelle">Appels captés</div>
           </div>
         </div>
-        <div class="compteur" style="--accent:{ROSE}">
+        <div class="compteur" style="--accent:{SAUGE}">
           <div class="icone-compteur">{_ICONES_COMPTEURS['satisfaction']}</div>
           <div class="compteur-corps">
             <div class="valeur">{pct_client}</div>
-            <div class="libelle">Satisfaction client — {libelle_client}</div>
+            <div class="libelle">Satisfaction client</div>
+            <div class="sous-libelle">{libelle_client}</div>
           </div>
         </div>
-        <div class="compteur" style="--accent:{ROSE}">
+        <div class="compteur" style="--accent:{SAUGE}">
           <div class="icone-compteur">👤</div>
           <div class="compteur-corps">
             <div class="valeur">{pct}</div>
-            <div class="libelle">Évaluation équipe — {libelle_satisfaction}</div>
+            <div class="libelle">Évaluation équipe</div>
+            <div class="sous-libelle">{libelle_satisfaction}</div>
           </div>
         </div>
-        <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{SAUGE}">
+        <div class="compteur{' a-venir' if tracabilite['duree_moyenne_secs'] is None else ''}" style="--accent:{BLEU}">
           <div class="icone-compteur">{_ICONES_COMPTEURS['duree']}</div>
           <div class="compteur-corps">
             <div class="valeur">{duree_valeur}</div>
-            <div class="libelle">Durée moyenne d'appel{suffixe_trace}</div>
+            <div class="libelle">Durée moyenne d'appel</div>
+            <div class="sous-libelle">{suffixe_trace.lstrip(' —') or "à venir"}</div>
           </div>
         </div>
         <div class="compteur{' a-venir' if not tracabilite['horaire_moyen'] else ''}" style="--accent:{BLEU}">
           <div class="icone-compteur">{_ICONES_COMPTEURS['horaire']}</div>
           <div class="compteur-corps">
             <div class="valeur">{horaire_valeur}</div>
-            <div class="libelle">Horaire moyen des appels{suffixe_trace}</div>
+            <div class="libelle">Horaire moyen des appels</div>
+            <div class="sous-libelle">{suffixe_trace.lstrip(' —') or "à venir"}</div>
           </div>
         </div>
-        <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{SAUGE}">
+        <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{ROSE}">
           <div class="icone-compteur">{_ICONES_COMPTEURS['cout']}</div>
           <div class="compteur-corps">
             <div class="valeur">{cout_valeur}</div>
-            <div class="libelle">Coût total{suffixe_trace} — impact carbone : pas encore de méthode fiable</div>
+            <div class="libelle">Coût ElevenLabs</div>
+            <div class="sous-libelle">ASR/LLM/TTS uniquement, hors Twilio{suffixe_trace} — empreinte carbone : méthode pas encore fiable</div>
           </div>
         </div>
       </div>
       {_carte_repartition(tracabilite['repartition_outils'], suffixe_trace)}
     </div>
 
+    <div class="carte carte-exports">
+      <h2>Exports</h2>
+      <div class="exports-boutons">
+        <a class="bouton accent bouton-grand" href="/backoffice/exports/objets_perdus.csv">⬇ Objets perdus (CSV)</a>
+        <a class="bouton accent bouton-grand" href="/backoffice/exports/demandes_rappel.csv">⬇ Demandes de rappel (CSV)</a>
+      </div>
+    </div>
+
     <div class="bandeau-actions">
-      <a class="bouton" href="/backoffice/exports/objets_perdus.csv">⬇ Objets perdus (CSV)</a>
       <form method="post" action="/backoffice/appels/retraiter-tracabilite" style="display:inline">
         <button type="submit" class="bouton" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
       </form>
