@@ -45,7 +45,11 @@ def _nettoyer(fragment_html):
 SYNONYMES = [
     (re.compile(r"TITRE 10 VOYAGES", re.IGNORECASE), "carnet de tickets, carnet de 10 voyages"),
     (re.compile(r"PASS (MENSUEL|ANNUEL)", re.IGNORECASE), "abonnement"),
-    (re.compile(r"TICKET UNIT[ÉE]", re.IGNORECASE), "titre unitaire, ticket à l'unité, trajet simple, un seul trajet, un aller simple"),
+    # "billet" et "titre de transport" ajoutés le 08/09/2026 : un appel réel
+    # a montré que "combien coûte un titre de transport ?" et "quel est le
+    # prix d'un billet ?" ne matchaient rien, faute de ces mots dans le
+    # corpus (qui ne parle que de "TICKET UNITÉ").
+    (re.compile(r"TICKET UNIT[ÉE]", re.IGNORECASE), "titre unitaire, ticket à l'unité, trajet simple, un seul trajet, un aller simple, billet, titre de transport"),
 ]
 
 
