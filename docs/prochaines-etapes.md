@@ -1,19 +1,35 @@
-# Prochaines étapes — état au 04/09/2026 (fin de session)
+# Prochaines étapes — état au 08/09/2026
 
-## ⚠️ Action bloquante avant toute chose : commiter le nouvel index
+## ✅ Fait le 08/09 — question du modèle d'embeddings tranchée
 
-`data/corpus_index.json` a été régénéré dans ta session Codespaces (suite au
-nettoyage du pied de page, voir plus bas) mais **n'est pas encore commité** —
-je n'ai pas ce fichier de mon côté, seulement toi. Depuis Codespaces :
+Test de qualité du candidat français (`antoinelouis/biencoder-distilcamembert-mmarcoFR`,
+mesuré la semaine dernière comme meilleur compromis poids/latence que
+mpnet) : réindexation isolée du corpus existant avec ce modèle (script
+temporaire, hors du dépôt, ne touche à rien de production), même jeu de
+54 questions, même logique de score/véto que `rechercher_information.py`.
 
-```bash
-git add data/corpus_index.json
-git commit -m "Regenere l'index apres le nettoyage du widget acces rapide (04/09)"
-git push origin main
-```
+**Résultat : aucun gain net.** Rappel top-5 50/54 (93% contre 94%
+actuellement), réponse outil 39/54 (72% contre 74%), pièges inchangés
+(1/8). Le candidat corrige 3 cas connus (dépositaires-agréés, courrier,
+Rognac) mais en casse 5 autres qui fonctionnaient bien avec le modèle
+actuel (étudiants, fauteuil roulant LeBus+, vélo, réclamation
+ponctualité, transports scolaires) — un déplacement du problème, pas une
+amélioration. Le cas "amendes" (collision "Comment payer...") échoue
+avec les deux modèles : ce n'est pas une faiblesse propre à MiniLM.
 
-Tant que ce n'est pas fait, la production tourne encore sur l'ancien index
-(sans le nettoyage du pied de page ni le synonyme "abonnement" à jour).
+**Décision : on reste sur le modèle actuel**, patché au fil de l'eau. Ni
+le budget récurrent (32-76€/mois selon le palier Clever Cloud
+nécessaire) ni l'effort d'ingénierie (dépendance PyTorch permanente ou
+conversion ONNX) ne sont justifiés par un gain qui n'existe pas sur ce
+candidat précis. Referme la question ouverte depuis le 04/09 — à
+rouvrir uniquement si un autre candidat sérieux émerge.
+
+## ✅ Fait le 04-08/09 — nettoyage du corpus, index recommité, vérifié en prod
+
+`data/corpus_index.json` régénéré et commité (nettoyage du pied de page +
+synonyme "abonnement", puis "billet"/"titre de transport" ajouté le 07/09).
+Vérifié en production par curl le 08/09 : les deux formulations tarifs
+répondent correctement.
 
 ## ✅ Fait le 04/09 (après-midi/soir) — pollution du corpus et exploration modèle
 
