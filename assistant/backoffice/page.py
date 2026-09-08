@@ -135,6 +135,7 @@ header.entete .logo-mark {{
   width: auto;
   border-radius: 6px;
 }}
+header.entete .entete-titres {{ display: flex; flex-direction: column; gap: 0.25rem; }}
 header.entete .marque {{
   font-size: 0.62rem;
   font-weight: 700;
@@ -143,11 +144,13 @@ header.entete .marque {{
   text-transform: uppercase;
   line-height: 1.15;
 }}
-header.entete h1 {{
-  font-size: 1.3rem;
-  font-weight: 500;
-  margin: 0 0 0 0.6rem;
-  color: var(--texte);
+header.entete .sous-titre-entete {{
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--texte-doux);
+  text-transform: uppercase;
+  line-height: 1.15;
 }}
 .pied-de-page {{
   text-align: center;
@@ -158,14 +161,13 @@ header.entete h1 {{
   margin-top: 1rem;
 }}
 .pied-de-page a {{ color: var(--texte-doux); }}
-header.entete .entete-titres {{ display: flex; align-items: baseline; }}
 .mise-en-page {{
   max-width: 100rem;
   margin: 0 auto;
-  padding: 1.8rem 3rem;
+  padding: 1.8rem 3rem 1.8rem 1.4rem;
   display: flex;
   align-items: flex-start;
-  gap: 2rem;
+  gap: 1.5rem;
 }}
 .barre-laterale {{
   display: flex;
@@ -326,9 +328,10 @@ header.entete .entete-titres {{ display: flex; align-items: baseline; }}
 /* --- Live : grille des outils --- */
 .outils-grille {{
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
 }}
+.etiquette-outil {{ white-space: nowrap; }}
 @media (max-width: 900px) {{
   .outils-grille {{ grid-template-columns: 1fr; }}
 }}
@@ -395,6 +398,7 @@ header.entete .entete-titres {{ display: flex; align-items: baseline; }}
 .grille-compteurs {{
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 1fr;
   gap: 1rem;
   flex: 3;
 }}
@@ -425,6 +429,7 @@ header.entete .entete-titres {{ display: flex; align-items: baseline; }}
 }}
 .compteur .compteur-corps {{ display: flex; flex-direction: column; }}
 .compteur .valeur {{ font-size: 2.1rem; font-weight: 700; line-height: 1.1; }}
+.compteur .valeur .unite-duree {{ font-size: 0.5em; font-weight: 600; }}
 .compteur .libelle {{
   color: var(--texte);
   font-size: 0.8rem;
@@ -438,12 +443,13 @@ header.entete .entete-titres {{ display: flex; align-items: baseline; }}
 .compteur.a-venir {{ opacity: 0.55; }}
 .compteur.a-venir .valeur {{ font-size: 1.05rem; font-weight: 500; }}
 .carte-repartition {{
-  flex: 1.3;
+  flex: 1.8;
   display: flex;
   flex-direction: column;
 }}
-.donut-bloc {{ display: flex; align-items: center; gap: 1.2rem; flex: 1; }}
-.donut-legende {{ font-size: 0.82rem; }}
+.donut-bloc {{ display: flex; align-items: center; gap: 1.5rem; flex: 1; }}
+.donut-bloc svg {{ flex-shrink: 0; }}
+.donut-legende {{ font-size: 0.88rem; }}
 .legende-item {{ display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }}
 .pastille-legende {{
   width: 0.7rem;
@@ -454,8 +460,9 @@ header.entete .entete-titres {{ display: flex; align-items: baseline; }}
 }}
 
 .carte-exports {{ margin-bottom: 1.5rem; }}
-.carte-exports h2 {{ margin-bottom: 0.9rem; }}
 .exports-boutons {{ display: flex; gap: 1rem; flex-wrap: wrap; }}
+.exports-boutons .bouton {{ flex: 1; min-width: 14rem; text-align: center; }}
+.exports-boutons .bouton em {{ font-style: italic; font-size: 0.85em; font-weight: 500; }}
 .bandeau-actions {{
   display: flex;
   flex-wrap: wrap;
@@ -485,6 +492,22 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
    qui s'ouvre au clic sur l'œil (les deux tables — appels et demandes
    de rappel — ont ainsi la même largeur, voir maquette du 26/08) --- */
 .carte-tableau {{ padding: 0; overflow-x: auto; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(34,48,60,0.05); }}
+.filtre-appels {{
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 1rem 0;
+  font-size: 0.85rem;
+}}
+.filtre-appels label {{ color: var(--texte-doux); }}
+.filtre-appels select {{
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--bordure);
+  background: var(--fond);
+}}
 .carte-tableau table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
 .tableau-scroll {{ max-height: 28rem; overflow-y: auto; }}
 .tableau-scroll th {{ position: sticky; top: 0; }}
@@ -540,7 +563,7 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
   padding: 0.6rem 0.9rem;
   border-radius: 10px;
   max-width: 80%;
-  font-size: 0.88rem;
+  font-size: 0.98rem;
 }}
 .tour-transcription.role-user {{ background: {BLEU}22; align-self: flex-start; }}
 .tour-transcription.role-agent {{ background: {SAUGE}44; align-self: flex-end; }}
@@ -594,7 +617,15 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 
 .badge-satisfaction-client {{ font-size: 0.95rem; }}
 .badge-satisfaction-client.aucune {{ color: var(--texte-doux); font-size: 0.8rem; }}
-.badge-rappel-attente {{ font-size: 1.05rem; }}
+.badge-rappel-attente {{
+  font-size: 1.1rem;
+  background: none;
+  border: none;
+  padding: 0.1rem;
+  cursor: pointer;
+  line-height: 1;
+}}
+.badge-rappel-attente:hover {{ transform: scale(1.15); filter: none; }}
 .ligne-rappel-attente {{ background: {ROUGE}11; }}
 .carte-tableau tbody tr.ligne-rappel-attente:nth-child(even) {{ background: {ROUGE}18; }}
 .badge-traite {{ color: var(--texte-doux); font-size: 0.8rem; }}
@@ -661,15 +692,17 @@ def _badge_satisfaction_client(satisfaction_client):
     return '<span class="badge-satisfaction-client negative" title="Appelant non satisfait">👎</span>'
 
 
-def _badge_rappel_attente(rappel_en_attente):
-    if not rappel_en_attente:
+def _badge_rappel_attente(rappel_id):
+    if not rappel_id:
         return '<span class="badge-satisfaction-client aucune">—</span>'
-    return '<span class="badge-rappel-attente" title="Cet appelant a demandé à être rappelé, pas encore traité">📞</span>'
+    return f"""<form method="post" action="/backoffice/demandes_rappel/{rappel_id}/traiter" style="margin:0" title="Cet appelant a demandé à être rappelé — cliquer une fois le rappel passé">
+      <button type="submit" class="badge-rappel-attente" aria-label="Marquer le rappel comme passé">📞</button>
+    </form>"""
 
 
 def _ligne_tableau_appel(a, numero):
     date, _, heure = (a["cree_le"] or "").partition("T")
-    return f"""<tr>
+    return f"""<tr data-date="{html.escape(date)}">
   <td>{numero}</td>
   <td>{html.escape(_voix_appel(a.get('voix_utilisees')))}</td>
   <td>{html.escape(date)}</td>
@@ -677,7 +710,7 @@ def _ligne_tableau_appel(a, numero):
   <td>{_formater_duree(a.get('duree_secs'))}</td>
   <td class="col-motif-table">{html.escape(_motif_appel(a.get('outils_utilises')))}</td>
   <td>{_badge_satisfaction_client(a.get('satisfaction_client'))}</td>
-  <td>{_badge_rappel_attente(a.get('rappel_en_attente'))}</td>
+  <td>{_badge_rappel_attente(a.get('rappel_id'))}</td>
   <td><button type="button" class="bouton-voir" id="bouton-voir-{a['id']}" onclick="afficherDetail({a['id']})" title="Voir le détail">👁</button></td>
 </tr>"""
 
@@ -739,7 +772,9 @@ def _detail_appel(a):
     return f"""<div class="detail-appel-contenu" id="detail-{a['id']}" style="display:none">
   <h3 style="font-size:0.95rem;margin:0 0 0.3rem">Appel {html.escape(a['conversation_id'] or '—')}</h3>
   <p style="font-size:0.8rem;color:var(--texte-doux);margin:0 0 1rem">{html.escape(a['cree_le'])} — {html.escape(a['statut'] or '—')}</p>
-  <h4 style="font-size:0.85rem;margin:0 0 0.5rem">Évaluer cet appel</h4>
+  <h4 style="font-size:0.85rem;margin:1rem 0 0.5rem">Transcription de la conversation</h4>
+  {_transcription_appel(donnees)}
+  <h4 style="font-size:0.85rem;margin:1.2rem 0 0.5rem">Évaluer cet appel</h4>
   <form method="post" action="/backoffice/appels/{a['id']}/evaluer">
     <textarea name="note" placeholder="Note libre, optionnelle : ce qui n'allait pas, la question posée, la réponse attendue..."></textarea>
     <div style="margin-top:0.5rem">
@@ -748,8 +783,6 @@ def _detail_appel(a):
     </div>
   </form>
   {bloc_evaluations}
-  <h4 style="font-size:0.85rem;margin:1rem 0 0.5rem">Transcription de la conversation</h4>
-  {_transcription_appel(donnees)}
   <details class="detail-brut">
     <summary>Charge brute reçue du webhook</summary>
     <pre>{html.escape(donnees_brutes)}</pre>
@@ -789,15 +822,10 @@ def _carte_voix(erreur_voix, detail_voix=""):
       </select>
       <button type="button" class="bouton-icone" onclick="ecouterVoix()" title="Écouter cette voix">🔊</button>
     </div>
-    <label class="champ-label">ton <span class="info-icone" title="Stabilité de la voix ElevenLabs (stability) : plus haut = plus régulier, plus bas = plus de variation.">i</span></label>
-    <input type="range" name="ton" min="0" max="1" step="0.05" value="0.5" class="curseur">
-    <label class="champ-label">autre <span class="info-icone" title="Style ElevenLabs (style) : plus haut = plus expressif.">i</span></label>
-    <input type="range" name="autre" min="0" max="1" step="0.05" value="0" class="curseur">
     <button type="submit" class="bouton accent" style="margin-top:1rem">Appliquer</button>
   </form>
   <audio id="lecteur-voix" style="display:none"></audio>
   {erreur_html}
-  <p class="note-a-venir">Les curseurs repartent d'une valeur par défaut à chaque affichage — cette page n'interroge pas ElevenLabs pour connaître le réglage en cours (pour rester rapide et indépendante).</p>
 </div>"""
 
 
@@ -904,7 +932,9 @@ def _formater_duree(secs):
     if secs is None:
         return "à venir"
     m, s = divmod(secs, 60)
-    return f"{m} min {s:02d}" if m else f"{s} s"
+    if m:
+        return f'{m} <span class="unite-duree">min</span> {s:02d}'
+    return f'{s} <span class="unite-duree">s</span>'
 
 
 _COULEURS_REPARTITION = [BLEU_FONCE, SAUGE, ROSE, ROUGE, BLEU, "#8fb9c9"]
@@ -914,11 +944,11 @@ def _svg_repartition(repartition):
     """Diagramme en anneau (donut) dessiné à la main en SVG — pas de
     librairie de graphiques, cohérent avec "pas de framework front" :
     un cercle par catégorie, découpé via stroke-dasharray."""
-    r = 45
+    r = 70
     if not repartition:
         return (
-            '<svg viewBox="0 0 120 120" width="110" height="110" role="img" aria-label="Aucune donnée">'
-            f'<circle cx="60" cy="60" r="{r}" fill="none" stroke="#e6ebee" stroke-width="18"/></svg>'
+            '<svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Aucune donnée">'
+            f'<circle cx="90" cy="90" r="{r}" fill="none" stroke="#e6ebee" stroke-width="26"/></svg>'
         )
     total = sum(repartition.values())
     circonference = 2 * 3.14159265 * r
@@ -928,29 +958,35 @@ def _svg_repartition(repartition):
         longueur = (n / total) * circonference
         couleur = _COULEURS_REPARTITION[i % len(_COULEURS_REPARTITION)]
         segments.append(
-            f'<circle cx="60" cy="60" r="{r}" fill="none" stroke="{couleur}" stroke-width="18" '
+            f'<circle cx="90" cy="90" r="{r}" fill="none" stroke="{couleur}" stroke-width="26" '
             f'stroke-dasharray="{longueur:.2f} {circonference - longueur:.2f}" '
-            f'stroke-dashoffset="{-decalage:.2f}" transform="rotate(-90 60 60)"/>'
+            f'stroke-dashoffset="{-decalage:.2f}" transform="rotate(-90 90 90)"/>'
         )
         decalage += longueur
-    return f'<svg viewBox="0 0 120 120" width="110" height="110" role="img" aria-label="Répartition des appels par motif">{"".join(segments)}</svg>'
+    return f'<svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Motifs d\'appels">{"".join(segments)}</svg>'
 
 
 def _legende_repartition(repartition):
     if not repartition:
         return '<p class="a-venir-message">Pas encore de données.</p>'
+    total = sum(repartition.values())
     items = sorted(repartition.items(), key=lambda kv: -kv[1])
     return "".join(
         f'<div class="legende-item"><span class="pastille-legende" '
         f'style="background:{_COULEURS_REPARTITION[i % len(_COULEURS_REPARTITION)]}"></span>'
-        f'{html.escape(_NOMS_LISIBLES.get(outil, outil))} — {n}</div>'
+        f'{html.escape(_NOMS_LISIBLES.get(outil, outil))} — {round(100 * n / total)}%</div>'
         for i, (outil, n) in enumerate(items)
     )
 
 
 def _carte_repartition(repartition, suffixe_trace):
+    # suffixe_trace vaut déjà " — sur N appels" (voir plus haut) : ne pas
+    # additionner un second chiffre à côté, le total des usages d'outils
+    # (repartition) n'est de toute façon pas le même compte qu'un nombre
+    # d'appels (un appel peut déclencher 0, 1 ou plusieurs outils).
     return f"""<div class="carte carte-repartition">
-  <h2>Répartition des appels par motif{suffixe_trace}</h2>
+  <h2>Motifs d'appels</h2>
+  <div class="sous-libelle" style="margin-bottom:0.8rem">{suffixe_trace.lstrip(' —') or 'à venir'}</div>
   <div class="donut-bloc">
     {_svg_repartition(repartition)}
     <div class="donut-legende">{_legende_repartition(repartition)}</div>
@@ -1062,6 +1098,12 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
         if appels else '<tr><td colspan="8">Aucun appel pour l\'instant.</td></tr>'
     )
     details_appels = "\n".join(_detail_appel(a) for a in appels)
+    # Filtre par date côté client (JS) : la liste peut vite devenir longue
+    # (des centaines d'appels), un filtre évite de tout dérouler à chaque
+    # fois. Dates distinctes, les plus récentes d'abord — pas besoin d'un
+    # aller-retour serveur, tout est déjà chargé dans la page.
+    dates_disponibles = sorted({(a['cree_le'] or '').partition('T')[0] for a in appels if a['cree_le']}, reverse=True)
+    options_dates = "".join(f'<option value="{d}">{d}</option>' for d in dates_disponibles)
 
     return f"""<!doctype html>
 <html lang="fr">
@@ -1076,11 +1118,9 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
 <body>
 <header class="entete">
   <img class="logo-mark" src="/backoffice/static/logo.png" alt="Salon Étang Côte Bleue">
-  <div>
-    <div class="marque">Assistant vocal · zone Étang</div>
-  </div>
   <div class="entete-titres">
-    <h1>Assistant conversationnel — Expérimentation 2026</h1>
+    <div class="marque">Assistant vocal · zone Étang</div>
+    <div class="sous-titre-entete">Salon Étang Côte Bleue — Expérimentation 2026</div>
   </div>
 </header>
 <div class="mise-en-page">
@@ -1116,6 +1156,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
           <div class="compteur-corps">
             <div class="valeur">{nb_appels}</div>
             <div class="libelle">Appels captés</div>
+            <div class="sous-libelle">&nbsp;</div>
           </div>
         </div>
         <div class="compteur" style="--accent:{SAUGE}">
@@ -1154,8 +1195,8 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
           <div class="icone-compteur">{_ICONES_COMPTEURS['cout']}</div>
           <div class="compteur-corps">
             <div class="valeur">{cout_valeur}</div>
-            <div class="libelle">Coût ElevenLabs</div>
-            <div class="sous-libelle">ASR/LLM/TTS uniquement, hors Twilio{suffixe_trace} — empreinte carbone : méthode pas encore fiable</div>
+            <div class="libelle">Coût ElevenLabs <span class="info-icone" title="ASR/LLM/TTS uniquement, hors Twilio{suffixe_trace} — empreinte carbone : méthode pas encore fiable">i</span></div>
+            <div class="sous-libelle">&nbsp;</div>
           </div>
         </div>
       </div>
@@ -1163,20 +1204,26 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     </div>
 
     <div class="carte carte-exports">
-      <h2>Exports</h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.9rem">
+        <h2 style="margin:0">Exports</h2>
+        <form method="post" action="/backoffice/appels/retraiter-tracabilite" style="margin:0">
+          <button type="submit" class="bouton" style="font-size:0.78rem;padding:0.4rem 0.8rem" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
+        </form>
+      </div>
       <div class="exports-boutons">
-        <a class="bouton accent bouton-grand" href="/backoffice/exports/objets_perdus.csv">⬇ Objets perdus (CSV)</a>
-        <a class="bouton accent bouton-grand" href="/backoffice/exports/demandes_rappel.csv">⬇ Demandes de rappel (CSV)</a>
+        <a class="bouton accent bouton-grand" href="/backoffice/exports/objets_perdus.csv">⬇ Objets perdus <em>(CSV)</em></a>
+        <a class="bouton accent bouton-grand" href="/backoffice/exports/demandes_rappel.csv">⬇ Demandes de rappel <em>(CSV)</em></a>
       </div>
     </div>
 
-    <div class="bandeau-actions">
-      <form method="post" action="/backoffice/appels/retraiter-tracabilite" style="display:inline">
-        <button type="submit" class="bouton" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
-      </form>
-    </div>
-
     <div class="carte carte-tableau">
+      <div class="filtre-appels">
+        <label for="filtre-date-appels">Filtrer par jour</label>
+        <select id="filtre-date-appels" onchange="filtrerAppelsParDate(this.value)">
+          <option value="">Tous les jours ({len(appels)} appels)</option>
+          {options_dates}
+        </select>
+      </div>
       <table>
         <thead>
           <tr>
@@ -1191,7 +1238,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
             <th>Voir</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="corps-tableau-appels">
           {lignes_tableau}
         </tbody>
       </table>
@@ -1251,6 +1298,11 @@ function ecouterVoix() {{
     .catch(function(erreur) {{
       alert('Impossible de lire cet extrait pour le moment — détail : ' + erreur.message);
     }});
+}}
+function filtrerAppelsParDate(date) {{
+  document.querySelectorAll('#corps-tableau-appels tr[data-date]').forEach(function(tr) {{
+    tr.style.display = (!date || tr.dataset.date === date) ? '' : 'none';
+  }});
 }}
 function afficherOnglet(nom) {{
   document.querySelectorAll('.contenu-onglet').forEach(function(el) {{

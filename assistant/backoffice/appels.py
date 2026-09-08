@@ -168,8 +168,8 @@ def lister_appels_avec_details(limite=100):
     appels = conn.execute(
         "SELECT a.id, a.cree_le, a.conversation_id, a.agent_id, a.statut, a.donnees_brutes, "
         "a.duree_secs, a.outils_utilises, a.voix_utilisees, s.satisfait AS satisfaction_client, "
-        "EXISTS(SELECT 1 FROM demandes_rappel r WHERE r.conversation_id = a.conversation_id "
-        "AND r.traite = 0) AS rappel_en_attente "
+        "(SELECT r.id FROM demandes_rappel r WHERE r.conversation_id = a.conversation_id "
+        "AND r.traite = 0 ORDER BY r.id DESC LIMIT 1) AS rappel_id "
         "FROM appels a LEFT JOIN satisfaction_appels s ON s.conversation_id = a.conversation_id "
         "ORDER BY a.id DESC LIMIT ?",
         (limite,),
