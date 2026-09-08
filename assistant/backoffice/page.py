@@ -204,6 +204,7 @@ main {{
   border: 1px solid var(--bordure);
   border-radius: 12px;
   padding: 1.4rem 1.6rem;
+  box-shadow: 0 1px 3px rgba(34,48,60,0.05);
 }}
 .carte h2 {{
   font-size: 1rem;
@@ -379,8 +380,19 @@ main {{
   display: flex;
   align-items: center;
   gap: 1rem;
+  box-shadow: 0 1px 3px rgba(34,48,60,0.05);
 }}
-.compteur .icone-compteur {{ font-size: 2.3rem; flex-shrink: 0; }}
+.compteur .icone-compteur {{
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent, var(--bleu)) 22%, white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}}
 .compteur .compteur-corps {{ display: flex; flex-direction: column; }}
 .compteur .valeur {{ font-size: 2.1rem; font-weight: 700; line-height: 1.1; }}
 .compteur .libelle {{ color: var(--texte-doux); font-size: 0.78rem; margin-top: 0.2rem; }}
@@ -430,10 +442,10 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 /* --- Suivi : tableau pleine largeur + panneau de détail en dessous,
    qui s'ouvre au clic sur l'œil (les deux tables — appels et demandes
    de rappel — ont ainsi la même largeur, voir maquette du 26/08) --- */
-.carte-tableau {{ padding: 0; overflow-x: auto; margin-bottom: 1.5rem; }}
+.carte-tableau {{ padding: 0; overflow-x: auto; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(34,48,60,0.05); }}
 .carte-tableau table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; }}
 .tableau-scroll {{ max-height: 28rem; overflow-y: auto; }}
-.tableau-scroll th {{ position: sticky; top: 0; background: var(--carte); }}
+.tableau-scroll th {{ position: sticky; top: 0; }}
 .carte-tableau th {{
   text-align: left;
   font-size: 0.72rem;
@@ -443,6 +455,7 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
   padding: 1rem 1rem 0.7rem;
   border-bottom: 1px solid var(--bordure);
   white-space: nowrap;
+  background: #eef3f5;
 }}
 .carte-tableau td {{
   padding: 0.7rem 1rem;
@@ -452,6 +465,8 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
 }}
 .carte-tableau tr:last-child td {{ border-bottom: none; }}
 .carte-tableau td.col-motif-table {{ white-space: normal; }}
+.carte-tableau tbody tr:nth-child(even) {{ background: #f7f9fa; }}
+.carte-tableau tbody tr:hover {{ background: #e4eef1; }}
 .bouton-voir {{
   background: none;
   border: none;
