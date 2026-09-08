@@ -84,6 +84,8 @@ _NOMS_MOTIFS = {
     "scolaire": "Transport scolaire",
     "hors_perimetre": "Hors périmètre du réseau",
     "demande_agent": "Demande d'agent",
+    "abonnement": "Abonnement",
+    "velo": "Vélo en libre-service",
 }
 
 _NOMS_SOURCES_APPEL = {

@@ -1,5 +1,29 @@
 # Prochaines étapes — état au 08/09/2026
 
+## ✅ Fait le 08/09 — rappel proactif abonnement/vélo, prénom+nom
+
+Deux nouveaux motifs de rappel ajoutés (`abonnement`, `velo`), synchronisés
+dans `assistant/outils/rappels.py`, `assistant/api/schemas.py` et
+`_NOMS_MOTIFS` (back-office). Spec (§4 et §5) mise à jour : le prompt
+propose désormais un rappel proactif quand l'appelant veut *souscrire* un
+abonnement (pas juste en connaître le tarif — ce cas reste répondu
+normalement via rechercher_information), et après une réponse sur le
+vélo en libre-service. Toute demande de rappel recueille maintenant
+prénom + nom (pas de nouvelle colonne en base : les deux sont stockés
+dans le champ `nom` existant, ex. "Marie Dupont" — une séparation en deux
+colonnes n'apportait rien de plus pour l'usage actuel, rappeler quelqu'un
+en le nommant correctement).
+
+**Reste à faire côté utilisateur** : recopier les nouvelles sections
+"Abonnement" et "Vélo en libre-service" du prompt système (spec §5) dans
+la configuration de l'agent ElevenLabs — ce fichier ne les y pousse pas
+automatiquement.
+
+Idée notée pour plus tard, pas implémentée (proposée par l'utilisateur,
+volontairement différée) : demander à l'appelant un créneau de
+disponibilité préféré pour le rappel, à stocker et afficher au conseiller.
+Nécessiterait une vraie colonne en base le jour où on s'y attaque.
+
 ## ✅ Fait le 08/09 — question du modèle d'embeddings tranchée
 
 Test de qualité du candidat français (`antoinelouis/biencoder-distilcamembert-mmarcoFR`,

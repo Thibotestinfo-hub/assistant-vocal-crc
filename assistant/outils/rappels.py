@@ -13,7 +13,10 @@ visible vers l'appel d'origine.
 
 from assistant.outils.db import connexion_app, horodatage
 
-MOTIFS_VALIDES = {"amende", "reclamation", "tad", "scolaire", "hors_perimetre", "demande_agent"}
+MOTIFS_VALIDES = {
+    "amende", "reclamation", "tad", "scolaire", "hors_perimetre", "demande_agent",
+    "abonnement", "velo",
+}
 
 
 def demander_rappel(telephone, motif, resume, nom=None, email=None, opt_in_marketing=False, conversation_id=None):

@@ -106,7 +106,10 @@ class RappelRequete(BaseModel):
     telephone: str
     nom: Optional[str] = None
     email: Optional[str] = None
-    motif: Literal["amende", "reclamation", "tad", "scolaire", "hors_perimetre", "demande_agent"]
+    motif: Literal[
+        "amende", "reclamation", "tad", "scolaire", "hors_perimetre", "demande_agent",
+        "abonnement", "velo",
+    ]
     resume: str
     opt_in_marketing: bool = False
     # Optionnel : fourni par ElevenLabs via {{system__conversation_id}} si
