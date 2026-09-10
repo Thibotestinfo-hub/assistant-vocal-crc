@@ -81,17 +81,27 @@ def apercu_voix(voice_id):
     return reponse.json().get("preview_url")
 
 
-def synthetiser_texte(texte, voice_id=None):
-    """Audio (bytes, mp3) de `texte` lu par la voix indiquée — la voix
-    actuelle de l'agent par défaut. Jamais mis en cache, généré à la
-    demande : sert à l'onglet Prononciation du back-office pour entendre
-    ce que la voix dira réellement pour un nom donné (contrairement à
-    apercu_voix, qui ne joue qu'un échantillon générique de la voix)."""
-    if voice_id is None:
-        voice_id = voix_actuelle()
+def synthetiser_texte(texte):
+    """Audio (bytes, mp3) de `texte` lu avec exactement les réglages TTS
+    actuels de l'agent (voix, modèle, dictionnaire de prononciation
+    ElevenLabs) — récupérés en direct à chaque appel, jamais figés en
+    dur, pour que ce soit fidèle à ce qui se dit en appel réel plutôt
+    qu'une approximation avec les valeurs par défaut de l'API (repéré le
+    10/09/2026 : sans model_id ni pronunciation_dictionary_locators
+    explicites, le rendu diffère nettement — voix différente, lecture
+    du français moins fidèle).
+
+    Jamais mis en cache, généré à la demande : sert à l'onglet
+    Prononciation du back-office (contrairement à apercu_voix, qui ne
+    joue qu'un échantillon générique de la voix, sans lien avec un texte
+    précis)."""
+    tts = obtenir_agent()["conversation_config"]["tts"]
+    corps = {"text": texte, "model_id": tts.get("model_id")}
+    if tts.get("pronunciation_dictionary_locators"):
+        corps["pronunciation_dictionary_locators"] = tts["pronunciation_dictionary_locators"]
     reponse = httpx.post(
-        f"{BASE_URL}/text-to-speech/{voice_id}", headers=_en_tete(),
-        json={"text": texte}, timeout=15,
+        f"{BASE_URL}/text-to-speech/{tts['voice_id']}", headers=_en_tete(),
+        json=corps, timeout=15,
     )
     reponse.raise_for_status()
     return reponse.content
