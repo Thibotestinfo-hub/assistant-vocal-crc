@@ -81,6 +81,22 @@ def apercu_voix(voice_id):
     return reponse.json().get("preview_url")
 
 
+def synthetiser_texte(texte, voice_id=None):
+    """Audio (bytes, mp3) de `texte` lu par la voix indiquée — la voix
+    actuelle de l'agent par défaut. Jamais mis en cache, généré à la
+    demande : sert à l'onglet Prononciation du back-office pour entendre
+    ce que la voix dira réellement pour un nom donné (contrairement à
+    apercu_voix, qui ne joue qu'un échantillon générique de la voix)."""
+    if voice_id is None:
+        voice_id = voix_actuelle()
+    reponse = httpx.post(
+        f"{BASE_URL}/text-to-speech/{voice_id}", headers=_en_tete(),
+        json={"text": texte}, timeout=15,
+    )
+    reponse.raise_for_status()
+    return reponse.content
+
+
 def obtenir_agent():
     """Config complète de l'agent telle que renvoyée par ElevenLabs —
     utile pour vérifier avant/après un changement."""

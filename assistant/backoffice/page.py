@@ -1042,6 +1042,7 @@ def _ligne_regle_prononciation(regle, index):
   </td>
   <td><span class="badge-origine {badge_classe}">{html.escape(regle['origine'])}</span></td>
   <td>
+    <button type="button" class="bouton-voir" onclick="ecouterPrononciation('{grapheme_url}')" title="Écouter cette prononciation">🔊</button>
     <button type="button" class="bouton-voir" onclick="editerRegle({index})" title="Modifier">✏️</button>
     {suppression}
   </td>
@@ -1299,6 +1300,29 @@ function ecouterVoix() {{
     }})
     .catch(function(erreur) {{
       alert('Impossible de lire cet extrait pour le moment — détail : ' + erreur.message);
+    }});
+}}
+function ecouterPrononciation(graphemeUrl) {{
+  // blob() plutôt qu'assigner reponse.url à <audio> (contrairement à
+  // ecouterVoix ci-dessus) : ici la réponse est l'audio lui-même, pas
+  // une redirection vers une URL publique ElevenLabs — <audio> devrait
+  // refaire la requête et repasser par l'authentification back-office.
+  fetch('/backoffice/prononciation/' + graphemeUrl + '/ecouter')
+    .then(function(reponse) {{
+      if (!reponse.ok) {{
+        return reponse.text().then(function(texte) {{
+          throw new Error(texte || ('Erreur ' + reponse.status));
+        }});
+      }}
+      return reponse.blob();
+    }})
+    .then(function(blob) {{
+      var lecteur = document.getElementById('lecteur-voix');
+      lecteur.src = URL.createObjectURL(blob);
+      return lecteur.play();
+    }})
+    .catch(function(erreur) {{
+      alert('Impossible de lire cette prononciation pour le moment — détail : ' + erreur.message);
     }});
 }}
 function filtrerAppelsParDate(date) {{

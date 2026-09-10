@@ -39,7 +39,8 @@ from assistant.backoffice.exports import (
 )
 from assistant.backoffice.page import page_backoffice
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
-from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix
+from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix, synthetiser_texte
+from assistant.ingestion.prononciation import nom_prononcable
 from assistant.outils.db import _FUSEAU
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
@@ -336,3 +337,19 @@ def route_backoffice_ajouter_prononciation(grapheme: str = Form(...), alias: str
 def route_backoffice_supprimer_prononciation(grapheme: str):
     supprimer_regle(grapheme)
     return RedirectResponse("/backoffice/appels#prononciation", status_code=303)
+
+
+@app.get("/backoffice/prononciation/{grapheme}/ecouter",
+         dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_ecouter_prononciation(grapheme: str):
+    """Audio de ce que la voix dira réellement pour ce nom, telle que
+    rechercher_arret la prononcerait (voir nom_prononcable — même
+    logique fichier/surcouche back-office). Généré à la demande, jamais
+    stocké. Même logique d'erreur que route_backoffice_apercu_voix :
+    502 loggé côté serveur plutôt qu'un <audio> qui échoue en silence."""
+    try:
+        audio = synthetiser_texte(nom_prononcable(grapheme))
+    except Exception as erreur:
+        print(f"synthetiser_texte({grapheme!r}) a échoué : {erreur!r}", flush=True)
+        return Response(content=str(erreur)[:300], status_code=502, media_type="text/plain")
+    return Response(content=audio, media_type="audio/mpeg")
