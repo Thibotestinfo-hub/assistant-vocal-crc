@@ -17,7 +17,7 @@ taille, pas généralisable à un réseau plus grand.
 
 from datetime import datetime, timedelta
 
-from assistant.outils.arrets import charger_arrets_logiques, trouver_par_stop_id
+from assistant.outils.arrets import charger_arrets_logiques
 from assistant.outils.db import connexion_gtfs
 from assistant.outils.horaires_theoriques import FUSEAU, _formater_heure, _services_actifs
 
@@ -159,8 +159,19 @@ def calculer_itineraire(arret_depart_id, arret_arrivee_id, date=None, heure=None
     fermer = conn is None
     conn = conn or connexion_gtfs()
 
-    arret_depart = trouver_par_stop_id(arret_depart_id, conn)
-    arret_arrivee = trouver_par_stop_id(arret_arrivee_id, conn)
+    # Un seul chargement de l'index des arrêts logiques pour toute la
+    # fonction : charger_arrets_logiques() est une requête agrégée
+    # coûteuse (~100-150 ms), et trouver_par_stop_id() la relançait à
+    # chaque appel — deux fois rien que pour résoudre départ et arrivée,
+    # avant même de savoir s'il y a une recherche à faire (budget de
+    # 300 ms, voir CLAUDE.md).
+    index_arrets = {
+        stop_id: arret
+        for arret in charger_arrets_logiques(conn)
+        for stop_id in arret["membres"]
+    }
+    arret_depart = index_arrets.get(arret_depart_id)
+    arret_arrivee = index_arrets.get(arret_arrivee_id)
     if arret_depart is None or arret_arrivee is None:
         if fermer:
             conn.close()
@@ -174,17 +185,6 @@ def calculer_itineraire(arret_depart_id, arret_arrivee_id, date=None, heure=None
         heure_secondes = maintenant.hour * 3600 + maintenant.minute * 60 + maintenant.second
     else:
         heure_secondes = 0
-
-    # Construit une seule fois l'index stop_id -> arrêt logique : la
-    # recherche de correspondance l'interroge pour chaque arrêt traversé,
-    # et charger_arrets_logiques() est une requête agrégée coûteuse à ne
-    # surtout pas relancer à chaque itération (budget de 300 ms, voir
-    # CLAUDE.md).
-    index_arrets = {
-        stop_id: arret
-        for arret in charger_arrets_logiques(conn)
-        for stop_id in arret["membres"]
-    }
 
     resultat = None
     for jours_decales in (0, 1):  # aujourd'hui, sinon demain (même logique que horaires_theoriques)
