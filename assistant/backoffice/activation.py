@@ -62,6 +62,7 @@ _PHRASES_CAPACITES = {
     "rechercher_information:tad": "le transport à la demande",
     "rechercher_information:amendes": "les amendes",
     "enregistrer_objet_perdu": "les déclarations d'objet perdu",
+    "calculer_itineraire": "vous aider à trouver votre itinéraire",
 }
 
 

@@ -33,7 +33,8 @@ def charger_arrets_logiques(conn=None):
         """
         SELECT s.stop_name, s.commune,
                GROUP_CONCAT(DISTINCT s.stop_id) AS stop_ids,
-               GROUP_CONCAT(DISTINCT r.route_short_name) AS lignes
+               GROUP_CONCAT(DISTINCT r.route_short_name) AS lignes,
+               AVG(s.stop_lat) AS lat, AVG(s.stop_lon) AS lon
         FROM stops s
         JOIN stop_times st ON st.stop_id = s.stop_id
         JOIN trips t ON t.trip_id = st.trip_id
@@ -56,6 +57,8 @@ def charger_arrets_logiques(conn=None):
             "lignes": sorted(row["lignes"].split(","), key=lambda x: (len(x), x)),
             "texte_normalise": _normaliser(row["stop_name"]),
             "phonetique": code_phonetique(row["stop_name"]),
+            "lat": row["lat"],
+            "lon": row["lon"],
         })
 
     if fermer:

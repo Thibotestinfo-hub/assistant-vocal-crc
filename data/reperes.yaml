@@ -1,0 +1,62 @@
+# Repères connus par commune, pour la recherche d'itinéraire (outil
+# calculer_itineraire) : permet de résoudre une destination comme
+# "la mairie" vers l'arrêt le plus proche, sans géocodage ouvert.
+#
+# Écrit à la main, coordonnées vérifiées une par une via l'API Adresse
+# du gouvernement (api-adresse.data.gouv.fr, Base Adresse Nationale),
+# le 25/09/2026 — jamais estimées. Piège rencontré et corrigé pendant la
+# collecte : une recherche par nom de commune seul peut tomber sur un
+# homonyme d'un autre département (ex. "Vitrolles" en Bouches-du-Rhône
+# vs "Vitrolles-en-Luberon" dans le Vaucluse) — toujours vérifier que le
+# code postal commence par 13 pour ce périmètre.
+#
+# v0 : uniquement les mairies des 8 communes du réseau. À étoffer
+# (gares, écoles, hôpitaux...) une fois ce premier jet éprouvé en test.
+
+- commune: "Berre-l'Étang"
+  libelle: "mairie"
+  adresse: "Allée du Clos de Marie, 13130 Berre-l'Étang"
+  lat: 43.487019
+  lon: 5.162502
+
+- commune: "Gignac-la-Nerthe"
+  libelle: "mairie"
+  adresse: "Rue de la Mairie, 13180 Gignac-la-Nerthe"
+  lat: 43.393554
+  lon: 5.23592
+
+- commune: "Les Pennes-Mirabeau"
+  libelle: "mairie"
+  adresse: "Place de la Mairie, 13170 Les Pennes-Mirabeau"
+  lat: 43.410192
+  lon: 5.308296
+
+- commune: "Marignane"
+  libelle: "mairie"
+  adresse: "Rue Étienne Maury, 13700 Marignane"
+  lat: 43.416398
+  lon: 5.206761
+
+- commune: "Rognac"
+  libelle: "mairie"
+  adresse: "1 place de l'Hôtel de Ville, 13340 Rognac"
+  lat: 43.489263
+  lon: 5.228741
+
+- commune: "Saint-Victoret"
+  libelle: "mairie"
+  adresse: "Esplanade Albert Mairot, 13730 Saint-Victoret"
+  lat: 43.420688
+  lon: 5.233232
+
+- commune: "Velaux"
+  libelle: "mairie"
+  adresse: "Rue de la Mairie, 13880 Velaux"
+  lat: 43.522026
+  lon: 5.253499
+
+- commune: "Vitrolles"
+  libelle: "mairie"
+  adresse: "Place de Provence, 13127 Vitrolles"
+  lat: 43.447498
+  lon: 5.249032

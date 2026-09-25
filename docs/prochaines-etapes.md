@@ -1,4 +1,54 @@
-# Prochaines étapes — état au 08/09/2026
+# Prochaines étapes — état au 25/09/2026
+
+## ✅ Fait le 25/09 — calculateur d'itinéraire, v0 expérimentale
+
+Exploration approfondie avant de coder (voir aussi la discussion du
+même jour) : API Cityway (aucun endpoint d'itinéraire exposé), Navitia/
+Hove (racheté, accès désormais commercial, pas de portail développeur
+libre-service confirmé), l'appel AJAX interne de plan.lametropolemobilite.fr
+(trouvé via les outils de développement du navigateur, mais renvoie du
+HTML non documenté, dépendant d'une session — pas fiable), OpenTripPlanner
+(faisable sans Docker mais Java 25 + 2 Go de RAM par défaut rien que pour
+une zone de cette taille, coût comparable à la question mpnet déjà tranchée
+le 04/09). Décision : moteur maison, dans la stack actuelle.
+
+**Construit** :
+- `data/reperes.yaml` : une mairie par commune (8), coordonnées vérifiées
+  une par une via l'API Adresse du gouvernement (jamais estimées). Piège
+  rencontré : une recherche par nom de commune seul est tombée sur
+  "Vitrolles-en-Luberon" (Vaucluse) au lieu de Vitrolles (Bouches-du-Rhône)
+  — toujours vérifier le département.
+- `assistant/outils/reperes.py` : résout un repère cité en clair ("la
+  mairie") vers l'arrêt le plus proche (distance à vol d'oiseau).
+- `assistant/outils/itineraire.py` : trajet direct ou une correspondance
+  maximum, recherche bornée aux prochains départs (pas toute la
+  journée) — pas un vrai moteur RAPTOR, suffisant pour ce réseau.
+  Testé sur des cas réels tirés du GTFS (trajets directs et
+  correspondances trouvés avec des délais cohérents, et correctement
+  aucun résultat quand aucun trajet n'existe dans la fenêtre cherchée).
+- Deux nouveaux outils (`rechercher_repere`, `calculer_itineraire`),
+  **désactivés par défaut** dans le back-office (case "Recherche
+  d'itinéraire", décision explicite de l'utilisateur pour ne pas
+  fragiliser les démos actuelles) — activables en un clic, sans
+  redéploiement.
+
+**Bug corrigé en cours de route** : `trouver_par_stop_id` (déjà
+existant) recharge tout l'index des arrêts à chaque appel — appelé en
+boucle dans la recherche de correspondance, ça aurait explosé le budget
+de 300 ms. Corrigé en construisant l'index une seule fois par requête.
+
+**Reste à faire côté utilisateur** avant d'activer en vrai : recopier
+le contrat des deux outils (spec §4) et la section "Itinéraire" du
+prompt (spec §5) dans ElevenLabs — pas fait automatiquement, comme pour
+les autres outils.
+
+**Pas fait** (périmètre volontairement limité pour ce premier test) :
+- Plus d'une correspondance.
+- Repères autres que les mairies (gares, écoles, hôpitaux...).
+- Le fichier `.env` local a été perdu deux fois pendant cette session
+  suite à des reprises après inactivité — comportement normal (jamais
+  commité), mais à garder en tête : après une longue pause, relancer le
+  serveur en local nécessite de recréer `.env`.
 
 ## ✅ Fait le 08/09 (soir) — tests en appel réel du rappel proactif + ASR
 

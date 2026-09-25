@@ -148,3 +148,48 @@ class SatisfactionRequete(BaseModel):
 
 class SatisfactionReponse(BaseModel):
     succes: bool
+
+
+# --- rechercher_repere (expérimental, voir docs/prochaines-etapes.md) ---
+
+class RepereRequete(BaseModel):
+    texte: str
+    commune: Optional[str] = None
+
+
+class CandidatRepere(BaseModel):
+    commune: str
+    libelle: str
+    arret_id: str
+    arret_nom: str
+    distance_km: float
+
+
+class RepereReponse(BaseModel):
+    candidats: list[CandidatRepere]
+
+
+# --- calculer_itineraire (expérimental, voir docs/prochaines-etapes.md) ---
+
+class ItineraireRequete(BaseModel):
+    arret_depart_id: str
+    arret_arrivee_id: str
+    date: Optional[str] = None
+    heure: Optional[str] = None
+
+
+class EtapeItineraire(BaseModel):
+    ligne: Optional[str] = None
+    destination: Optional[str] = None
+    depart: Optional[str] = None
+    arrivee: Optional[str] = None
+    arret_correspondance: Optional[str] = None
+    commune_correspondance: Optional[str] = None
+
+
+class ItineraireReponse(BaseModel):
+    trouve: bool
+    type: Optional[Literal["direct", "correspondance"]] = None
+    etapes: Optional[list[EtapeItineraire]] = None
+    jour_decale: Optional[int] = None
+    erreur: Optional[str] = None

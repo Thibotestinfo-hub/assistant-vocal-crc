@@ -19,9 +19,11 @@ from assistant.api.auth import verifier_acces_backoffice, verifier_jeton, verifi
 from assistant.api.schemas import (
     HorairesRequete, HorairesReponse,
     InformationRequete, InformationReponse,
+    ItineraireRequete, ItineraireReponse,
     ObjetPerduRequete, ObjetPerduReponse,
     RappelRequete, RappelReponse,
     RechercherArretRequete, RechercherArretReponse,
+    RepereRequete, RepereReponse,
     SatisfactionRequete, SatisfactionReponse,
     TransfertRequete, TransfertReponse,
 )
@@ -43,10 +45,12 @@ from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_regla
 from assistant.ingestion.prononciation import nom_prononcable
 from assistant.outils.db import _FUSEAU
 from assistant.outils.horaires_theoriques import horaires_theoriques
+from assistant.outils.itineraire import calculer_itineraire
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
 from assistant.outils.rechercher_arret import rechercher_arret
 from assistant.outils.rechercher_information import rechercher_information
+from assistant.outils.reperes import rechercher_repere
 from assistant.outils.satisfaction import enregistrer_satisfaction
 from assistant.outils.transfert import transferer_agent
 
@@ -138,6 +142,27 @@ def route_enregistrer_satisfaction(requete: SatisfactionRequete):
     l'équipe CRC activerait/désactiverait comme les autres outils, juste
     de l'instrumentation."""
     return enregistrer_satisfaction(requete.conversation_id, requete.satisfait)
+
+
+@app.post("/outils/rechercher_repere", response_model=RepereReponse,
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("calculer_itineraire"))])
+def route_rechercher_repere(requete: RepereRequete):
+    """Expérimental, désactivé par défaut (voir docs/prochaines-etapes.md).
+    Gaté par la même clé que calculer_itineraire : les deux outils ne
+    forment qu'une seule fonctionnalité côté back-office ("Recherche
+    d'itinéraire")."""
+    return rechercher_repere(requete.texte, requete.commune)
+
+
+@app.post("/outils/calculer_itineraire", response_model=ItineraireReponse,
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("calculer_itineraire"))])
+def route_calculer_itineraire(requete: ItineraireRequete):
+    """Expérimental, désactivé par défaut (voir docs/prochaines-etapes.md) :
+    trajet direct ou une correspondance maximum, jamais plus (voir
+    assistant/outils/itineraire.py)."""
+    return calculer_itineraire(
+        requete.arret_depart_id, requete.arret_arrivee_id, requete.date, requete.heure,
+    )
 
 
 # --- Back-office (Étape 6) ---

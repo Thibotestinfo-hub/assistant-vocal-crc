@@ -49,6 +49,8 @@ _NOMS_LISIBLES = {
     "enregistrer_objet_perdu": "Déclarer un objet perdu",
     "demander_rappel": "Demander à être rappelé",
     "transferer_agent": "Transférer vers un conseiller",
+    "rechercher_repere": "Recherche d'itinéraire",
+    "calculer_itineraire": "Recherche d'itinéraire",
 }
 
 # Étiquettes des interrupteurs "Outils actifs" du Live. rechercher_information
@@ -66,6 +68,7 @@ _NOMS_LISIBLES_ACTIVATION = {
     "rechercher_information:tad": "Transport à la demande",
     "rechercher_information:amendes": "Amendes",
     "enregistrer_objet_perdu": "Déclarer un objet perdu",
+    "calculer_itineraire": "Recherche d'itinéraire",
 }
 
 _DESCRIPTIONS_OUTILS = {
@@ -75,6 +78,9 @@ _DESCRIPTIONS_OUTILS = {
     "rechercher_information:tad": "Répond aux questions sur le transport à la demande.",
     "rechercher_information:amendes": "Répond aux questions sur les amendes et procès-verbaux.",
     "enregistrer_objet_perdu": "Enregistre une déclaration d'objet perdu.",
+    "calculer_itineraire": "Expérimental : trajet direct ou une correspondance maximum entre deux arrêts, "
+                            "y compris vers quelques repères (mairies). Désactivé par défaut — à activer "
+                            "volontairement, pas encore aussi fiable que le reste.",
 }
 
 _NOMS_MOTIFS = {

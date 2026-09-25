@@ -233,6 +233,38 @@ L'ordre de recueil compte : **l'objet d'abord, les coordonnées ensuite.** Un ap
 
 Chaque appel à `enregistrer_objet_perdu`, `demander_rappel` ou `envoyer_sms` écrit au registre des consentements : horodatage, formulation employée, extrait audio correspondant.
 
+### `rechercher_repere` et `calculer_itineraire` — expérimental, désactivé par défaut
+
+Ajoutés le 25/09/2026, décidés avec l'utilisateur comme fonctionnalité "bonus" : périmètre volontairement limité (trajet direct ou une seule correspondance, jamais plus), désactivés depuis le back-office tant qu'ils n'ont pas été jugés assez fiables pour une démo. Voir docs/prochaines-etapes.md pour le détail des choix (pourquoi pas OpenTripPlanner/Navitia/Cityway) et assistant/outils/itineraire.py pour les limites précises de l'algorithme.
+
+`rechercher_repere` résout une destination dite en clair ("la mairie") vers l'arrêt le plus proche, à partir d'une petite liste écrite à la main (data/reperes.yaml — uniquement les mairies des 8 communes pour l'instant). Comme pour `rechercher_arret`, sans commune précisée plusieurs résultats peuvent revenir — à l'agent de lever l'ambiguïté.
+
+```json
+{
+  "name": "rechercher_repere",
+  "parameters": {
+    "texte": { "type": "string" },
+    "commune": { "type": "string", "required": false }
+  }
+}
+```
+
+`calculer_itineraire` prend deux arrêts déjà résolus (via `rechercher_arret` ou `rechercher_repere`) et cherche un trajet théorique — jamais temps réel, comme `horaires_theoriques`.
+
+```json
+{
+  "name": "calculer_itineraire",
+  "parameters": {
+    "arret_depart_id": { "type": "string" },
+    "arret_arrivee_id": { "type": "string" },
+    "date": { "type": "string", "required": false },
+    "heure": { "type": "string", "required": false }
+  }
+}
+```
+
+Si `trouve` est faux, l'agent applique la même règle que pour tout outil qui ne trouve rien : ne pas inventer de trajet, basculer en sortie (voir §5, "Répondre sur les horaires" et "Sorties").
+
 ---
 
 ## 5. Prompt système
@@ -299,6 +331,24 @@ plus fréquente.
 Si la ligne ne circule pas ce jour-là, dis-le avant tout horaire.
 Présente toujours ces horaires comme prévus, pas comme réels : tu ne
 connais pas la position des bus.
+
+## Itinéraire (expérimental — seulement si cette section a été activée)
+Si l'appelant dit vouloir se rendre quelque part ("je voudrais aller
+à..."), demande d'abord son arrêt de départ, puis sa destination —
+une question à la fois.
+Résous les deux avec rechercher_arret. Si la destination n'est pas un
+nom d'arrêt (« la mairie », par exemple), essaie rechercher_repere
+avec la commune si tu la connais.
+Appelle ensuite calculer_itineraire avec les deux arrêts trouvés.
+Si un trajet direct existe, annonce la ligne, l'heure de départ et
+l'heure d'arrivée.
+Si une correspondance est nécessaire, annonce les deux lignes et le
+nom de l'arrêt de correspondance, sans détailler le temps d'attente
+sauf si l'appelant le demande.
+Si l'outil ne trouve rien, ne propose jamais un trajet à l'improviste :
+tu bascules en sortie, comme pour toute information indisponible.
+Présente toujours le trajet comme prévu, pas comme réel — même
+prudence que pour les horaires.
 
 ## Répondre sur le commercial et le pratique
 Appuie-toi sur rechercher_information. Réponds en une ou deux

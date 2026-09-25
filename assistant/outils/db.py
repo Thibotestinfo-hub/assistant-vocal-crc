@@ -173,7 +173,18 @@ NOMS_OUTILS = [
     # le 03/09/2026 : ce sont les deux seules portes de sortie vers un
     # humain, les rendre désactivables risquait de laisser un appelant
     # sans aucun moyen de joindre quelqu'un (voir assistant/api/main.py).
+    # calculer_itineraire couvre aussi rechercher_repere (une seule
+    # fonctionnalité, un seul interrupteur, voir assistant/api/main.py) —
+    # expérimental, désactivé PAR DÉFAUT contrairement à tous les autres
+    # (voir la seed spéciale plus bas, connexion_app) : ne doit jamais
+    # fragiliser une démo sans qu'on l'ait explicitement activé.
+    "calculer_itineraire",
 ]
+
+# Outils qui démarrent désactivés (contrairement à la règle générale
+# "tout actif par défaut" ci-dessous) : fonctionnalités expérimentales
+# qu'on ne veut pas voir apparaître sans avoir choisi de les allumer.
+_OUTILS_INACTIFS_PAR_DEFAUT = {"calculer_itineraire"}
 
 # Traçabilité par appel (CLAUDE.md, contrainte non négociable) : ajoutées
 # après coup à une table déjà en production, via ALTER TABLE — un CREATE
@@ -227,13 +238,14 @@ def connexion_app():
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA_APP)
     _migrer_colonnes_manquantes(conn)
-    # Une ligne par outil, plus "tous" (l'interrupteur général), toutes
-    # actives par défaut. INSERT OR IGNORE : ne touche jamais un réglage
-    # déjà choisi par l'équipe CRC.
+    # Une ligne par outil, plus "tous" (l'interrupteur général), actives
+    # par défaut sauf _OUTILS_INACTIFS_PAR_DEFAUT. INSERT OR IGNORE : ne
+    # touche jamais un réglage déjà choisi par l'équipe CRC.
     for cle in [*NOMS_OUTILS, "tous"]:
+        valeur_defaut = 0 if cle in _OUTILS_INACTIFS_PAR_DEFAUT else 1
         conn.execute(
-            "INSERT OR IGNORE INTO activation_outils (outil, actif) VALUES (?, 1)",
-            (cle,),
+            "INSERT OR IGNORE INTO activation_outils (outil, actif) VALUES (?, ?)",
+            (cle, valeur_defaut),
         )
     conn.commit()
     return conn
