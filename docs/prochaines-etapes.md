@@ -1,5 +1,74 @@
 # Prochaines étapes — état au 25/09/2026
 
+## 🔶 En cours le 25/09 (soir) — comparaison de LLM avant migration, PAS TRANCHÉ
+
+Contexte : ElevenLabs a averti que Gemini 2.5 Flash (modèle actuel) sera
+obsolète le 30/11/2026, migration automatique sinon. Décision de ne pas
+attendre et de comparer plusieurs candidats avant de choisir, plutôt que
+de prendre le remplaçant par défaut à l'aveugle.
+
+**Candidats testés ce soir, en appel réel** (3 webhooks analysés en
+détail) : Gemini 3.5 Flash-Lite (deux appels) et Qwen3.5-397B-A17B (un
+appel, hébergé par ElevenLabs, "idéal pour un cas d'utilisation
+agentique" selon leur fiche).
+
+**Aucun des deux n'est prêt à déployer tel quel** — chacun a un vrai
+défaut, pas juste une question de goût :
+
+- **Gemini 3.5 Flash-Lite** : silences de 7 à 12 secondes avant que le
+  tour ne démarre (`convai_turn_silence_before_initiation`), alors que
+  le LLM lui-même répond vite (~0,5-0,7s) — cause non identifiée,
+  semble être un problème de tour de parole/VAD, pas le modèle. **Bug
+  plus grave** trouvé dans un appel de démo : a tenté de soumettre
+  `enregistrer_objet_perdu` avec des valeurs inventées (`"nom":
+  "inconnu"`, `"telephone": "inconnu"`) avant même d'avoir posé les
+  questions correspondantes à l'appelant — bloqué par chance seulement
+  parce que le champ `lieu` avait une valeur hors énumération. Dans le
+  même appel : a inventé une fausse contrainte ("nous ne pouvons plus
+  traiter de nouvelle demande sur cet appel") pour refuser une demande
+  d'itinéraire qu'il avait pourtant très bien traitée plus tôt dans le
+  même appel.
+- **Qwen3.5-397B-A17B** : a appelé `rechercher_repere` au lieu de
+  `rechercher_arret` pour un vrai nom d'arrêt ("Bastide Blanche"), et a
+  cherché une destination en supposant silencieusement qu'elle était
+  dans la même commune que le départ (sans le demander) — résultat, un
+  mauvais arrêt confirmé à l'appelant sans qu'il puisse le savoir.
+  Coût réel mesuré ~3x plus élevé que Gemini 3.5 Flash-Lite sur un
+  appel comparable (`llm_price` 0,062 $ contre 0,020 $), malgré un
+  prix/minute affiché plus bas — parce que Qwen ne bénéficie d'aucun
+  cache de contexte d'un tour à l'autre (`input_cache_read` toujours à
+  0), contrairement à Gemini.
+
+**Confirmé au passage** : la config "LLM de secours" reste sur Gemini
+2.5 Flash (l'obsolète) quel que soit le modèle principal choisi — un
+repli vers ce modèle a été observé dans les deux séries de tests. À
+corriger indépendamment du choix final.
+
+**Pas fait ce soir** : aucun modèle changé en production, aucune
+décision prise. On s'est arrêtés volontairement plutôt que de choisir
+sous pression du calendrier de dépréciation (30/11, large marge).
+
+### À faire la semaine prochaine
+
+1. Corriger la config "LLM de secours" côté ElevenLabs (ne doit plus
+   pointer vers Gemini 2.5 Flash).
+2. Retester spécifiquement le parcours `enregistrer_objet_perdu` (point
+   le plus sérieux trouvé ce soir) sur chaque candidat avant toute
+   décision — c'est le genre de bug à exclure formellement avant un
+   déploiement réel, pas à ignorer parce qu'il ne s'est produit qu'une
+   fois.
+3. Chercher la cause des silences de 7-12s sur Gemini 3.5 Flash-Lite
+   (tour de parole/VAD ?) avant de l'écarter ou de le retenir — non
+   élucidé ce soir.
+4. Éventuellement tester un 3e candidat (Gemini 3.1 Flash Lite avait
+   été identifié comme alternative proche, moins cher, meilleur pire
+   cas de latence affiché — mais génération antérieure, pas encore
+   testé du tout).
+5. Objectif : trancher avant le 30/11, mais pas dans la précipitation —
+   les deux bugs les plus sérieux de ce soir (données inventées, fausse
+   excuse de refus) sont exactement le genre de chose que ce projet
+   s'est donné pour règle de ne jamais laisser passer.
+
 ## ✅ Fait le 25/09 — calculateur d'itinéraire, v0 expérimentale
 
 Exploration approfondie avant de coder (voir aussi la discussion du
