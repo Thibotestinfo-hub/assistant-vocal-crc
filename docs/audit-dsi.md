@@ -128,14 +128,14 @@ Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 - **Un seul secret pour trois usages** (outils, webhook, mot de passe back-office) : pas de séparation des privilèges. Compromettre l'un compromet les trois.
 - **Rotation entièrement manuelle**, répartie sur deux plateformes externes (Clever Cloud, ElevenLabs) sans mécanisme de transition — la rotation du 28/09 a provoqué une courte interruption de service (un webhook modifié mais non publié côté ElevenLabs), révélatrice de cette fragilité opérationnelle.
 - **Pas de vérification de signature HMAC** sur le webhook de fin d'appel — la sécurité repose entièrement sur le secret dans l'URL, alors qu'ElevenLabs propose HMAC nativement (secret déjà généré côté ElevenLabs, non exploité côté code).
-- **Aucune politique de rétention sur notre propre base de données** — développé en détail en Partie 6.4, c'est le point le plus significatif de ce document.
+- **Politique de rétention sur notre propre base de données : partiellement corrigée.** `appels.donnees_brutes` est purgé automatiquement après 90 jours depuis le 29/09/2026 (Partie 6.4). `objets_perdus`/`demandes_rappel` restent, eux, sans politique de rétention — décision produit encore à trancher, pas seulement technique.
 
 ### 5.5 Recommandations avant un pilote public plus large
 
 1. Mettre en place la vérification de signature HMAC du webhook de fin d'appel.
 2. Séparer le mot de passe back-office du jeton des outils.
 3. Régénérer la clé Mecatran et corriger `.gitignore`/`CLAUDE.md`.
-4. Définir et implémenter une politique de rétention/suppression sur `appels`, `objets_perdus`, `demandes_rappel` (Partie 6.4).
+4. Trancher et implémenter une durée de rétention pour `objets_perdus`/`demandes_rappel` (Partie 6.4) — `appels` déjà fait.
 5. Envisager une limitation de débit basique si le périmètre d'appel s'élargit.
 
 ---
@@ -168,7 +168,8 @@ Hypothèses de travail, à valider formellement :
 ### 6.4 Durées de conservation
 
 - **ElevenLabs : corrigé le 28/09/2026.** Rétention 365 jours, suppression automatique de la transcription/PII et de l'audio après ce délai, appliquée aux conversations existantes. Vérifié sur un appel réel (`deletion_time_unix_secs` renseigné, `delete_transcript_and_pii: true`, `delete_audio: true`).
-- **Notre propre base de données : aucune politique de rétention, sur aucune des trois tables.** Ni `appels` (aucune fonction de suppression n'existe dans le code, vérifié explicitement pour ce document), ni `objets_perdus`/`demandes_rappel` (une fonction de suppression existe — `supprimer_objet_perdu` — mais reste un geste manuel non systématisé, prévue à l'origine pour nettoyer des données de test, pas comme mécanisme de conformité). **C'est le point le plus important de ce chapitre** : corriger ElevenLabs ne suffit pas, une copie complète et permanente de chaque conversation reste sur notre propre serveur.
+- **`appels.donnees_brutes` : corrigé le 29/09/2026.** Purge automatique (transcript intégral, numéro de l'appelant) après 90 jours, sans supprimer la ligne ni les métriques déjà extraites (`duree_secs`, `cout_usd`, `minutes_asr`/`tts`, `modeles_llm`, `tokens_llm`...), qui restent disponibles indéfiniment comme l'exige `CLAUDE.md`. Purge exécutée au démarrage de l'application puis une fois par jour tant qu'elle tourne (`assistant/backoffice/appels.py`, `purger_transcripts_expires`). Vérifié en local : un appel de 100 jours voit son contenu vidé, un appel récent reste intact, et un recalcul des métriques après purge (`retraiter_tracabilite`) ne les écrase pas — garde-fou ajouté à cette occasion. Durée de 90 jours choisie comme compromis entre le besoin de suivi qualité de l'équipe (relecture d'un appel récent) et la minimisation des données.
+- **`objets_perdus` / `demandes_rappel` : encore ouvert.** Une fonction de suppression existe (`supprimer_objet_perdu`) mais reste un geste manuel, prévue à l'origine pour nettoyer des données de test, pas comme mécanisme de conformité systématique. Contrairement au transcript d'appel, ces données restent activement utiles tant que la demande n'est pas résolue (objet retrouvé, rappel effectué) — la durée de rétention appropriée dépend donc d'une décision produit (combien de temps une recherche d'objet perdu reste active ?) plutôt que d'un choix purement technique. **Reste à trancher avec l'utilisateur avant l'audit.**
 
 ### 6.5 Sous-traitants et transferts hors UE
 
@@ -185,7 +186,7 @@ Voir Partie 5 pour le détail complet (authentification, validation des entrées
 ### 6.8 Éléments pour l'analyse d'impact (AIPD)
 
 Ce document fournit la matière première ; l'analyse elle-même reste à mener par le DPO. Points qu'elle devra couvrir en priorité, par ordre d'importance selon ce qui a été trouvé en préparant ce dossier :
-1. Le risque que représente la conservation permanente et intégrale du transcript de chaque appel dans `appels.donnees_brutes` (Partie 6.4) — le point le plus significatif.
+1. Valider la durée de rétention retenue pour `appels.donnees_brutes` (90 jours, corrigé le 29/09/2026 — Partie 6.4) et trancher celle de `objets_perdus`/`demandes_rappel`, encore ouverte.
 2. La qualification de la base légale pour chaque table (6.3).
 3. Les transferts hors UE vers ElevenLabs, Twilio et le fournisseur de modèle de langage (6.5).
 4. La formalisation des droits des personnes (6.6).

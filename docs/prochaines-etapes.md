@@ -41,7 +41,51 @@ trouvées en le rédigeant, corrigées le jour même :
   ElevenLabs à la recréation du webhook, non utilisé pour l'instant côté
   code).
 - Suite du dossier d'audit : parties 1 (intention/genèse), 4 (code
-  source), 5 (sécurité), 6 (RGPD), 7 (traçabilité), annexes.
+  source), 7 (traçabilité), annexes (5 et 6 rédigées, voir entrée
+  suivante).
+
+## ✅ Fait le 29/09/2026 — parties 5/6 du dossier d'audit + purge automatique des transcripts d'appel
+
+En rédigeant la partie 6 (RGPD) du dossier d'audit, constat plus grave
+que celui d'ElevenLabs la veille : notre propre base de données
+(`appels.donnees_brutes`) conservait la charge JSON complète de chaque
+appel — transcript intégral, numéro de l'appelant — **indéfiniment,
+sans aucune fonction de suppression dans tout le code** (vérifié
+explicitement). Corriger ElevenLabs ne suffisait donc pas.
+
+Décidé avec l'utilisateur : purge automatique de `donnees_brutes`
+après 90 jours (compromis entre suivi qualité à chaud et minimisation),
+sans toucher à la ligne ni aux métriques déjà extraites (`duree_secs`,
+`cout_usd`, `minutes_asr`/`tts`, `modeles_llm`, `tokens_llm`...), qui
+doivent rester disponibles indéfiniment (CLAUDE.md, traçabilité — ce
+ne sont pas des données personnelles). Implémenté :
+`purger_transcripts_expires()` dans `assistant/backoffice/appels.py`,
+déclenchée au démarrage de l'application puis une fois par jour
+(boucle asyncio dans le nouveau `lifespan` de `assistant/api/main.py`
+— pas de nouvelle dépendance, pas de planificateur externe).
+
+Effet de bord trouvé et corrigé au passage : `retraiter_tracabilite`
+(qui recalcule les métriques à partir de `donnees_brutes`) aurait
+écrasé les métriques déjà valides d'un appel purgé avec des valeurs
+vides si on la relançait après coup — garde-fou ajouté (elle ignore
+maintenant les lignes déjà purgées).
+
+Vérifié en local avant commit : un appel vieux de 100 jours voit son
+contenu vidé, un appel récent reste intact, un `retraiter_tracabilite`
+après purge laisse les métriques de l'appel purgé inchangées. Suites
+de vérification API (7/8, échec réseau sandbox connu, sans rapport)
+et back-office (12/12) toutes deux relancées avec succès.
+
+**Reste ouvert** :
+- `objets_perdus` / `demandes_rappel` : pas de politique de rétention.
+  Contrairement au transcript d'appel, ces données restent utiles tant
+  que la demande n'est pas résolue — décision produit à prendre avec
+  l'utilisateur (combien de temps après résolution ? y a-t-il un
+  signal de résolution fiable pour objets_perdus, qui n'a pas de champ
+  "traité" contrairement à demandes_rappel ?), pas une simple durée
+  technique.
+- Tout le reste listé dans l'entrée du 28/09 (clé Mecatran, HMAC,
+  parties 1/4/7 du dossier) reste d'actualité.
 
 ## 🔶 En cours le 25/09 (soir) — comparaison de LLM avant migration, PAS TRANCHÉ
 
