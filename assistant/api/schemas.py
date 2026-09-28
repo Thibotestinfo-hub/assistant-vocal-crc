@@ -6,7 +6,7 @@ valider les requêtes et générer la documentation automatique (/docs).
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # --- rechercher_information ---
@@ -88,8 +88,12 @@ class ObjetPerduRequete(BaseModel):
     creneau_horaire: str
     lieu: Literal["a_bord", "arret", "agence", "incertain"]
     arret_id: Optional[str] = None
-    nom: str
-    telephone: str
+    # min_length=1 : sans ça, rien n'empêche un modèle d'appeler l'outil
+    # avant d'avoir demandé nom/téléphone à l'appelant (bug GPT-6 Luna du
+    # 28/09/2026, voir docs/prochaines-etapes.md) — la validation renvoie
+    # une 422 plutôt que d'enregistrer une déclaration inexploitable.
+    nom: str = Field(min_length=1)
+    telephone: str = Field(min_length=1)
     email: Optional[str] = None
     opt_in_marketing: bool
 
@@ -103,7 +107,7 @@ class ObjetPerduReponse(BaseModel):
 # --- demander_rappel ---
 
 class RappelRequete(BaseModel):
-    telephone: str
+    telephone: str = Field(min_length=1)
     nom: Optional[str] = None
     email: Optional[str] = None
     motif: Literal[
