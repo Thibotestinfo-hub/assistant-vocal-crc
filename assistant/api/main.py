@@ -5,6 +5,8 @@ exactement à un outil décrit dans docs/spec-assistant-vocal-v0-revisee.md, §4
 Lancer en local : uv run uvicorn assistant.api.main:app --reload
 """
 
+import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Literal
 from urllib.parse import quote
@@ -33,8 +35,8 @@ from assistant.backoffice.activation import (
 )
 from assistant.backoffice.appels import (
     compter_appels, compter_rappels_en_attente, enregistrer_appel, enregistrer_evaluation,
-    lister_appels_avec_details, marquer_rappel_traite, resumer_evaluations,
-    resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
+    lister_appels_avec_details, marquer_rappel_traite, purger_transcripts_expires,
+    resumer_evaluations, resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
 )
 from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel, supprimer_objet_perdu,
@@ -54,7 +56,26 @@ from assistant.outils.reperes import rechercher_repere
 from assistant.outils.satisfaction import enregistrer_satisfaction
 from assistant.outils.transfert import transferer_agent
 
-app = FastAPI(title="Assistant vocal — API des outils")
+@asynccontextmanager
+async def _cycle_de_vie(app: FastAPI):
+    # Purge du contenu des appels de plus de 90 jours (RGPD, voir
+    # docs/audit-dsi.md partie 6.4 et purger_transcripts_expires) : une
+    # fois au démarrage, puis une fois par jour tant que le processus
+    # tourne. Pas de nouvelle dépendance (planificateur externe,
+    # tâche cron) : une boucle asyncio suffit à cette échelle.
+    purger_transcripts_expires()
+
+    async def _purge_quotidienne():
+        while True:
+            await asyncio.sleep(24 * 3600)
+            purger_transcripts_expires()
+
+    tache = asyncio.create_task(_purge_quotidienne())
+    yield
+    tache.cancel()
+
+
+app = FastAPI(title="Assistant vocal — API des outils", lifespan=_cycle_de_vie)
 
 # Sert le logo du réseau pour l'en-tête du back-office. Public, sans
 # authentification : c'est une image de marque, pas une donnée sensible.

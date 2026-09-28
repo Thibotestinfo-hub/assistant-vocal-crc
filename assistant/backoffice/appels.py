@@ -10,8 +10,19 @@ que widget, par exemple) aurait une structure différente.
 """
 
 import json
+from datetime import datetime, timedelta
 
-from assistant.outils.db import connexion_app, horodatage
+from assistant.outils.db import _FUSEAU, connexion_app, horodatage
+
+# Durée de conservation du contenu complet d'un appel (transcript,
+# numéro de l'appelant) avant purge automatique — décidée avec
+# l'utilisateur le 29/09/2026 en préparant le dossier d'audit DSI
+# (docs/audit-dsi.md, partie 6.4) : les métriques déjà extraites
+# (colonnes dédiées, voir _extraire_tracabilite) restent disponibles
+# indéfiniment, comme l'exige CLAUDE.md ("non reconstituable après
+# coup") — elles ne contiennent aucune donnée personnelle. Seul
+# donnees_brutes, qui lui en contient, est concerné par cette purge.
+DUREE_RETENTION_DONNEES_BRUTES_JOURS = 90
 
 
 def _extraire_tracabilite(donnees):
@@ -106,6 +117,24 @@ def enregistrer_appel(charge_brute: dict):
     conn.close()
 
 
+def purger_transcripts_expires():
+    """Vide donnees_brutes (transcript intégral, numéro de l'appelant...)
+    des appels plus vieux que DUREE_RETENTION_DONNEES_BRUTES_JOURS.
+    Ne touche ni la ligne elle-même ni les colonnes de métriques déjà
+    extraites. Idempotent : les lignes déjà vidées ('{}') ne sont pas
+    réécrites inutilement."""
+    seuil = (
+        datetime.now(_FUSEAU).replace(tzinfo=None) - timedelta(days=DUREE_RETENTION_DONNEES_BRUTES_JOURS)
+    ).isoformat(timespec="seconds")
+    conn = connexion_app()
+    conn.execute(
+        "UPDATE appels SET donnees_brutes = '{}' WHERE cree_le < ? AND donnees_brutes != '{}'",
+        (seuil,),
+    )
+    conn.commit()
+    conn.close()
+
+
 def retraiter_tracabilite():
     """Recalcule les champs de traçabilité des appels déjà enregistrés,
     à partir de leur donnees_brutes déjà stockée — sans dépendre d'un
@@ -117,6 +146,11 @@ def retraiter_tracabilite():
     appels = conn.execute("SELECT id, donnees_brutes FROM appels").fetchall()
     n = 0
     for a in appels:
+        if a["donnees_brutes"] == "{}":
+            # Transcript déjà purgé (voir purger_transcripts_expires) :
+            # ne jamais recalculer à partir de rien, ça écraserait des
+            # métriques valides avec des valeurs vides.
+            continue
         try:
             charge_brute = json.loads(a["donnees_brutes"])
         except json.JSONDecodeError:
