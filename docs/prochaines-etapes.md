@@ -1,5 +1,92 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 28/09/2026 — dossier d'audit DSI démarré, rotation du jeton API, rétention ElevenLabs corrigée
+
+Contexte : le POC a passé le test interne et pourrait devenir un pilote
+public sur une filiale — préparation d'un dossier d'audit exhaustif pour
+la DSI (`docs/audit-dsi.md`, parties 2 et 3 rédigées : architecture,
+choix techniques, inventaire des outils). Deux failles de sécurité/RGPD
+trouvées en le rédigeant, corrigées le jour même :
+
+- **Rétention ElevenLabs non configurée** : `deletion_time_unix_secs`
+  était `null` sur tous les appels (rétention illimitée par défaut,
+  2 ans selon leur documentation), alors que l'audio et la transcription
+  de chaque appel sont conservés. Corrigé côté utilisateur : mode de
+  confidentialité de l'agent, rétention à 365 jours, suppression
+  automatique de la transcription/PII et de l'audio après ce délai,
+  appliqué rétroactivement aux conversations existantes. Vérifié sur un
+  appel réel après coup : `deletion_time_unix_secs` renseigné,
+  `delete_transcript_and_pii: true`, `delete_audio: true`.
+- **Jeton API (`API_TOKEN`) exposé en clair** dans plusieurs charges de
+  webhook collées dans les échanges de la session — donc dans
+  l'historique de conversation. Rotation effectuée aux 4 endroits qui en
+  dépendent : variable d'environnement Clever Cloud, en-tête
+  `Authorization` des 9 outils ElevenLabs, URL du webhook de fin d'appel
+  (`?jeton=...`), en-tête du webhook de personnalisation. Un premier
+  test a échoué (appel raccroché aussitôt) — cause : le nouveau réglage
+  du webhook de personnalisation avait été modifié mais pas publié côté
+  ElevenLabs. Une fois publié, testé et vérifié sur un appel réel :
+  les 3 outils appelés montrent bien le nouveau jeton dans leurs
+  en-têtes, le webhook de fin d'appel est bien reçu, les variables
+  dynamiques de personnalisation sont bien renseignées.
+
+**Reste ouvert, à faire à l'occasion (pas urgent)** :
+- `data/config.yaml` est versionné par git (pas ignoré, contrairement à
+  ce que dit `CLAUDE.md`) et contient une clé API Mecatran en clair,
+  présente dans l'historique depuis plusieurs commits — à régénérer
+  auprès de Mecatran/la Métropole Mobilité, et corriger la description
+  du `.gitignore` dans `CLAUDE.md`.
+- Vérifier la signature HMAC du webhook de fin d'appel plutôt que de ne
+  compter que sur le jeton dans l'URL (secret HMAC déjà généré côté
+  ElevenLabs à la recréation du webhook, non utilisé pour l'instant côté
+  code).
+- Suite du dossier d'audit : parties 1 (intention/genèse), 4 (code
+  source), 7 (traçabilité), annexes (5 et 6 rédigées, voir entrée
+  suivante).
+
+## ✅ Fait le 29/09/2026 — parties 5/6 du dossier d'audit + purge automatique des transcripts d'appel
+
+En rédigeant la partie 6 (RGPD) du dossier d'audit, constat plus grave
+que celui d'ElevenLabs la veille : notre propre base de données
+(`appels.donnees_brutes`) conservait la charge JSON complète de chaque
+appel — transcript intégral, numéro de l'appelant — **indéfiniment,
+sans aucune fonction de suppression dans tout le code** (vérifié
+explicitement). Corriger ElevenLabs ne suffisait donc pas.
+
+Décidé avec l'utilisateur : purge automatique de `donnees_brutes`
+après 90 jours (compromis entre suivi qualité à chaud et minimisation),
+sans toucher à la ligne ni aux métriques déjà extraites (`duree_secs`,
+`cout_usd`, `minutes_asr`/`tts`, `modeles_llm`, `tokens_llm`...), qui
+doivent rester disponibles indéfiniment (CLAUDE.md, traçabilité — ce
+ne sont pas des données personnelles). Implémenté :
+`purger_transcripts_expires()` dans `assistant/backoffice/appels.py`,
+déclenchée au démarrage de l'application puis une fois par jour
+(boucle asyncio dans le nouveau `lifespan` de `assistant/api/main.py`
+— pas de nouvelle dépendance, pas de planificateur externe).
+
+Effet de bord trouvé et corrigé au passage : `retraiter_tracabilite`
+(qui recalcule les métriques à partir de `donnees_brutes`) aurait
+écrasé les métriques déjà valides d'un appel purgé avec des valeurs
+vides si on la relançait après coup — garde-fou ajouté (elle ignore
+maintenant les lignes déjà purgées).
+
+Vérifié en local avant commit : un appel vieux de 100 jours voit son
+contenu vidé, un appel récent reste intact, un `retraiter_tracabilite`
+après purge laisse les métriques de l'appel purgé inchangées. Suites
+de vérification API (7/8, échec réseau sandbox connu, sans rapport)
+et back-office (12/12) toutes deux relancées avec succès.
+
+**Reste ouvert** :
+- `objets_perdus` / `demandes_rappel` : pas de politique de rétention.
+  Contrairement au transcript d'appel, ces données restent utiles tant
+  que la demande n'est pas résolue — décision produit à prendre avec
+  l'utilisateur (combien de temps après résolution ? y a-t-il un
+  signal de résolution fiable pour objets_perdus, qui n'a pas de champ
+  "traité" contrairement à demandes_rappel ?), pas une simple durée
+  technique.
+- Tout le reste listé dans l'entrée du 28/09 (clé Mecatran, HMAC,
+  parties 1/4/7 du dossier) reste d'actualité.
+
 ## 🔶 En cours le 25/09 (soir) — comparaison de LLM avant migration, PAS TRANCHÉ
 
 Contexte : ElevenLabs a averti que Gemini 2.5 Flash (modèle actuel) sera
