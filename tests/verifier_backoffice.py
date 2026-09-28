@@ -20,9 +20,10 @@ load_dotenv()
 
 URL_BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:9000"
 TOKEN = os.environ["API_TOKEN"]
+MOT_DE_PASSE_BACKOFFICE = os.environ["BACKOFFICE_MOT_DE_PASSE"]
 
 en_tete = {"Authorization": f"Bearer {TOKEN}"}
-auth_backoffice = ("crc", TOKEN)
+auth_backoffice = ("crc", MOT_DE_PASSE_BACKOFFICE)
 
 
 def appeler(methode, chemin, **kwargs):
