@@ -44,6 +44,31 @@ trouvées en le rédigeant, corrigées le jour même :
   source), 7 (traçabilité), annexes (5 et 6 rédigées, voir entrée
   suivante).
 
+## ✅ Fait le 29/09/2026 — mot de passe back-office séparé du jeton API
+
+En relisant les parties 5/6 du dossier d'audit, l'utilisateur a
+identifié la recommandation « séparer le mot de passe back-office du
+jeton des outils » comme non négociable, pas une amélioration future :
+`API_TOKEN` circule par construction dans des endroits bien moins
+protégés (en-têtes ElevenLabs, URL de webhook, captures d'écran) —
+le compromettre aurait donné accès à jusqu'à 90 jours de transcripts
+d'appels via le back-office.
+
+Corrigé : nouvelle variable `BACKOFFICE_MOT_DE_PASSE`, choisie
+librement par l'utilisateur, indépendante d'`API_TOKEN`
+(`assistant/api/auth.py`). Démarrage de l'application bloqué si
+absente, même principe qu'`API_TOKEN`. `tests/verifier_backoffice.py`
+mis à jour pour l'utiliser. Vérifié en local : l'ancien jeton API ne
+fonctionne plus comme mot de passe back-office (401), le nouveau mot
+de passe dédié fonctionne (200), suites de vérification API et
+back-office toutes deux relancées avec succès.
+
+**Reste à faire côté utilisateur** : choisir la vraie valeur de
+`BACKOFFICE_MOT_DE_PASSE` et l'ajouter aux variables d'environnement
+Clever Cloud (aucun réglage ElevenLabs concerné cette fois, contrairement
+à la rotation du jeton API — ce mot de passe n'est utilisé nulle part
+côté ElevenLabs), puis fusionner vers `main` pour déployer.
+
 ## ✅ Fait le 29/09/2026 — parties 5/6 du dossier d'audit + purge automatique des transcripts d'appel
 
 En rédigeant la partie 6 (RGPD) du dossier d'audit, constat plus grave

@@ -227,9 +227,10 @@ Voir Partie 3 pour le détail. En résumé : 9 routes d'outils + 2 routes de web
 Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 
 - **Secrets délivrés par un fournisseur** (`ELEVENLABS_API_KEY`, la clé Mecatran du flux GTFS) : générés et reconnus par le système du fournisseur, à renouveler depuis leur propre interface.
-- **`API_TOKEN`** : un secret inventé par le projet lui-même, comparé tel quel par notre propre code (`assistant/api/auth.py`). Sert à la fois de mot de passe pour les 9 outils, de jeton d'URL pour le webhook de fin d'appel, et de mot de passe du back-office — un seul secret, trois usages (voir limite en 5.4).
+- **`API_TOKEN`** : un secret inventé par le projet lui-même, comparé tel quel par notre propre code (`assistant/api/auth.py`). Sert de mot de passe pour les 9 outils et de jeton d'URL pour le webhook de fin d'appel — deux usages qui l'exposent par nature à des endroits semi-publics (en-têtes de configuration ElevenLabs, URL visible dans des captures d'écran).
+- **`BACKOFFICE_MOT_DE_PASSE`** : corrigé le 29/09/2026, un secret séparé pour l'accès au back-office (identifiant/mot de passe HTTP Basic), choisi librement par l'utilisateur et indépendant d'`API_TOKEN`. Avant cette date, le même jeton servait aux deux usages — compromettre `API_TOKEN` (plus exposé par construction) aurait donné accès aux journaux d'appels du back-office, dont jusqu'à 90 jours de transcripts (Partie 6.4).
 
-`.env` (qui contient `API_TOKEN` en local) est bien exclu du dépôt (`.gitignore`), vérifié.
+`.env` (qui contient ces deux secrets en local) est bien exclu du dépôt (`.gitignore`), vérifié.
 
 **Incident et correction du 28/09/2026** : `API_TOKEN` a circulé en clair dans plusieurs charges de webhook collées dans des échanges de travail. Rotation effectuée aux quatre endroits qui en dépendent (variable d'environnement Clever Cloud, en-tête des 9 outils ElevenLabs, URL du webhook de fin d'appel, en-tête du webhook de personnalisation), vérifiée sur un appel réel, anciennes entrées supprimées côté ElevenLabs. Journal complet dans `docs/prochaines-etapes.md`.
 
@@ -239,7 +240,7 @@ Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 
 ### 5.4 Limites connues
 
-- **Un seul secret pour trois usages** (outils, webhook, mot de passe back-office) : pas de séparation des privilèges. Compromettre l'un compromet les trois.
+- **Séparation des secrets par usage : corrigée le 29/09/2026.** Un seul secret (`API_TOKEN`) servait auparavant à la fois aux outils, au webhook, et au mot de passe back-office — compromettre le plus exposé des trois (`API_TOKEN`) donnait accès aux journaux d'appels. `BACKOFFICE_MOT_DE_PASSE` est désormais indépendant (5.3).
 - **Rotation entièrement manuelle**, répartie sur deux plateformes externes (Clever Cloud, ElevenLabs) sans mécanisme de transition — la rotation du 28/09 a provoqué une courte interruption de service (un webhook modifié mais non publié côté ElevenLabs), révélatrice de cette fragilité opérationnelle.
 - **Pas de vérification de signature HMAC** sur le webhook de fin d'appel — la sécurité repose entièrement sur le secret dans l'URL, alors qu'ElevenLabs propose HMAC nativement (secret déjà généré côté ElevenLabs, non exploité côté code).
 - **Politique de rétention sur notre propre base de données : partiellement corrigée.** `appels.donnees_brutes` est purgé automatiquement après 90 jours depuis le 29/09/2026 (Partie 6.4). `objets_perdus`/`demandes_rappel` restent, eux, sans politique de rétention — décision produit encore à trancher, pas seulement technique.
@@ -247,10 +248,11 @@ Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 ### 5.5 Recommandations avant un pilote public plus large
 
 1. Mettre en place la vérification de signature HMAC du webhook de fin d'appel.
-2. Séparer le mot de passe back-office du jeton des outils.
-3. Régénérer la clé Mecatran et corriger `.gitignore`/`CLAUDE.md`.
-4. Trancher et implémenter une durée de rétention pour `objets_perdus`/`demandes_rappel` (Partie 6.4) — `appels` déjà fait.
-5. Envisager une limitation de débit basique si le périmètre d'appel s'élargit.
+2. Régénérer la clé Mecatran et corriger `.gitignore`/`CLAUDE.md`.
+3. Trancher et implémenter une durée de rétention pour `objets_perdus`/`demandes_rappel` (Partie 6.4) — `appels` déjà fait.
+4. Envisager une limitation de débit basique si le périmètre d'appel s'élargit.
+
+*(Séparation du mot de passe back-office : faite le 29/09/2026, retirée de cette liste.)*
 
 ---
 
