@@ -4,7 +4,7 @@ Document en construction, chapitre par chapitre, pour l'audit interne DSI préc�
 
 Chaque affirmation de ce document vient d'un fichier réel du dépôt, du code lui-même, ou d'une vérification technique directe. Quand un fait ne peut pas être vérifié depuis le dépôt seul (contrats fournisseurs, localisation exacte de serveurs tiers...), il est marqué **[À vérifier — DSI/DPO]** plutôt qu'affirmé.
 
-Statut : parties 1 à 6 rédigées. Partie 7 et annexes à venir.
+Statut : parties 1 à 7 rédigées. Annexes à venir.
 
 ---
 
@@ -307,4 +307,44 @@ Ce document fournit la matière première ; l'analyse elle-même reste à mener 
 
 ---
 
-*Suite prévue : Partie 7 (traçabilité et gouvernance), annexes (glossaire, références, extraits de code, schémas).*
+## Partie 7 — Traçabilité et gouvernance
+
+### 7.1 Traçabilité économique et environnementale
+
+Exigence non négociable du projet, telle que formulée dans `CLAUDE.md` :
+
+> Chaque appel logge le modèle utilisé, les tokens consommés, les minutes de reconnaissance et de synthèse vocale, et le coût estimé. Ces données servent à l'évaluation économique et environnementale du projet, elles ne sont pas reconstituables après coup.
+
+Concrètement, huit colonnes dédiées sur la table `appels` (`assistant/backoffice/appels.py`, `_extraire_tracabilite`), extraites automatiquement de chaque webhook de fin d'appel : durée, coût réel (pas estimé — la valeur facturée par ElevenLabs), minutes de reconnaissance et de synthèse vocale séparément, détail des modèles de langage utilisés (utile quand un appel bascule sur un modèle de secours, voir 4.4), tokens consommés, outils réellement appelés, voix utilisées. Ces colonnes ne contiennent aucune donnée personnelle et ne sont jamais concernées par la purge de 90 jours (Partie 6.4) — c'est précisément ce qui permet de purger le reste sans violer l'exigence de traçabilité ci-dessus.
+
+Une fonction de secours, `retraiter_tracabilite`, permet de recalculer ces colonnes depuis `donnees_brutes` si la logique d'extraction est corrigée après coup (par exemple si un nouveau type d'appel a un format légèrement différent, déjà arrivé une fois). Elle ne fonctionne que sur les appels dont `donnees_brutes` n'a pas encore été purgé — une fenêtre de 90 jours pour corriger une erreur d'extraction, au-delà les métriques déjà calculées restent figées.
+
+`resumer_tracabilite` agrège ces données pour le tableau de bord du back-office (durée moyenne, coût total, répartition des outils utilisés, horaire moyen des appels) — l'outil de pilotage économique du projet au jour le jour.
+
+**Deux mécanismes de retour distincts, à ne pas confondre :**
+- **Satisfaction déclarée par l'appelant** (`satisfaction_appels`, outil `enregistrer_satisfaction`) : une réponse oui/non par conversation, posée une seule fois en fin d'appel, jamais avant que l'appelant ait explicitement répondu (correction du 28/09/2026, Partie 4.4).
+- **Évaluation de l'équipe** (`evaluations_appels`, back-office) : un humain relit un appel et le juge « bonne » ou « mauvaise » réponse, avec une note libre optionnelle. Plusieurs évaluations possibles par appel, jamais d'écrasement d'un avis précédent — l'historique complet reste consultable.
+
+### 7.2 Activation progressive des outils
+
+Chaque outil (Partie 3) peut être coupé indépendamment depuis le back-office, plus un interrupteur général (`activation_outils`, clé `"tous"`) qui coupe tout d'un coup si nécessaire. Trois raffinements notables :
+
+- **`calculer_itineraire`/`rechercher_repere` démarrent désactivés par défaut** (`_OUTILS_INACTIFS_PAR_DEFAUT`, `assistant/outils/db.py`) — la fonctionnalité expérimentale d'itinéraire ne s'active jamais automatiquement à un nouveau déploiement, elle doit être explicitement rallumée.
+- **`rechercher_information` s'active par catégorie** (commercial, vélo en libre-service, transport à la demande, amendes) plutôt que d'un bloc — aligné sur la grille de classification réelle utilisée par l'équipe CRC, pas sur un découpage technique arbitraire. Un réseau peut par exemple couper le vélo en libre-service sans couper les tarifs.
+- **Un outil désactivé renvoie une erreur HTTP 503**, pas une réponse habillée en « rien trouvé ». Choix délibéré, vérifié en conditions réelles avant d'être retenu : à chaque fois qu'un outil a échoué techniquement en test (404, 422...), l'agent vocal a basculé proprement vers la sortie (transfert ou rappel) sans jamais inventer de réponse — plutôt que de fabriquer une réponse « vide » différente pour chacun des contrats de sortie possibles, au risque de s'y contredire, le projet réutilise ce comportement déjà éprouvé.
+
+Conséquence directe pour la confiance de l'appelant : le message d'accueil de l'agent ne promet jamais une capacité coupée. La variable dynamique `outils_actifs` (webhook de personnalisation, Partie 2.1) est recalculée à chaque appel à partir de l'état réel de l'activation back-office — si un outil est coupé, il disparaît du message d'accueil, pas seulement du comportement.
+
+### 7.3 Méthode de test et d'amélioration continue
+
+Deux boucles de mesure distinctes, toutes deux documentées dans le dépôt avant même d'être utilisées :
+
+**Mesure automatisée de la recherche documentaire** (`assistant/evalcorpus.py`) : un jeu de questions réelles avec la bonne réponse attendue (`tests/questions_evaluation.csv`) donne un taux de réussite chiffré, comparable dans le temps — l'instrument qui a permis de détecter une régression avant mise en production (4.4) plutôt que de la découvrir par un appelant.
+
+**Remontée des vrais besoins par l'équipe CRC** (`docs/methode-amelioration-continue.md`), avec une contrainte RGPD posée dès la conception : l'équipe note **une ligne reformulée** (« ce qu'un appelant a demandé, sans aucune donnée personnelle »), jamais une transcription ni un enregistrement. C'est délibérément ce geste de reformulation humaine, fait dans l'instant, qui évite d'avoir besoin d'une AIPD ou de l'accord du DPO pour ce mécanisme précis — aucune donnée de voyageur n'en sort jamais. Ces questions alimentent le même instrument de mesure (`evalcorpus`), et chaque échec se classe dans une grille à trois catégories qui structure la correction : trou de vocabulaire (la réponse existe, sous un autre nom), trou de contenu (la réponse n'existe nulle part dans la base de connaissance), ou vraie question hors périmètre (la bonne réponse est un transfert humain, pas une page).
+
+**Test en appel réel avant toute décision structurante** : au-delà de ces deux boucles, chaque changement de modèle de langage candidat a été validé par des appels réels sur des scénarios ciblés, avec analyse systématique de la charge JSON brute du webhook (pas seulement de ce qui s'est entendu à l'oral) — c'est cette méthode qui a permis de disqualifier deux candidats sur des fabrications de données invisibles à l'écoute d'un appel normal, et de trouver puis corriger cinq anomalies distinctes sur le candidat finalement retenu, le jour même de chaque découverte (4.4). Aucune bascule en production sans ce passage par un test réel.
+
+---
+
+*Suite prévue : annexes (glossaire, références officielles, extraits de code complets, schémas).*
