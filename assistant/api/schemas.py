@@ -4,9 +4,24 @@ docs/spec-assistant-vocal-v0-revisee.md, §4. FastAPI s'en sert pour
 valider les requêtes et générer la documentation automatique (/docs).
 """
 
+import re
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Un min_length=1 ne suffit pas : un modèle peut inventer une valeur non
+# vide mais fictive plutôt que de poser la question ("0000000000", vu le
+# 28/09/2026 avec Gemini 3.1 Flash Lite sur enregistrer_objet_perdu — voir
+# docs/prochaines-etapes.md). On valide donc la forme d'un vrai numéro
+# français : 10 chiffres, commence par 0, le deuxième chiffre n'est pas 0.
+_RE_TELEPHONE = re.compile(r"0[1-9]\d{8}$")
+
+
+def _valider_telephone(valeur: str) -> str:
+    nettoye = re.sub(r"[ .\-]", "", valeur)
+    if not _RE_TELEPHONE.fullmatch(nettoye):
+        raise ValueError("numéro de téléphone invalide (attendu : 10 chiffres, format français)")
+    return valeur
 
 
 # --- rechercher_information ---
@@ -97,6 +112,8 @@ class ObjetPerduRequete(BaseModel):
     email: Optional[str] = None
     opt_in_marketing: bool
 
+    _valider = field_validator("telephone")(_valider_telephone)
+
 
 class ObjetPerduReponse(BaseModel):
     succes: bool
@@ -115,6 +132,8 @@ class RappelRequete(BaseModel):
         "abonnement", "velo",
     ]
     resume: str
+
+    _valider = field_validator("telephone")(_valider_telephone)
     opt_in_marketing: bool = False
     # Optionnel : fourni par ElevenLabs via {{system__conversation_id}} si
     # câblé côté configuration de l'agent (voir assistant/outils/rappels.py)
