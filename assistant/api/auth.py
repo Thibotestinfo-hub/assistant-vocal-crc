@@ -4,6 +4,13 @@ Authentification par jeton bearer. Le jeton attendu vit dans .env
 
 Chaque appel à l'API doit envoyer l'en-tête :
     Authorization: Bearer <API_TOKEN>
+
+Le back-office utilise un mot de passe séparé (BACKOFFICE_MOT_DE_PASSE),
+volontairement distinct d'API_TOKEN depuis le 29/09/2026 (voir
+docs/audit-dsi.md, partie 5.4) : API_TOKEN circule par nature dans des
+endroits publics ou semi-publics (en-têtes d'outils ElevenLabs, URL de
+webhook, captures d'écran de configuration) ; le compromettre ne doit
+jamais donner accès aux journaux d'appels du back-office.
 """
 
 import os
@@ -16,11 +23,19 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 load_dotenv()
 
 API_TOKEN = os.environ.get("API_TOKEN")
+BACKOFFICE_MOT_DE_PASSE = os.environ.get("BACKOFFICE_MOT_DE_PASSE")
 
 if not API_TOKEN:
     raise RuntimeError(
         "API_TOKEN absent de l'environnement. Vérifie que .env existe et "
         "contient API_TOKEN=... (voir .env, jamais commité)."
+    )
+
+if not BACKOFFICE_MOT_DE_PASSE:
+    raise RuntimeError(
+        "BACKOFFICE_MOT_DE_PASSE absent de l'environnement. Choisis un mot "
+        "de passe indépendant d'API_TOKEN et ajoute-le à .env (jamais "
+        "commité) et aux variables d'environnement Clever Cloud."
     )
 
 
@@ -43,13 +58,13 @@ _basic = HTTPBasic()
 
 
 def verifier_acces_backoffice(identifiants: HTTPBasicCredentials = Depends(_basic)):
-    """Protection minimale de la page de back-office (identifiant/mot de
-    passe classiques dans le navigateur) : le mot de passe est le même
-    jeton que le reste de l'API. À revoir avant tout accès par de vraies
-    données de voyageurs (voir CLAUDE.md, Étape 7)."""
-    jeton_ok = secrets.compare_digest(identifiants.password, API_TOKEN)
+    """Protection de la page de back-office (identifiant/mot de passe
+    classiques dans le navigateur), avec BACKOFFICE_MOT_DE_PASSE — jamais
+    API_TOKEN, qui circule dans des endroits bien moins protégés (voir
+    docstring du module)."""
+    mot_de_passe_ok = secrets.compare_digest(identifiants.password, BACKOFFICE_MOT_DE_PASSE)
     utilisateur_ok = secrets.compare_digest(identifiants.username, "crc")
-    if not (jeton_ok and utilisateur_ok):
+    if not (mot_de_passe_ok and utilisateur_ok):
         raise HTTPException(
             status_code=401, detail="Accès refusé",
             headers={"WWW-Authenticate": "Basic"},
