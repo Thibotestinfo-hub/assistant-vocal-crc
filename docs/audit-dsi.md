@@ -4,7 +4,54 @@ Document en construction, chapitre par chapitre, pour l'audit interne DSI préc�
 
 Chaque affirmation de ce document vient d'un fichier réel du dépôt, du code lui-même, ou d'une vérification technique directe. Quand un fait ne peut pas être vérifié depuis le dépôt seul (contrats fournisseurs, localisation exacte de serveurs tiers...), il est marqué **[À vérifier — DSI/DPO]** plutôt qu'affirmé.
 
-Statut : parties 2 et 3 rédigées. Parties 1, 4 à 7 et annexes à venir.
+Statut : parties 1 à 6 rédigées. Partie 7 et annexes à venir.
+
+---
+
+## Partie 1 — Intention et genèse
+
+### 1.1 Résumé exécutif
+
+Reprise textuelle du contexte tel que défini dans `CLAUDE.md`, le document de référence du projet :
+
+> Démonstrateur d'assistant téléphonique pour un réseau de bus de la zone Étang de Berre. Il répond aux appels de voyageurs sur les tarifs, les horaires théoriques et les déclarations d'objets perdus. Il n'est branché à aucun système métier : les données viennent de l'open data et d'une base de connaissance écrite à la main.
+
+Ce dernier point est structurant pour l'audit : l'assistant ne lit ni n'écrit dans aucun système d'information existant (billettique, CRM, planification) — son seul état propre est la petite base SQLite décrite en Partie 2, et ses seules sources externes sont des données ouvertes (GTFS, site public du réseau).
+
+### 1.2 Genèse et méthode de conception
+
+Ce projet a été construit par l'utilisateur lui-même, non-développeur de profession, avec Claude Code comme assistant de développement — un choix assumé et documenté dès l'origine (`docs/methode-developpement.md`), pas découvert a posteriori. La méthode retenue, écrite avant la première ligne de code, repose sur des règles de travail explicites :
+
+- **Une session de travail = un objectif** — jamais une demande ouverte du type « construis l'application ».
+- **Un commit à chaque état qui fonctionne**, pour toujours pouvoir revenir en arrière.
+- **« N'accepte jamais du code que tu ne peux pas résumer en une phrase »** — condition explicite pour que l'utilisateur reste en mesure de maintenir seul ce qui est écrit pour lui, une fois le projet livré.
+- **Chaque fonction s'accompagne d'un script de vérification** — pas de confiance aveugle dans le code produit, une vérification systématique.
+- **Déployer tôt** — une API en ligne dès l'étape 3 de la méthode, avant même que les fonctionnalités ne soient complètes, pour rencontrer les problèmes d'infrastructure quand il n'y a encore rien à perdre.
+
+Fait notable pour ce document : la méthode originelle contenait déjà, avant tout développement, l'avertissement suivant sur la gestion des secrets — *« Une clé d'API poussée sur GitHub reste dans l'historique même après suppression »*. La vigilance était donc présente dès la conception ; elle a néanmoins été prise en défaut une fois en cours de route (la clé Mecatran de `data/config.yaml`, Partie 5.3), trouvée et en cours de correction au moment de cet audit — signe que la méthode fonctionne (le problème a été détecté par une relecture volontaire, pas par un incident), pas qu'elle a échoué.
+
+Le développement s'est déroulé par itérations courtes et vérifiées, documentées au fil de l'eau dans `docs/prochaines-etapes.md` (le journal de bord complet du projet, plusieurs centaines d'entrées datées) — la Partie 4.4 de ce document en reprend les épisodes les plus significatifs pour l'audit.
+
+### 1.3 Périmètre fonctionnel actuel
+
+L'assistant répond aujourd'hui sur six familles de sujets, chacune correspondant à un ou plusieurs outils détaillés en Partie 3 :
+
+1. **Horaires théoriques** — prochains passages ou créneau horaire à un arrêt donné.
+2. **Informations commerciales et pratiques** — tarifs, abonnements, vélo en libre-service, transport à la demande, amendes, à partir d'une base de connaissance indexée depuis le site public du réseau.
+3. **Objets perdus** — déclaration complète (nature, description, ligne, date, lieu, coordonnées).
+4. **Demande de rappel** — vers un conseiller humain, pour tout sujet hors périmètre automatisable.
+5. **Itinéraire** — trajet théorique direct ou avec une correspondance, **fonctionnalité expérimentale désactivée par défaut**.
+6. **Sortie vers un humain** — transfert ou rappel systématique dès que l'assistant ne sait pas répondre, jamais d'invention.
+
+Aucun horaire ou tarif temps réel : tout est présenté comme prévu, jamais comme garanti — choix assumé dans le prompt de l'agent, cohérent avec l'absence de connexion à un système métier (1.1).
+
+### 1.4 État d'avancement
+
+Le projet a passé son test interne (démonstration à l'équipe CRC) et pourrait devenir, sous réserve de cet audit, un pilote public sur une filiale du groupe — un test grandeur réelle, mais toujours sans développement lourd supplémentaire. C'est le contexte précis de ce document : documenter exhaustivement l'existant pour que la DSI puisse se prononcer en connaissance de cause, plutôt que de laisser le POC continuer à vivre sans traçabilité formelle de ses choix.
+
+### 1.5 Ce que ce document couvre
+
+Architecture et choix techniques (Partie 2), inventaire complet des outils exposés à l'agent (Partie 3), organisation et anomalies connues du code (Partie 4), sécurité (Partie 5), RGPD et données personnelles (Partie 6), traçabilité et gouvernance (Partie 7 — à venir). Il ne couvre pas les aspects contractuels et organisationnels qui ne se lisent pas dans le dépôt de code (accords de sous-traitance RGPD, conditions contractuelles des fournisseurs) — signalés partout où c'est pertinent comme **[À vérifier — DSI/DPO]**.
 
 ---
 
@@ -87,6 +134,73 @@ Deux points d'entrée supplémentaires, non déclenchés par le modèle de langa
 Chaque route d'outil est protégée par un jeton d'authentification (`Authorization: Bearer ...`, vérifié par `assistant/api/auth.py`) — détail des mécanismes de sécurité en Partie 5.
 
 Toutes les routes `/backoffice/*` (consultation des appels, export CSV, activation des outils, gestion de la prononciation) sont réservées à l'équipe et protégées séparément par une authentification HTTP Basic — elles ne sont jamais appelées par l'agent vocal, uniquement consultées par un humain via un navigateur.
+
+---
+
+## Partie 4 — Code source
+
+### 4.1 Organisation du dépôt
+
+```
+assistant/          code applicatif
+  ingestion/         chargement GTFS, enrichissement, index phonétique — hors ligne
+  outils/            les fonctions exposées à l'agent (Partie 3) + schéma de la base
+  api/               FastAPI : routes, validation (schemas.py), authentification (auth.py)
+  backoffice/        suivi des appels, exports, activation, back-office web
+data/
+  gtfs/              GTFS décompressé, non versionné, régénéré à chaque déploiement
+  connaissances.md   base de connaissance écrite à la main
+  config.yaml        paramètres du réseau (voir Partie 5.3 pour un point de vigilance)
+  corpus_index.json  index documentaire + embeddings, versionné (calcul lent, voir Partie 2.2)
+  etat/assistant.db  état applicatif persistant — la seule base contenant des données personnelles
+docs/                spec, méthode, journal de session, ce dossier d'audit
+tests/               scripts de vérification (4.3)
+```
+
+Quatre modules à la racine de `assistant/`, en plus de `ingestion/`, `outils/`, `api/`, `backoffice/` :
+
+| Module | Rôle |
+|---|---|
+| `cherche.py` | Recherche d'arrêt par nom approximatif — combine un code phonétique et une distance d'édition sur le texte, pour absorber les hésitations et déformations de la reconnaissance vocale. |
+| `corpus.py` | Rafraîchissement de la base de connaissance : relance l'extraction du site public du réseau et rapporte ce qui a changé (pages modifiées, nouvelles, disparues) sans jamais supprimer une donnée déjà extraite. |
+| `demande.py` | Outil de vérification manuelle : rejoue une question et affiche ce que le moteur de recherche documentaire renvoie réellement, avec son score. |
+| `evalcorpus.py` | Évaluation automatisée de la qualité de recherche documentaire sur un jeu de questions réelles avec réponse attendue (`tests/questions_evaluation.csv`) — l'instrument de mesure utilisé pour détecter les régressions avant qu'un appelant ne les découvre. |
+| `elevenlabs_api.py` | Seuls appels sortants vers l'API ElevenLabs elle-même (pas les webhooks entrants) : changer la voix de l'agent depuis le back-office, sans que l'équipe CRC ait besoin d'un compte ElevenLabs propre. |
+
+### 4.2 Modules critiques, par dossier
+
+- **`ingestion/`** : pipeline hors ligne, jamais exposé à un appel en direct. Transforme le GTFS brut et le site public en données exploitables par les outils : déduction de la commune de chaque arrêt à partir de ses coordonnées (absente du GTFS source — piège connu, `CLAUDE.md`), gestion des horaires au-delà de minuit (`24:30:00` pour 0h30, autre piège connu), index phonétique pour la reconnaissance des noms d'arrêts.
+- **`outils/`** : la logique métier de chaque outil décrit en Partie 3, plus `db.py` qui centralise le schéma SQLite et les migrations. Toutes les requêtes prenant une donnée externe en entrée (nom d'arrêt prononcé, identifiant reçu d'un outil précédent) utilisent des requêtes paramétrées, vérifié explicitement pour la Partie 5.1.
+- **`api/`** : point d'entrée unique de tout appel externe. `main.py` déclare les routes, `schemas.py` valide chaque paramètre avant qu'il n'atteigne le code métier (Pydantic), `auth.py` vérifie le jeton ou l'authentification back-office.
+- **`backoffice/`** : la seule interface humaine du projet. `appels.py` reçoit et stocke le webhook de fin d'appel (et purge désormais son contenu après 90 jours, Partie 6.4) ; `activation.py` gère l'activation progressive de chaque outil ; `exports.py` produit les exports CSV ; `page.py` génère les pages HTML consultées par l'équipe.
+
+### 4.3 Tests et vérification
+
+Conformément à la règle de méthode « chaque fonction s'accompagne d'un script de vérification » (1.2), le dossier `tests/` contient :
+
+- `verifier_api.py` — vérifie chaque route d'outil contre une API déjà démarrée (authentification, réponse attendue, budget de latence de 300 ms).
+- `verifier_backoffice.py` — même principe pour les routes du back-office (webhook, exports, activation).
+- `verifier_horaires.py` — vérifie les calculs d'horaires contre des cas connus, notamment le piège des heures au-delà de minuit.
+- `explorer_gtfs.py` — outil d'exploration manuelle des données GTFS, pour vérifier une hypothèse avant de coder dessus plutôt qu'après.
+- `questions_crc.csv` / `questions_evaluation.csv` — jeux de questions réelles avec réponse attendue, utilisés par `evalcorpus.py` pour mesurer la qualité de la recherche documentaire et détecter des régressions.
+
+Ces scripts sont relancés systématiquement avant chaque changement de code touchant l'API ou le back-office — utilisés à plusieurs reprises pendant la préparation de ce document même (Parties 5 et 6, correctifs de sécurité et de rétention).
+
+### 4.4 Historique des anomalies trouvées et corrigées
+
+Extrait sélectif du journal complet (`docs/prochaines-etapes.md`), pour donner à l'audit une idée concrète de la discipline de vérification appliquée tout au long du projet — pas une liste exhaustive, qui resterait dans le journal lui-même :
+
+| Date | Anomalie | Comment trouvée | Correction |
+|---|---|---|---|
+| 02/09/2026 | `rechercher_information` renvoyait une erreur 502 en production | Test réel | Résolu et vérifié le jour même |
+| 03/09/2026 | Régression sur le veto lexical du corpus documentaire | Mesure via `evalcorpus` | Détectée avant mise en production, annulée |
+| 25/09/2026 | Latence de `calculer_itineraire` doublée par rapport au budget (300 ms) | Mesure directe en local | Cause identifiée (requête coûteuse relancée inutilement) et corrigée le jour même |
+| 28/09/2026 | Le prompt citait un exemple de commune (« Marignane ») que le modèle répétait littéralement au lieu de substituer la vraie réponse de l'outil | Lecture d'un vrai transcript d'appel | Exemple reformulé pour être explicitement non littéral |
+| 28/09/2026 | Deux candidats LLM testés (Gemini 3.5 Flash-Lite, Qwen3.5-397B-A17B) ont fabriqué des données (nom/téléphone inventés) ou halluciné une contrainte système, en appel réel | Analyse de charges de webhook brutes après appels de test | Aucun des deux déployé ; migration reportée le temps de tester d'autres candidats |
+| 28-29/09/2026 | Gemini 3.1 Flash Lite, retenu ensuite, a montré 5 anomalies distinctes en test réel (dont une fabrication de coordonnées similaire) avant d'être jugé fiable | Même méthode, un appel réel à la fois, un correctif à la fois | Chaque anomalie corrigée et revérifiée le jour même avant de passer à la suivante — voir 4.4 pour le détail complet dans le journal |
+| 29/09/2026 | Clé API exposée en clair dans des échanges de travail ; base de données propre sans politique de rétention | Relecture volontaire en préparant ce document | Jeton renouvelé et vérifié ; purge automatique à 90 jours implémentée et vérifiée le jour même (Parties 5 et 6) |
+
+Le point commun de ces épisodes : aucune anomalie n'a été découverte par un appelant réel en dehors des tests. Toutes ont été trouvées soit par une vérification automatisée, soit par une relecture attentive d'un appel de test avant toute exposition publique plus large.
 
 ---
 
@@ -193,4 +307,4 @@ Ce document fournit la matière première ; l'analyse elle-même reste à mener 
 
 ---
 
-*Suite prévue : Partie 1 (intention et genèse), Partie 4 (code source), Partie 7 (traçabilité), annexes.*
+*Suite prévue : Partie 7 (traçabilité et gouvernance), annexes (glossaire, références, extraits de code, schémas).*
