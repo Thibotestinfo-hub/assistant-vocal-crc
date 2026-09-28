@@ -4,9 +4,24 @@ docs/spec-assistant-vocal-v0-revisee.md, §4. FastAPI s'en sert pour
 valider les requêtes et générer la documentation automatique (/docs).
 """
 
+import re
 from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+# Un min_length=1 ne suffit pas : un modèle peut inventer une valeur non
+# vide mais fictive plutôt que de poser la question ("0000000000", vu le
+# 28/09/2026 avec Gemini 3.1 Flash Lite sur enregistrer_objet_perdu — voir
+# docs/prochaines-etapes.md). On valide donc la forme d'un vrai numéro
+# français : 10 chiffres, commence par 0, le deuxième chiffre n'est pas 0.
+_RE_TELEPHONE = re.compile(r"0[1-9]\d{8}$")
+
+
+def _valider_telephone(valeur: str) -> str:
+    nettoye = re.sub(r"[ .\-]", "", valeur)
+    if not _RE_TELEPHONE.fullmatch(nettoye):
+        raise ValueError("numéro de téléphone invalide (attendu : 10 chiffres, format français)")
+    return valeur
 
 
 # --- rechercher_information ---
@@ -88,10 +103,16 @@ class ObjetPerduRequete(BaseModel):
     creneau_horaire: str
     lieu: Literal["a_bord", "arret", "agence", "incertain"]
     arret_id: Optional[str] = None
-    nom: str
-    telephone: str
+    # min_length=1 : sans ça, rien n'empêche un modèle d'appeler l'outil
+    # avant d'avoir demandé nom/téléphone à l'appelant (bug GPT-6 Luna du
+    # 28/09/2026, voir docs/prochaines-etapes.md) — la validation renvoie
+    # une 422 plutôt que d'enregistrer une déclaration inexploitable.
+    nom: str = Field(min_length=1)
+    telephone: str = Field(min_length=1)
     email: Optional[str] = None
     opt_in_marketing: bool
+
+    _valider = field_validator("telephone")(_valider_telephone)
 
 
 class ObjetPerduReponse(BaseModel):
@@ -103,7 +124,7 @@ class ObjetPerduReponse(BaseModel):
 # --- demander_rappel ---
 
 class RappelRequete(BaseModel):
-    telephone: str
+    telephone: str = Field(min_length=1)
     nom: Optional[str] = None
     email: Optional[str] = None
     motif: Literal[
@@ -111,6 +132,8 @@ class RappelRequete(BaseModel):
         "abonnement", "velo",
     ]
     resume: str
+
+    _valider = field_validator("telephone")(_valider_telephone)
     opt_in_marketing: bool = False
     # Optionnel : fourni par ElevenLabs via {{system__conversation_id}} si
     # câblé côté configuration de l'agent (voir assistant/outils/rappels.py)

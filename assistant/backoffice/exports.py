@@ -33,7 +33,10 @@ def _exporter_csv(table, colonnes):
     ecrivain.writerow(colonnes)
     for ligne in lignes:
         ecrivain.writerow([ligne[c] for c in colonnes])
-    return tampon.getvalue()
+    # BOM UTF-8 : le fichier est déjà en UTF-8 valide, mais Excel ne le
+    # détecte correctement que si le BOM est présent (sinon il retombe sur
+    # un encodage local et casse les accents).
+    return "﻿" + tampon.getvalue()
 
 
 def exporter_objets_perdus():
