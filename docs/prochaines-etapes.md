@@ -57,6 +57,12 @@ chemin critique), et code d'intégration (nouvelle fonction avec repli
 automatique vers `calculer_itineraire()` existant en cas d'erreur/absence
 de résultat).
 
+**Idée notée en explorant les API Google, pas actionnée** : des API
+météo et pollen existent aussi sur la même plateforme — pourrait à terme
+permettre de proposer un itinéraire privilégiant moins de marche en cas
+de pluie (axe "weather-aware" déjà évoqué par l'utilisateur dans sa
+vision du Graal). Après le calculateur d'itinéraire et le SMS, pas avant.
+
 ## ✅ Fait le 28/09/2026 — dossier d'audit DSI démarré, rotation du jeton API, rétention ElevenLabs corrigée
 
 Contexte : le POC a passé le test interne et pourrait devenir un pilote
