@@ -77,6 +77,83 @@ partagée, pas seulement "ne jamais coller la clé elle-même" — la
 consigne donnée à l'utilisateur sera reformulée pour le dire plus
 explicitement la prochaine fois.
 
+**Latence réelle mesurée après régénération de la clé** (toujours depuis
+Cloud Shell, donc optimiste) : **168 ms**, avec un vrai trajet trouvé
+(correspondance ligne 12 → ZEN A, 56 min) — différent de celui vérifié
+manuellement plus tôt sur Google Maps, normal (heure de la journée
+différente, offre de bus différente). Prouve au passage que Google
+recalcule bien selon l'horaire réel transmis, pas une réponse figée.
+Au passage, découvert que l'activation initiale de l'API Routes n'avait
+en fait jamais abouti (clé créée, mais le service lui-même absent de la
+liste "API et services activés") — ré-activée correctement cette fois,
+vérifiée présente avec un bouton "Disable" (pas "Enable").
+
+**Décision de conception importante, actée avec l'utilisateur** : risque
+identifié par l'utilisateur lui-même — avoir deux calculateurs (maison et
+Google) risquait de donner deux réponses différentes pour un même trajet
+selon lequel répond, ce qui casserait la confiance plus sûrement qu'une
+réponse simple mais cohérente. Règle retenue, qui élimine le risque
+structurellement plutôt que de le gérer après coup :
+- `calculer_itineraire` (moteur maison, GTFS) reste **le seul** utilisé
+  pour les trajets qu'il sait couvrir (direct ou une correspondance,
+  sans marche).
+- `calculer_itineraire_complexe` (nouveau, Google) n'est appelé **qu'en
+  repli**, uniquement quand le premier renvoie `trouve: false` — jamais
+  les deux pour le même trajet. Dans ce cas, l'agent pourra restituer le
+  trajet Google à l'oral, puis proposer un SMS récapitulatif (futur, lié
+  au fil Twilio SMS — l'outil d'envoi n'existe pas encore).
+- Nouvel interrupteur back-office **indépendant** de celui de
+  `calculer_itineraire` — l'utilisateur veut explicitement pouvoir garder
+  la main dessus séparément, y compris le suspendre pendant le POC le
+  temps de plus de tests, sans toucher au calculateur maison.
+
+**Implémenté et vérifié ce soir** :
+- `assistant/outils/itineraire_google.py` : nouvelle fonction
+  `calculer_itineraire_complexe`, résout les coordonnées des arrêts via
+  `charger_arrets_logiques` (déjà en place), appelle l'API Google
+  (timeout 4s — généreux par rapport au budget de 300 ms de CLAUDE.md,
+  assumé pour ce repli explicitement hors chemin critique habituel, **à
+  resserrer une fois une vraie mesure faite depuis Clever Cloud**, pas
+  seulement Cloud Shell). `GOOGLE_ROUTES_API_KEY` absente → dégradation
+  gracieuse (`trouve: false`), jamais de plantage — un réseau dupliqué
+  sans cette clé doit continuer à fonctionner (CLAUDE.md, paramétrage).
+- Nouveaux schémas Pydantic (`ItineraireComplexeRequete/Reponse`,
+  `assistant/api/schemas.py`) — étapes typées `marche`/`transport`,
+  volontairement plus génériques que le format existant (celui-ci ne
+  gère que direct/une correspondance, insuffisant pour ce que Google peut
+  renvoyer).
+- Nouvelle route `/outils/calculer_itineraire_complexe`
+  (`assistant/api/main.py`), nouvel interrupteur
+  `calculer_itineraire_complexe` dans `NOMS_OUTILS`/
+  `_OUTILS_INACTIFS_PAR_DEFAUT` (`assistant/outils/db.py`) — désactivé
+  par défaut comme `calculer_itineraire`, libellés back-office ajoutés
+  (`assistant/backoffice/page.py`).
+- Contrat de l'outil documenté dans la spec (§4) — **la consigne de
+  prompt (§5) n'est volontairement pas encore rédigée**, l'utilisateur a
+  explicitement dit qu'il faudra la retravailler ensemble avant
+  d'activer ce bouton en vrai.
+- Vérifié en local : sans clé → réponse propre `trouve: false` (pas de
+  500) ; avec une fausse clé → vrai appel réseau à Google, refusé
+  proprement, pas de plantage ; interrupteur désactivé par défaut (503) ;
+  activé manuellement → fonctionne ; réactivé à l'état désactivé par
+  défaut à la fin du test. Suites `verifier_api.py` (7/8, échec réseau
+  sandbox connu, sans rapport) et `verifier_backoffice.py` (12/12)
+  relancées sans régression.
+
+**Reste ouvert, volontairement pas traité ce soir** :
+- Mesurer la latence réelle depuis Clever Cloud (pas Cloud Shell) avant
+  toute activation en conditions réelles — c'est ce chiffre qui dira si
+  le timeout de 4s est raisonnable ou s'il faut revoir l'architecture.
+- L'outil d'envoi de SMS (Twilio) n'existe pas du tout encore — sans lui,
+  `calculer_itineraire_complexe` peut répondre à l'oral mais pas encore
+  tenir la promesse "je vous l'envoie par SMS".
+- La consigne de prompt pour ce cas (§5 de la spec) reste à écrire avec
+  l'utilisateur.
+- Décision produit encore ouverte : l'utilisateur envisage de laisser ce
+  bouton suspendu pendant le POC le temps d'accumuler plus de tests,
+  avant de l'activer en situation réelle d'appel.
+- Alerte de budget Google Cloud toujours pas créée (voir plus haut).
+
 ## ✅ Fait le 28/09/2026 — dossier d'audit DSI démarré, rotation du jeton API, rétention ElevenLabs corrigée
 
 Contexte : le POC a passé le test interne et pourrait devenir un pilote

@@ -179,12 +179,18 @@ NOMS_OUTILS = [
     # (voir la seed spéciale plus bas, connexion_app) : ne doit jamais
     # fragiliser une démo sans qu'on l'ait explicitement activé.
     "calculer_itineraire",
+    # calculer_itineraire_complexe : interrupteur séparé, volontairement
+    # indépendant de calculer_itineraire (voir docs/prochaines-etapes.md,
+    # 08/10/2026 et assistant/outils/itineraire_google.py) — repose sur
+    # l'API Google Routes (appel réseau externe, coût, latence plus
+    # élevée), pas le même niveau de confiance que le reste pour l'instant.
+    "calculer_itineraire_complexe",
 ]
 
 # Outils qui démarrent désactivés (contrairement à la règle générale
 # "tout actif par défaut" ci-dessous) : fonctionnalités expérimentales
 # qu'on ne veut pas voir apparaître sans avoir choisi de les allumer.
-_OUTILS_INACTIFS_PAR_DEFAUT = {"calculer_itineraire"}
+_OUTILS_INACTIFS_PAR_DEFAUT = {"calculer_itineraire", "calculer_itineraire_complexe"}
 
 # Traçabilité par appel (CLAUDE.md, contrainte non négociable) : ajoutées
 # après coup à une table déjà en production, via ALTER TABLE — un CREATE

@@ -216,3 +216,34 @@ class ItineraireReponse(BaseModel):
     etapes: Optional[list[EtapeItineraire]] = None
     jour_decale: Optional[int] = None
     erreur: Optional[str] = None
+
+
+# --- calculer_itineraire_complexe (expérimental, API Google Routes,
+# voir docs/prochaines-etapes.md 08/10/2026 et assistant/outils/
+# itineraire_google.py) : uniquement en repli quand calculer_itineraire
+# ne trouve rien (plus d'une correspondance, ou trajet nécessitant de la
+# marche) — jamais les deux pour le même trajet. ---
+
+class ItineraireComplexeRequete(BaseModel):
+    arret_depart_id: str
+    arret_arrivee_id: str
+    date: Optional[str] = None
+    heure: Optional[str] = None
+
+
+class EtapeItineraireComplexe(BaseModel):
+    type: Literal["marche", "transport"]
+    ligne: Optional[str] = None
+    mode: Optional[str] = None
+    destination: Optional[str] = None
+    arret_depart: Optional[str] = None
+    arret_arrivee: Optional[str] = None
+    depart: Optional[str] = None
+    arrivee: Optional[str] = None
+
+
+class ItineraireComplexeReponse(BaseModel):
+    trouve: bool
+    etapes: Optional[list[EtapeItineraireComplexe]] = None
+    duree_totale_min: Optional[int] = None
+    erreur: Optional[str] = None
