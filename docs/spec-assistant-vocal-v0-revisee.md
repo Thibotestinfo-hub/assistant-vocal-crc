@@ -265,6 +265,26 @@ Ajoutés le 25/09/2026, décidés avec l'utilisateur comme fonctionnalité "bonu
 
 Si `trouve` est faux, l'agent applique la même règle que pour tout outil qui ne trouve rien : ne pas inventer de trajet, basculer en sortie (voir §5, "Répondre sur les horaires" et "Sorties").
 
+### `calculer_itineraire_complexe` — expérimental, désactivé par défaut, interrupteur séparé
+
+Ajouté le 08/10/2026. S'appuie sur l'API Google Routes (trajets nécessitant de la marche ou plus d'une correspondance — hors du périmètre volontaire de `calculer_itineraire`). **Règle stricte : à appeler uniquement si `calculer_itineraire` a renvoyé `trouve: false` pour le même trajet, jamais les deux outils pour la même demande** — pour ne jamais risquer deux réponses différentes sur un même trajet (voir docs/prochaines-etapes.md, 08/10/2026, pour la décision de conception complète). Même paramètres que `calculer_itineraire` (mêmes `arret_depart_id`/`arret_arrivee_id` déjà résolus).
+
+```json
+{
+  "name": "calculer_itineraire_complexe",
+  "parameters": {
+    "arret_depart_id": { "type": "string" },
+    "arret_arrivee_id": { "type": "string" },
+    "date": { "type": "string", "required": false },
+    "heure": { "type": "string", "required": false }
+  }
+}
+```
+
+Réponse : une liste d'étapes, chacune de type `marche` ou `transport` (ligne, destination, arrêt de départ/arrivée, heures). Si `trouve` est faux (API indisponible, clé non configurée, ou aucun trajet trouvé), même règle que les autres outils : ne pas inventer, basculer en sortie.
+
+**Consigne de prompt pas encore stabilisée** (à retravailler ensemble avant activation réelle) : quand ce calculateur trouve un trajet, l'agent peut le restituer à l'oral, puis proposer l'envoi du détail par SMS — mais l'outil d'envoi de SMS n'existe pas encore (fil Twilio séparé, pas commencé). Ne pas activer ce bouton en back-office avant que les deux soient prêts ensemble.
+
 ---
 
 ## 5. Prompt système

@@ -51,6 +51,7 @@ _NOMS_LISIBLES = {
     "transferer_agent": "Transférer vers un conseiller",
     "rechercher_repere": "Recherche d'itinéraire",
     "calculer_itineraire": "Recherche d'itinéraire",
+    "calculer_itineraire_complexe": "Recherche d'itinéraire (complexe, Google)",
 }
 
 # Étiquettes des interrupteurs "Outils actifs" du Live. rechercher_information
@@ -69,6 +70,7 @@ _NOMS_LISIBLES_ACTIVATION = {
     "rechercher_information:amendes": "Amendes",
     "enregistrer_objet_perdu": "Déclarer un objet perdu",
     "calculer_itineraire": "Recherche d'itinéraire",
+    "calculer_itineraire_complexe": "Itinéraire complexe (Google)",
 }
 
 _DESCRIPTIONS_OUTILS = {
@@ -81,6 +83,10 @@ _DESCRIPTIONS_OUTILS = {
     "calculer_itineraire": "Expérimental : trajet direct ou une correspondance maximum entre deux arrêts, "
                             "y compris vers quelques repères (mairies). Désactivé par défaut — à activer "
                             "volontairement, pas encore aussi fiable que le reste.",
+    "calculer_itineraire_complexe": "Expérimental : trajet nécessitant de la marche ou plus d'une "
+                                     "correspondance, via l'API Google Routes (appel réseau externe, "
+                                     "coût et latence propres). Utilisé uniquement en repli quand la "
+                                     "recherche d'itinéraire simple ne trouve rien. Désactivé par défaut.",
 }
 
 _NOMS_MOTIFS = {

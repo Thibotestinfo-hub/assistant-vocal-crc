@@ -22,6 +22,7 @@ from assistant.api.schemas import (
     HorairesRequete, HorairesReponse,
     InformationRequete, InformationReponse,
     ItineraireRequete, ItineraireReponse,
+    ItineraireComplexeRequete, ItineraireComplexeReponse,
     ObjetPerduRequete, ObjetPerduReponse,
     RappelRequete, RappelReponse,
     RechercherArretRequete, RechercherArretReponse,
@@ -48,6 +49,7 @@ from assistant.ingestion.prononciation import nom_prononcable
 from assistant.outils.db import _FUSEAU
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.itineraire import calculer_itineraire
+from assistant.outils.itineraire_google import calculer_itineraire_complexe
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
 from assistant.outils.rechercher_arret import rechercher_arret
@@ -182,6 +184,19 @@ def route_calculer_itineraire(requete: ItineraireRequete):
     trajet direct ou une correspondance maximum, jamais plus (voir
     assistant/outils/itineraire.py)."""
     return calculer_itineraire(
+        requete.arret_depart_id, requete.arret_arrivee_id, requete.date, requete.heure,
+    )
+
+
+@app.post("/outils/calculer_itineraire_complexe", response_model=ItineraireComplexeReponse,
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("calculer_itineraire_complexe"))])
+def route_calculer_itineraire_complexe(requete: ItineraireComplexeRequete):
+    """Expérimental, désactivé par défaut, interrupteur indépendant de
+    calculer_itineraire (voir docs/prochaines-etapes.md, 08/10/2026).
+    À n'appeler qu'en repli quand calculer_itineraire renvoie trouve=False
+    pour le même trajet — jamais les deux pour un même trajet, voir
+    assistant/outils/itineraire_google.py."""
+    return calculer_itineraire_complexe(
         requete.arret_depart_id, requete.arret_arrivee_id, requete.date, requete.heure,
     )
 

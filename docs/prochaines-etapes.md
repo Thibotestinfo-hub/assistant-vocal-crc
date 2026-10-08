@@ -1,5 +1,159 @@
 # Prochaines étapes — état au 25/09/2026
 
+## 🔶 En cours le 08/10/2026 — calculateur d'itinéraire Google Routes API, mise en place en cours
+
+Contexte : l'utilisateur a vérifié manuellement que le réseau TABM/Métropole
+Mobilité est bien couvert par les données transit de Google (itinéraire
+réel retrouvé pour un trajet déjà testé avec notre moteur maison,
+résultats cohérents). Objectif : utiliser l'API Routes de Google
+(`travelMode: TRANSIT`) en complément ou en remplacement de
+`assistant/outils/itineraire.py`, avec notre moteur gardé en secours.
+S'inscrit dans une vision plus large de l'utilisateur ("le Graal") :
+collecte vocale du point de départ/arrivée → calcul d'itinéraire → envoi
+du résumé par SMS (Twilio, fil encore ouvert séparément).
+
+**Recherche tarifaire faite (web, accès direct à developers.google.com
+bloqué depuis cet environnement)** : le crédit de 200$/mois a disparu le
+1er mars 2025, remplacé par un quota gratuit mensuel par type d'appel
+facturé (SKU) : env. 10 000 appels gratuits/mois en SKU "Essentials",
+5 000 en "Pro". Pas pu confirmer avec certitude dans quel SKU tombe une
+requête `travelMode: TRANSIT` (aucune source trouvée ne le précise
+explicitement) — hypothèse raisonnable : Essentials, à vérifier
+réellement une fois la clé créée (regarder le SKU facturé dans la
+console après quelques appels de test).
+
+**Mise en place démarrée, pas-à-pas avec l'utilisateur, projet Google
+Cloud `assistant-vocal-crc-poc`** :
+- Projet créé, API Routes activée (seule — pas "toutes les API Maps",
+  pour limiter la surface).
+- Clé API créée et restreinte : "Restrictions relatives aux API" → Routes
+  API uniquement (confirmé sur capture d'écran). Restriction par adresse
+  IP volontairement laissée de côté pour l'instant (pas de confirmation
+  qu'une IP sortante fixe existe côté Clever Cloud pour cette app — à
+  creuser plus tard, non bloquant).
+- Bonus trouvé en cours de route : le projet bénéficie aussi d'un crédit
+  d'essai Google Cloud classique (264 €, jusqu'au 7 janvier 2027,
+  facturation nulle pendant l'essai) — indépendant du quota gratuit par
+  SKU, marge de sécurité supplémentaire pour tout le POC.
+
+**Non résolu ce soir** : la création de l'alerte de budget (page
+"Facturation" du compte, pas celle de Maps Platform) a échoué avec une
+erreur générique côté console Google ("Une erreur s'est produite lors de
+la création des alertes budgétaires"), même après un nouvel essai. Pas
+bloquant (le quota gratuit + le crédit d'essai protègent déjà d'une
+mauvaise surprise), mais **à reprendre à la prochaine session** : retenter
+la création de l'alerte budgétaire (ex. 5€/mois) depuis
+console.cloud.google.com → Facturation → Budgets et alertes.
+
+**Pas encore fait** : récupération de la valeur de la clé (jamais collée
+dans la conversation, par principe — même leçon que la rotation
+d'`API_TOKEN`), ajout à `.env` et aux variables d'environnement Clever
+Cloud, mesure de la latence réelle de `computeRoutes` depuis
+l'environnement de déploiement (point potentiellement bloquant : budget
+de 300 ms/endpoint non négociable de `CLAUDE.md`, un appel réseau externe
+est moins prévisible que notre SQLite local — à chiffrer avant de décider
+si Google passe en tentative bloquante ou reste cantonné à un usage hors
+chemin critique), et code d'intégration (nouvelle fonction avec repli
+automatique vers `calculer_itineraire()` existant en cas d'erreur/absence
+de résultat).
+
+**Idée notée en explorant les API Google, pas actionnée** : des API
+météo et pollen existent aussi sur la même plateforme — pourrait à terme
+permettre de proposer un itinéraire privilégiant moins de marche en cas
+de pluie (axe "weather-aware" déjà évoqué par l'utilisateur dans sa
+vision du Graal). Après le calculateur d'itinéraire et le SMS, pas avant.
+
+**⚠️ Incident mineur, même famille que celui d'`API_TOKEN` le 28/09** : en
+testant la latence réelle de l'API Google (via Cloud Shell, pour éviter
+de donner la clé à Claude — voir plus haut), l'utilisateur a collé par
+inadvertance la commande `curl` complète dans la conversation, clé en
+clair incluse. Clé restreinte à l'API Routes uniquement (pas de risque
+sur le reste du compte Google Cloud), mais régénérée par réflexe
+immédiatement ("rotation de la clé" côté console Google, nouvelle valeur
+mise à jour dans Clever Cloud). Aucun usage frauduleux constaté dans la
+fenêtre d'exposition (quelques minutes). Même leçon qu'avant : toute
+commande de test contenant un secret doit être nettoyée avant d'être
+partagée, pas seulement "ne jamais coller la clé elle-même" — la
+consigne donnée à l'utilisateur sera reformulée pour le dire plus
+explicitement la prochaine fois.
+
+**Latence réelle mesurée après régénération de la clé** (toujours depuis
+Cloud Shell, donc optimiste) : **168 ms**, avec un vrai trajet trouvé
+(correspondance ligne 12 → ZEN A, 56 min) — différent de celui vérifié
+manuellement plus tôt sur Google Maps, normal (heure de la journée
+différente, offre de bus différente). Prouve au passage que Google
+recalcule bien selon l'horaire réel transmis, pas une réponse figée.
+Au passage, découvert que l'activation initiale de l'API Routes n'avait
+en fait jamais abouti (clé créée, mais le service lui-même absent de la
+liste "API et services activés") — ré-activée correctement cette fois,
+vérifiée présente avec un bouton "Disable" (pas "Enable").
+
+**Décision de conception importante, actée avec l'utilisateur** : risque
+identifié par l'utilisateur lui-même — avoir deux calculateurs (maison et
+Google) risquait de donner deux réponses différentes pour un même trajet
+selon lequel répond, ce qui casserait la confiance plus sûrement qu'une
+réponse simple mais cohérente. Règle retenue, qui élimine le risque
+structurellement plutôt que de le gérer après coup :
+- `calculer_itineraire` (moteur maison, GTFS) reste **le seul** utilisé
+  pour les trajets qu'il sait couvrir (direct ou une correspondance,
+  sans marche).
+- `calculer_itineraire_complexe` (nouveau, Google) n'est appelé **qu'en
+  repli**, uniquement quand le premier renvoie `trouve: false` — jamais
+  les deux pour le même trajet. Dans ce cas, l'agent pourra restituer le
+  trajet Google à l'oral, puis proposer un SMS récapitulatif (futur, lié
+  au fil Twilio SMS — l'outil d'envoi n'existe pas encore).
+- Nouvel interrupteur back-office **indépendant** de celui de
+  `calculer_itineraire` — l'utilisateur veut explicitement pouvoir garder
+  la main dessus séparément, y compris le suspendre pendant le POC le
+  temps de plus de tests, sans toucher au calculateur maison.
+
+**Implémenté et vérifié ce soir** :
+- `assistant/outils/itineraire_google.py` : nouvelle fonction
+  `calculer_itineraire_complexe`, résout les coordonnées des arrêts via
+  `charger_arrets_logiques` (déjà en place), appelle l'API Google
+  (timeout 4s — généreux par rapport au budget de 300 ms de CLAUDE.md,
+  assumé pour ce repli explicitement hors chemin critique habituel, **à
+  resserrer une fois une vraie mesure faite depuis Clever Cloud**, pas
+  seulement Cloud Shell). `GOOGLE_ROUTES_API_KEY` absente → dégradation
+  gracieuse (`trouve: false`), jamais de plantage — un réseau dupliqué
+  sans cette clé doit continuer à fonctionner (CLAUDE.md, paramétrage).
+- Nouveaux schémas Pydantic (`ItineraireComplexeRequete/Reponse`,
+  `assistant/api/schemas.py`) — étapes typées `marche`/`transport`,
+  volontairement plus génériques que le format existant (celui-ci ne
+  gère que direct/une correspondance, insuffisant pour ce que Google peut
+  renvoyer).
+- Nouvelle route `/outils/calculer_itineraire_complexe`
+  (`assistant/api/main.py`), nouvel interrupteur
+  `calculer_itineraire_complexe` dans `NOMS_OUTILS`/
+  `_OUTILS_INACTIFS_PAR_DEFAUT` (`assistant/outils/db.py`) — désactivé
+  par défaut comme `calculer_itineraire`, libellés back-office ajoutés
+  (`assistant/backoffice/page.py`).
+- Contrat de l'outil documenté dans la spec (§4) — **la consigne de
+  prompt (§5) n'est volontairement pas encore rédigée**, l'utilisateur a
+  explicitement dit qu'il faudra la retravailler ensemble avant
+  d'activer ce bouton en vrai.
+- Vérifié en local : sans clé → réponse propre `trouve: false` (pas de
+  500) ; avec une fausse clé → vrai appel réseau à Google, refusé
+  proprement, pas de plantage ; interrupteur désactivé par défaut (503) ;
+  activé manuellement → fonctionne ; réactivé à l'état désactivé par
+  défaut à la fin du test. Suites `verifier_api.py` (7/8, échec réseau
+  sandbox connu, sans rapport) et `verifier_backoffice.py` (12/12)
+  relancées sans régression.
+
+**Reste ouvert, volontairement pas traité ce soir** :
+- Mesurer la latence réelle depuis Clever Cloud (pas Cloud Shell) avant
+  toute activation en conditions réelles — c'est ce chiffre qui dira si
+  le timeout de 4s est raisonnable ou s'il faut revoir l'architecture.
+- L'outil d'envoi de SMS (Twilio) n'existe pas du tout encore — sans lui,
+  `calculer_itineraire_complexe` peut répondre à l'oral mais pas encore
+  tenir la promesse "je vous l'envoie par SMS".
+- La consigne de prompt pour ce cas (§5 de la spec) reste à écrire avec
+  l'utilisateur.
+- Décision produit encore ouverte : l'utilisateur envisage de laisser ce
+  bouton suspendu pendant le POC le temps d'accumuler plus de tests,
+  avant de l'activer en situation réelle d'appel.
+- Alerte de budget Google Cloud toujours pas créée (voir plus haut).
+
 ## ✅ Fait le 28/09/2026 — dossier d'audit DSI démarré, rotation du jeton API, rétention ElevenLabs corrigée
 
 Contexte : le POC a passé le test interne et pourrait devenir un pilote
