@@ -63,6 +63,20 @@ permettre de proposer un itinéraire privilégiant moins de marche en cas
 de pluie (axe "weather-aware" déjà évoqué par l'utilisateur dans sa
 vision du Graal). Après le calculateur d'itinéraire et le SMS, pas avant.
 
+**⚠️ Incident mineur, même famille que celui d'`API_TOKEN` le 28/09** : en
+testant la latence réelle de l'API Google (via Cloud Shell, pour éviter
+de donner la clé à Claude — voir plus haut), l'utilisateur a collé par
+inadvertance la commande `curl` complète dans la conversation, clé en
+clair incluse. Clé restreinte à l'API Routes uniquement (pas de risque
+sur le reste du compte Google Cloud), mais régénérée par réflexe
+immédiatement ("rotation de la clé" côté console Google, nouvelle valeur
+mise à jour dans Clever Cloud). Aucun usage frauduleux constaté dans la
+fenêtre d'exposition (quelques minutes). Même leçon qu'avant : toute
+commande de test contenant un secret doit être nettoyée avant d'être
+partagée, pas seulement "ne jamais coller la clé elle-même" — la
+consigne donnée à l'utilisateur sera reformulée pour le dire plus
+explicitement la prochaine fois.
+
 ## ✅ Fait le 28/09/2026 — dossier d'audit DSI démarré, rotation du jeton API, rétention ElevenLabs corrigée
 
 Contexte : le POC a passé le test interne et pourrait devenir un pilote
