@@ -1,5 +1,62 @@
 # Prochaines étapes — état au 25/09/2026
 
+## 🔶 En cours le 08/10/2026 — calculateur d'itinéraire Google Routes API, mise en place en cours
+
+Contexte : l'utilisateur a vérifié manuellement que le réseau TABM/Métropole
+Mobilité est bien couvert par les données transit de Google (itinéraire
+réel retrouvé pour un trajet déjà testé avec notre moteur maison,
+résultats cohérents). Objectif : utiliser l'API Routes de Google
+(`travelMode: TRANSIT`) en complément ou en remplacement de
+`assistant/outils/itineraire.py`, avec notre moteur gardé en secours.
+S'inscrit dans une vision plus large de l'utilisateur ("le Graal") :
+collecte vocale du point de départ/arrivée → calcul d'itinéraire → envoi
+du résumé par SMS (Twilio, fil encore ouvert séparément).
+
+**Recherche tarifaire faite (web, accès direct à developers.google.com
+bloqué depuis cet environnement)** : le crédit de 200$/mois a disparu le
+1er mars 2025, remplacé par un quota gratuit mensuel par type d'appel
+facturé (SKU) : env. 10 000 appels gratuits/mois en SKU "Essentials",
+5 000 en "Pro". Pas pu confirmer avec certitude dans quel SKU tombe une
+requête `travelMode: TRANSIT` (aucune source trouvée ne le précise
+explicitement) — hypothèse raisonnable : Essentials, à vérifier
+réellement une fois la clé créée (regarder le SKU facturé dans la
+console après quelques appels de test).
+
+**Mise en place démarrée, pas-à-pas avec l'utilisateur, projet Google
+Cloud `assistant-vocal-crc-poc`** :
+- Projet créé, API Routes activée (seule — pas "toutes les API Maps",
+  pour limiter la surface).
+- Clé API créée et restreinte : "Restrictions relatives aux API" → Routes
+  API uniquement (confirmé sur capture d'écran). Restriction par adresse
+  IP volontairement laissée de côté pour l'instant (pas de confirmation
+  qu'une IP sortante fixe existe côté Clever Cloud pour cette app — à
+  creuser plus tard, non bloquant).
+- Bonus trouvé en cours de route : le projet bénéficie aussi d'un crédit
+  d'essai Google Cloud classique (264 €, jusqu'au 7 janvier 2027,
+  facturation nulle pendant l'essai) — indépendant du quota gratuit par
+  SKU, marge de sécurité supplémentaire pour tout le POC.
+
+**Non résolu ce soir** : la création de l'alerte de budget (page
+"Facturation" du compte, pas celle de Maps Platform) a échoué avec une
+erreur générique côté console Google ("Une erreur s'est produite lors de
+la création des alertes budgétaires"), même après un nouvel essai. Pas
+bloquant (le quota gratuit + le crédit d'essai protègent déjà d'une
+mauvaise surprise), mais **à reprendre à la prochaine session** : retenter
+la création de l'alerte budgétaire (ex. 5€/mois) depuis
+console.cloud.google.com → Facturation → Budgets et alertes.
+
+**Pas encore fait** : récupération de la valeur de la clé (jamais collée
+dans la conversation, par principe — même leçon que la rotation
+d'`API_TOKEN`), ajout à `.env` et aux variables d'environnement Clever
+Cloud, mesure de la latence réelle de `computeRoutes` depuis
+l'environnement de déploiement (point potentiellement bloquant : budget
+de 300 ms/endpoint non négociable de `CLAUDE.md`, un appel réseau externe
+est moins prévisible que notre SQLite local — à chiffrer avant de décider
+si Google passe en tentative bloquante ou reste cantonné à un usage hors
+chemin critique), et code d'intégration (nouvelle fonction avec repli
+automatique vers `calculer_itineraire()` existant en cas d'erreur/absence
+de résultat).
+
 ## ✅ Fait le 28/09/2026 — dossier d'audit DSI démarré, rotation du jeton API, rétention ElevenLabs corrigée
 
 Contexte : le POC a passé le test interne et pourrait devenir un pilote
