@@ -1,5 +1,49 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 09/10/2026 — nouvel incident d'exposition d'`API_TOKEN`, rotation complète refaite
+
+En voulant tester `calculer_itineraire_complexe` en production (voir
+entrée du 08/10 juste en dessous), l'utilisateur a collé par
+inadvertance une commande `curl` contenant le vrai `API_TOKEN` de
+production en clair — plus sérieux que l'incident de la veille sur la
+clé Google, puisqu'`API_TOKEN` protège l'ensemble des outils de l'API,
+pas un seul usage restreint. Même réflexe appliqué immédiatement :
+jeton considéré compromis, rotation complète aux 4 endroits où il vit
+(même procédure qu'au 28/09) :
+1. Variable d'environnement Clever Cloud.
+2. En-tête `Authorization` des 9 outils déclarés côté agent ElevenLabs.
+3. URL du webhook de fin d'appel (`?jeton=...`) — recréée (ElevenLabs
+   ne permet pas de modifier l'URL d'un webhook existant, seulement
+   d'en créer un nouveau puis de le sélectionner comme webhook actif).
+4. En-tête `Authorization` du webhook de personnalisation (modifiable
+   en place, contrairement au webhook post-appel).
+
+**Deux erreurs en cours de route, aucune grave** : (a) confusion entre
+la nouvelle valeur d'`API_TOKEN` et celle de `GOOGLE_ROUTES_API_KEY`
+lors d'un copier-coller — mauvaise valeur déployée sur Clever Cloud
+puis sur le webhook de fin d'appel, corrigée dès détection (401
+persistant après un premier redéploiement, qui a mis la puce à
+l'oreille) ; (b) une URL de webhook malformée en collant le jeton
+directement dans la commande curl — résolu en reprenant la méthode
+`read -s` déjà utilisée pour la clé Google (le jeton ne transite plus
+jamais en clair dans une commande affichée à l'écran).
+
+**Vérifié de bout en bout** : `curl` direct sur `/outils/transferer_agent`
+et sur le webhook `/webhooks/elevenlabs/fin_appel` avec le nouveau
+jeton → 200 dans les deux cas. Puis un vrai appel test côté ElevenLabs
+(widget) confirmé fonctionnel par l'utilisateur — seule vérification
+qui garantit que les 9 outils et les deux webhooks envoient bien le bon
+jeton tel que configuré côté interface, pas seulement notre propre
+serveur.
+
+**Point à reprendre froidement, hors urgence** : deux incidents de ce
+type coup sur coup (08/10 et 09/10) suggèrent que le geste "coller une
+commande curl complète sans la nettoyer d'abord" est un piège facile à
+reproduire, pas un simple coup de malchance. À voir avec l'utilisateur
+si une consigne plus systématique (ex. toujours utiliser `read -s`
+d'emblée pour tout test impliquant un secret, plutôt qu'en rattrapage
+après coup) vaut la peine d'être actée une fois pour toutes.
+
 ## 🔶 En cours le 08/10/2026 — calculateur d'itinéraire Google Routes API, mise en place en cours
 
 Contexte : l'utilisateur a vérifié manuellement que le réseau TABM/Métropole
