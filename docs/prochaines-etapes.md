@@ -184,10 +184,16 @@ structurellement plutôt que de le gérer après coup :
   sandbox connu, sans rapport) et `verifier_backoffice.py` (12/12)
   relancées sans régression.
 
+**Mesure de latence réelle faite le 09/10/2026** (après l'incident de
+rotation d'`API_TOKEN` ci-dessus) : deux appels réels en production,
+619 ms puis 436 ms — largement au-dessus des 300 ms, de façon
+constante sur deux mesures indépendantes, pas un accident ponctuel.
+**Confirme que la décision de conception (Google jamais en tentative
+live bloquante, uniquement en repli explicite) était la bonne** — un
+timeout de 4s reste raisonnable pour ce repli assumé hors chemin
+critique. Question fermée.
+
 **Reste ouvert, volontairement pas traité ce soir** :
-- Mesurer la latence réelle depuis Clever Cloud (pas Cloud Shell) avant
-  toute activation en conditions réelles — c'est ce chiffre qui dira si
-  le timeout de 4s est raisonnable ou s'il faut revoir l'architecture.
 - L'outil d'envoi de SMS (Twilio) n'existe pas du tout encore — sans lui,
   `calculer_itineraire_complexe` peut répondre à l'oral mais pas encore
   tenir la promesse "je vous l'envoie par SMS".
