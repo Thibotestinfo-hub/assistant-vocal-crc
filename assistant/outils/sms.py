@@ -89,8 +89,8 @@ def formater_sms_itineraire(etapes, duree_totale_min, nom=None, lien_google_maps
             arret_arrivee = etape.get("arret_arrivee") or "?"
             lignes.append(f"🚌 Ligne {ligne} - direction {direction}")
             lignes.append(f"   Descendre à {arret_arrivee}")
-            if etape.get("depart") and etape.get("arrivee"):
-                lignes.append(f"   {etape['depart']} → {etape['arrivee']}")
+            if etape.get("depart"):
+                lignes.append(f"   Départ {etape['depart']}")
     lignes.append("")
     if duree_totale_min is not None:
         lignes.append(f"⏱ Durée totale : {duree_totale_min} min")

@@ -84,24 +84,50 @@ def _duree_min(duree_brute):
     return int(float(duree_brute.rstrip("s"))) // 60
 
 
-def _etapes_depuis_reponse(route):
+def _etapes_depuis_reponse(route, nom_arret_depart=None):
     # À plat : une étape de marche a besoin de connaître l'arrêt de
     # l'étape SUIVANTE pour dire "marcher vers..." (voir docs/
     # prochaines-etapes.md, 12/10/2026) — plus simple de travailler sur
     # une liste de steps indexable que sur l'imbrication legs/steps.
     steps = [s for leg in route.get("legs", []) for s in leg.get("steps", [])]
     etapes = []
-    for i, step in enumerate(steps):
+    # Référence pour détecter une marche "vers" l'endroit où l'on est déjà
+    # (artefact Google : changement de quai, ou léger écart entre nos
+    # coordonnées moyennées du GTFS et le point qu'il choisit) — initialisée
+    # avec l'arrêt de départ puisque la toute première marche, s'il y en a
+    # une, part justement de là.
+    dernier_arret = nom_arret_depart
+    i = 0
+    while i < len(steps):
+        step = steps[i]
         if step.get("travelMode") != "TRANSIT":
+            # Google découpe parfois une seule marche réelle en plusieurs
+            # steps techniques (ex. traverser une rue) — on les fusionne
+            # en une seule étape "marche", sinon le SMS/l'oral répète
+            # "Marche" plusieurs fois pour un même trajet à pied (vu en
+            # conditions réelles le 12/10/2026).
+            duree_min = 0
+            duree_connue = False
+            j = i
+            while j < len(steps) and steps[j].get("travelMode") != "TRANSIT":
+                d = _duree_min(steps[j].get("staticDuration"))
+                if d is not None:
+                    duree_min += d
+                    duree_connue = True
+                j += 1
             vers = None
-            if i + 1 < len(steps) and steps[i + 1].get("travelMode") == "TRANSIT":
-                arret_suivant = steps[i + 1].get("transitDetails", {}).get("stopDetails", {})
+            if j < len(steps) and steps[j].get("travelMode") == "TRANSIT":
+                arret_suivant = steps[j].get("transitDetails", {}).get("stopDetails", {})
                 vers = (arret_suivant.get("departureStop") or {}).get("name")
-            etapes.append({
-                "type": "marche",
-                "duree_min": _duree_min(step.get("staticDuration")),
-                "vers": vers,
-            })
+            duree_finale = duree_min if duree_connue else None
+            # Rien d'utile à annoncer si on "marche" vers l'endroit où l'on
+            # est déjà, et que ce n'est pas une vraie marche (courte ou
+            # durée inconnue) — sinon on garde l'info, une vraie
+            # correspondance avec marche peut partager le même nom d'arrêt
+            # tout en étant un vrai trajet à pied.
+            if not (vers and vers == dernier_arret and (duree_finale is None or duree_finale <= 2)):
+                etapes.append({"type": "marche", "duree_min": duree_finale, "vers": vers})
+            i = j
             continue
         details = step.get("transitDetails", {})
         ligne = details.get("transitLine", {})
@@ -117,17 +143,23 @@ def _etapes_depuis_reponse(route):
             "depart": ((heures.get("departureTime") or {}).get("time") or {}).get("text"),
             "arrivee": ((heures.get("arrivalTime") or {}).get("time") or {}).get("text"),
         })
+        dernier_arret = etapes[-1]["arret_arrivee"]
+        i += 1
     return etapes
 
 
 def _lien_google_maps(arret_depart, arret_arrivee):
     """Lien universel Google Maps (web/iOS/Android), trajet pré-rempli en
     mode transport en commun — aucun appel API, aucun coût, juste les
-    coordonnées qu'on a déjà résolues pour l'appel à Google Routes."""
+    coordonnées qu'on a déjà résolues pour l'appel à Google Routes.
+    Arrondi à 5 décimales (~1 m de précision, largement suffisant pour
+    un arrêt de bus) : la précision brute de la moyenne GTFS fait un
+    lien deux fois plus long pour rien, important dans un SMS compté en
+    caractères (voir docs/prochaines-etapes.md, 12/10/2026)."""
     return (
         "https://www.google.com/maps/dir/?api=1"
-        f"&origin={arret_depart['lat']},{arret_depart['lon']}"
-        f"&destination={arret_arrivee['lat']},{arret_arrivee['lon']}"
+        f"&origin={arret_depart['lat']:.5f},{arret_depart['lon']:.5f}"
+        f"&destination={arret_arrivee['lat']:.5f},{arret_arrivee['lon']:.5f}"
         "&travelmode=transit"
     )
 
@@ -174,7 +206,7 @@ def calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date=None, h
     if not routes:
         return {"trouve": False, "erreur": "aucun trajet trouvé par le calculateur complexe"}
 
-    etapes = _etapes_depuis_reponse(routes[0])
+    etapes = _etapes_depuis_reponse(routes[0], arret_depart.get("stop_name"))
     if not etapes:
         return {"trouve": False, "erreur": "réponse du calculateur complexe vide ou inattendue"}
 

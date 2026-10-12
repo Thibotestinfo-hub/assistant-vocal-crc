@@ -1,5 +1,64 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 12/10/2026 — bug de marches dupliquées corrigé, SMS simplifié, 5 nouveaux retours UX
+
+Deuxième appel réel avec les outils déclarés : ça fonctionne, mais les
+captures du SMS reçu (partagées par l'utilisateur) ont révélé un vrai
+bug trouvé en analysant les images, pas seulement un ressenti UX :
+**Google découpe parfois une seule marche réelle en plusieurs steps
+techniques** (ex. traverser une rue devient un step à part), donc le
+SMS affichait "Marche" 3 fois pour un même trajet à pied, et une
+"Marcher vers Pierre Plantée" juste après "Descendre à Pierre Plantée"
+(artefact de changement de quai/écart de coordonnées).
+
+**Corrigé dans `assistant/outils/itineraire_google.py`** :
+- Les steps de marche consécutifs sont fusionnés en une seule étape
+  (durées additionnées), au lieu d'une ligne par step technique.
+- Une marche "vers" un arrêt où l'on est déjà (même nom que la dernière
+  descente, ou le départ initial) est supprimée si elle est courte ou
+  de durée inconnue — une vraie marche de plusieurs minutes vers un
+  arrêt de même nom reste affichée (testé explicitement pour ne pas
+  perdre d'information réelle).
+
+**5 autres retours traités** :
+1. SMS simplifié : une seule heure par étape (départ), plus
+   depart→arrivée à chaque ligne — la durée totale suffit pour le
+   reste.
+2. Lien Google Maps raccourci : coordonnées arrondies à 5 décimales
+   (~1 m de précision, largement suffisant), le lien reste présent
+   mais nettement plus court.
+3. L'outil `envoyer_sms_itineraire` demande maintenant prénom **et**
+   nom (pas de nouvelle colonne : même convention que `demander_rappel`,
+   les deux dans le champ `nom` existant).
+4. Stockage/export déjà en place depuis le tour précédent (`nom` dans
+   `sms_envoyes.csv`) — confirmé à l'utilisateur, rien à ajouter.
+5. **Latence perçue à l'interprétation de la demande** (avant même le
+   premier outil, pas seulement calculer_itineraire_complexe) : règle
+   "Style oral" renforcée — une phrase de transition courte **avant
+   chaque appel d'outil, systématiquement**, pas seulement quand
+   l'outil "semble" lent. Limite honnête notée pour l'utilisateur : le
+   LLM n'a pas de minuteur, il ne peut pas détecter "2-3 secondes se
+   sont écoulées" en direct — la seule traduction fiable en prompt est
+   une règle inconditionnelle, pas une réaction au silence réel. À
+   vérifier si ElevenLabs propose un mécanisme natif indépendant du
+   LLM (ex. message programmé pendant l'exécution d'un outil) —
+   question posée à l'utilisateur, pas vérifiable depuis cet
+   environnement (interface ElevenLabs bloquée).
+
+**Point non résolu, à investiguer** : l'utilisateur signale pour la
+2e fois un appel réel absent du back-office (`/backoffice/appels`),
+l'empêchant de partager les logs. Pas encore élucidé — questions
+posées (appel réel via le numéro Twilio ou test widget ? la page a-t-elle
+été rafraîchie après l'appel ?). Piste de secours proposée : récupérer
+le payload du webhook directement depuis l'historique des conversations
+côté ElevenLabs si notre back-office ne le montre vraiment pas.
+
+Vérifié en local : fusion des marches testée explicitement sur le cas
+exact vu dans les captures (3 marches consécutives → 1 seule), non-
+suppression d'une vraie marche de 7 minutes vérifiée séparément. Suites
+`verifier_api.py` (7/8, échec réseau sandbox connu) et
+`verifier_backoffice.py` (12/12) relancées sans régression.
+
 ## ✅ Fait le 12/10/2026 — premier appel réel complet réussi, 5 retours UX de l'utilisateur traités
 
 Premier appel de bout en bout avec les deux outils déclarés côté
