@@ -153,6 +153,21 @@ CREATE TABLE IF NOT EXISTS satisfaction_appels (
     satisfait INTEGER NOT NULL,
     cree_le TEXT NOT NULL
 );
+
+-- SMS envoyés avec le détail d'un itinéraire complexe (voir
+-- assistant/outils/sms.py, envoyer_sms_itineraire). texte : conservé
+-- tel qu'envoyé, pour pouvoir vérifier après coup ce que l'appelant a
+-- effectivement reçu — reconstruit côté serveur à partir d'un nouveau
+-- calcul d'itinéraire, jamais composé par le LLM (CLAUDE.md, exactitude).
+CREATE TABLE IF NOT EXISTS sms_envoyes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cree_le TEXT NOT NULL,
+    telephone TEXT NOT NULL,
+    texte TEXT,
+    succes INTEGER NOT NULL,
+    erreur TEXT,
+    conversation_id TEXT
+);
 """
 
 NOMS_OUTILS = [
@@ -185,12 +200,20 @@ NOMS_OUTILS = [
     # l'API Google Routes (appel réseau externe, coût, latence plus
     # élevée), pas le même niveau de confiance que le reste pour l'instant.
     "calculer_itineraire_complexe",
+    # envoyer_sms_itineraire : interrupteur séparé de calculer_itineraire_
+    # complexe (voir docs/prochaines-etapes.md, 12/10/2026 et
+    # assistant/outils/sms.py) — dépend de Twilio (coût, envoi réel à un
+    # vrai numéro), pas le même niveau de confiance requis que le calcul
+    # lui-même.
+    "envoyer_sms_itineraire",
 ]
 
 # Outils qui démarrent désactivés (contrairement à la règle générale
 # "tout actif par défaut" ci-dessous) : fonctionnalités expérimentales
 # qu'on ne veut pas voir apparaître sans avoir choisi de les allumer.
-_OUTILS_INACTIFS_PAR_DEFAUT = {"calculer_itineraire", "calculer_itineraire_complexe"}
+_OUTILS_INACTIFS_PAR_DEFAUT = {
+    "calculer_itineraire", "calculer_itineraire_complexe", "envoyer_sms_itineraire",
+}
 
 # Traçabilité par appel (CLAUDE.md, contrainte non négociable) : ajoutées
 # après coup à une table déjà en production, via ALTER TABLE — un CREATE

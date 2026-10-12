@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -23,6 +23,7 @@ from assistant.api.schemas import (
     InformationRequete, InformationReponse,
     ItineraireRequete, ItineraireReponse,
     ItineraireComplexeRequete, ItineraireComplexeReponse,
+    EnvoiSmsItineraireRequete, EnvoiSmsItineraireReponse,
     ObjetPerduRequete, ObjetPerduReponse,
     RappelRequete, RappelReponse,
     RechercherArretRequete, RechercherArretReponse,
@@ -50,6 +51,7 @@ from assistant.outils.db import _FUSEAU
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.itineraire import calculer_itineraire
 from assistant.outils.itineraire_google import calculer_itineraire_complexe
+from assistant.outils.sms import envoyer_sms_itineraire
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
 from assistant.outils.rechercher_arret import rechercher_arret
@@ -199,6 +201,23 @@ def route_calculer_itineraire_complexe(requete: ItineraireComplexeRequete):
     return calculer_itineraire_complexe(
         requete.arret_depart_id, requete.arret_arrivee_id, requete.date, requete.heure,
     )
+
+
+@app.post("/outils/envoyer_sms_itineraire", response_model=EnvoiSmsItineraireReponse,
+          dependencies=[Depends(verifier_jeton), Depends(verifier_outil_actif("envoyer_sms_itineraire"))])
+def route_envoyer_sms_itineraire(requete: EnvoiSmsItineraireRequete, taches_fond: BackgroundTasks):
+    """Expérimental, désactivé par défaut, interrupteur indépendant de
+    calculer_itineraire_complexe (voir docs/prochaines-etapes.md,
+    12/10/2026). Répond tout de suite ; le recalcul de l'itinéraire et
+    l'envoi réel vers Twilio se font en tâche de fond, pour ne jamais
+    ajouter cette latence au tour de parole en direct (voir
+    assistant/outils/sms.py)."""
+    taches_fond.add_task(
+        envoyer_sms_itineraire,
+        requete.telephone, requete.arret_depart_id, requete.arret_arrivee_id,
+        requete.date, requete.heure, requete.conversation_id,
+    )
+    return {"accepte": True, "erreur": None}
 
 
 # --- Back-office (Étape 6) ---

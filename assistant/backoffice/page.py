@@ -52,6 +52,7 @@ _NOMS_LISIBLES = {
     "rechercher_repere": "Recherche d'itinéraire",
     "calculer_itineraire": "Recherche d'itinéraire",
     "calculer_itineraire_complexe": "Recherche d'itinéraire (complexe, Google)",
+    "envoyer_sms_itineraire": "Envoi SMS (itinéraire)",
 }
 
 # Étiquettes des interrupteurs "Outils actifs" du Live. rechercher_information
@@ -71,6 +72,7 @@ _NOMS_LISIBLES_ACTIVATION = {
     "enregistrer_objet_perdu": "Déclarer un objet perdu",
     "calculer_itineraire": "Recherche d'itinéraire",
     "calculer_itineraire_complexe": "Itinéraire complexe (Google)",
+    "envoyer_sms_itineraire": "Envoi SMS (itinéraire)",
 }
 
 _DESCRIPTIONS_OUTILS = {
@@ -87,6 +89,8 @@ _DESCRIPTIONS_OUTILS = {
                                      "correspondance, via l'API Google Routes (appel réseau externe, "
                                      "coût et latence propres). Utilisé uniquement en repli quand la "
                                      "recherche d'itinéraire simple ne trouve rien. Désactivé par défaut.",
+    "envoyer_sms_itineraire": "Expérimental : envoie par SMS (Twilio) le détail d'un itinéraire calculé "
+                              "par le calculateur complexe. Coût réel par SMS envoyé. Désactivé par défaut.",
 }
 
 _NOMS_MOTIFS = {

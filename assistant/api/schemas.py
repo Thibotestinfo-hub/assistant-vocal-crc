@@ -247,3 +247,26 @@ class ItineraireComplexeReponse(BaseModel):
     etapes: Optional[list[EtapeItineraireComplexe]] = None
     duree_totale_min: Optional[int] = None
     erreur: Optional[str] = None
+
+
+# --- envoyer_sms_itineraire (expérimental, voir docs/prochaines-etapes.md
+# 12/10/2026 et assistant/outils/sms.py) : le texte du SMS n'est jamais
+# fourni par le LLM, seulement les paramètres qui permettent de
+# recalculer l'itinéraire côté serveur. ---
+
+class EnvoiSmsItineraireRequete(BaseModel):
+    telephone: str
+    arret_depart_id: str
+    arret_arrivee_id: str
+    date: Optional[str] = None
+    heure: Optional[str] = None
+    # Optionnel : fourni par ElevenLabs via {{system__conversation_id}} si
+    # câblé côté configuration de l'agent — permet de relier l'envoi à
+    # l'appel dans le back-office (même mécanisme que RappelRequete).
+    conversation_id: Optional[str] = None
+    _valider = field_validator("telephone")(_valider_telephone)
+
+
+class EnvoiSmsItineraireReponse(BaseModel):
+    accepte: bool
+    erreur: Optional[str] = None

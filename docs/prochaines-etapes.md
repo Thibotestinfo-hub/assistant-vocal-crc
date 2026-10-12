@@ -1,5 +1,145 @@
 # Prochaines étapes — état au 25/09/2026
 
+## 💡 Idées back-office notées le 12/10/2026, pas prioritaires
+
+Trois évolutions demandées par l'utilisateur, à reprendre ensemble plus
+tard — pas d'action aujourd'hui :
+
+1. **Outil de moyenne horaire des appels, à enrichir.** Courbes pour
+   visualiser les pics horaires (heures pleines/creuses), peut-être
+   ventilées par tranche de 15 min. Voir aussi comment l'intégrer
+   proprement à la page (actuellement une simple tuile).
+2. **Enrichir la base de connaissance "commercial" par des documents
+   (PDF) injectés depuis le back-office**, en complément du site web
+   scrapé. Point d'attention déjà identifié par l'utilisateur lui-même :
+   gestion des conflits entre sources documentaires (site web vs PDF
+   injecté sur le même sujet) — à trancher avant de construire quoi que
+   ce soit, pas une simple question d'upload de fichier.
+3. **Alerte d'expiration du GTFS visible directement dans le
+   back-office**, pas seulement dans les logs de démarrage du serveur
+   (actuellement : un message affiché uniquement au lancement de
+   l'application, que l'équipe CRC ne voit jamais) — pour que les
+   agents sachent qu'une mise à jour est nécessaire sans dépendre de
+   Claude pour le leur signaler. Déclenché le 12/10 par une vraie
+   alerte vue en local : GTFS actuel expirant le 18/10/2026, mais
+   l'utilisateur confirme que ça reste acceptable en mode test tant que
+   l'équipe réseau n'a pas publié de nouveau GTFS — pas une urgence.
+
+## 🔶 En cours le 12/10/2026 — envoi SMS de l'itinéraire complexe (Twilio)
+
+Suite directe de l'entrée du 08/10 ci-dessous : premier bout du "Graal"
+évoqué par l'utilisateur (collecte vocale → itinéraire → SMS). Avant de
+coder, deux questions ont été creusées avec l'utilisateur :
+
+- **Risque de double calculateur, déjà traité le 08/10** (jamais
+  `calculer_itineraire` et `calculer_itineraire_complexe` pour le même
+  trajet) — confirmé que ce même principe s'applique au SMS : le texte
+  envoyé est reconstruit côté serveur à partir d'un nouveau calcul,
+  jamais composé par le LLM, pour ne jamais risquer un SMS qui
+  contredit ce qui a été dit à l'oral.
+- **Clarification technique importante** : l'utilisateur pensait que la
+  bonne reconnaissance de lieux flous par Google Maps mobile venait
+  d'une reconnaissance vocale supérieure — en réalité, chez nous la
+  transcription est déjà faite par ElevenLabs en amont, donc le gain
+  potentiel viendrait de l'**API Places** (interprétation d'un texte
+  flou en lieu réel), pas de la Speech-to-Text. Idée notée pour plus
+  tard (fallback quand `rechercher_arret` ET `rechercher_repere`
+  échouent tous les deux), pas actionnée aujourd'hui.
+
+**Implémenté et vérifié ce soir** :
+- Numéro d'envoi Twilio (`+33939205690`) ajouté à `data/config.yaml`
+  (paramètre du réseau, pas un secret). Identifiants
+  (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`) ajoutés aux variables
+  d'environnement Clever Cloud par l'utilisateur, jamais partagés dans
+  la conversation.
+- `assistant/outils/sms.py` : `formater_sms_itineraire` construit le
+  texte (émojis par type d'étape — 🚶 marche, 🚌 bus, 🔄 correspondance
+  — premier jet proposé par Claude, à affiner à l'usage) ;
+  `envoyer_sms_itineraire` recalcule l'itinéraire via
+  `calculer_itineraire_complexe`, formate, envoie via l'API REST Twilio
+  (appel `httpx` direct, pas le SDK — cohérent avec le reste du projet),
+  consigne toujours le résultat (succès ou échec) dans une nouvelle
+  table `sms_envoyes`, ne lève jamais d'exception (cette fonction tourne
+  en tâche de fond, après que l'appel ait déjà répondu à l'agent).
+- Nouvelle route `/outils/envoyer_sms_itineraire`
+  (`assistant/api/main.py`) : répond tout de suite (`accepte: true`),
+  programme le recalcul + l'envoi réel via `BackgroundTasks` — pour ne
+  jamais ajouter la latence d'un deuxième appel Google (400-600 ms déjà
+  mesurés) ni celle de Twilio par-dessus au tour de parole en direct.
+  Nouvel interrupteur back-office **indépendant** de
+  `calculer_itineraire_complexe` (coût réel par SMS envoyé, niveau de
+  confiance encore à établir), désactivé par défaut.
+- Contrat documenté dans la spec (§4) ; consigne de prompt (demande du
+  numéro, phrase de transition) volontairement laissée en brouillon,
+  comme pour `calculer_itineraire_complexe`.
+- Vérifié en local : formatage du texte correct sur un vrai résultat
+  d'itinéraire ; conversion du numéro au format international (Twilio)
+  correcte ; sans `GOOGLE_ROUTES_API_KEY`/Twilio configurés → la tâche
+  de fond échoue proprement et consigne l'erreur dans `sms_envoyes`,
+  jamais de plantage ; interrupteur désactivé par défaut (503), activé
+  manuellement → fonctionne, réactivé à l'état désactivé après test ;
+  téléphone invalide → 422. Suites `verifier_api.py` (7/8, échec réseau
+  sandbox connu) et `verifier_backoffice.py` (12/12) relancées sans
+  régression.
+
+**Reste ouvert** :
+- Le "registre des consentements" décrit dans la spec (§3, horodatage +
+  formulation employée + extrait audio) n'existe pas réellement pour
+  aucun outil aujourd'hui, `envoyer_sms_itineraire` y compris — seule
+  une table de log simple (succès/échec + texte envoyé) existe. Écart
+  déjà présent avant cette session pour `enregistrer_objet_perdu`/
+  `demander_rappel`, pas quelque chose à résoudre uniquement pour le SMS.
+- Pas de vrai test d'envoi (nécessite les identifiants Twilio réels,
+  jamais présents dans cet environnement) — à faire par l'utilisateur,
+  même méthode que les vérifications de production de cette semaine.
+- Consigne de prompt toujours à stabiliser avec l'utilisateur.
+- Idée API Places pour les lieux hors lexique, notée ci-dessus, pas
+  commencée.
+
+## ✅ Fait le 09/10/2026 — nouvel incident d'exposition d'`API_TOKEN`, rotation complète refaite
+
+En voulant tester `calculer_itineraire_complexe` en production (voir
+entrée du 08/10 juste en dessous), l'utilisateur a collé par
+inadvertance une commande `curl` contenant le vrai `API_TOKEN` de
+production en clair — plus sérieux que l'incident de la veille sur la
+clé Google, puisqu'`API_TOKEN` protège l'ensemble des outils de l'API,
+pas un seul usage restreint. Même réflexe appliqué immédiatement :
+jeton considéré compromis, rotation complète aux 4 endroits où il vit
+(même procédure qu'au 28/09) :
+1. Variable d'environnement Clever Cloud.
+2. En-tête `Authorization` des 9 outils déclarés côté agent ElevenLabs.
+3. URL du webhook de fin d'appel (`?jeton=...`) — recréée (ElevenLabs
+   ne permet pas de modifier l'URL d'un webhook existant, seulement
+   d'en créer un nouveau puis de le sélectionner comme webhook actif).
+4. En-tête `Authorization` du webhook de personnalisation (modifiable
+   en place, contrairement au webhook post-appel).
+
+**Deux erreurs en cours de route, aucune grave** : (a) confusion entre
+la nouvelle valeur d'`API_TOKEN` et celle de `GOOGLE_ROUTES_API_KEY`
+lors d'un copier-coller — mauvaise valeur déployée sur Clever Cloud
+puis sur le webhook de fin d'appel, corrigée dès détection (401
+persistant après un premier redéploiement, qui a mis la puce à
+l'oreille) ; (b) une URL de webhook malformée en collant le jeton
+directement dans la commande curl — résolu en reprenant la méthode
+`read -s` déjà utilisée pour la clé Google (le jeton ne transite plus
+jamais en clair dans une commande affichée à l'écran).
+
+**Vérifié de bout en bout** : `curl` direct sur `/outils/transferer_agent`
+et sur le webhook `/webhooks/elevenlabs/fin_appel` avec le nouveau
+jeton → 200 dans les deux cas. Puis un vrai appel test côté ElevenLabs
+(widget) confirmé fonctionnel par l'utilisateur — seule vérification
+qui garantit que les 9 outils et les deux webhooks envoient bien le bon
+jeton tel que configuré côté interface, pas seulement notre propre
+serveur.
+
+**Point à reprendre froidement, hors urgence** : deux incidents de ce
+type coup sur coup (08/10 et 09/10) suggèrent que le geste "coller une
+commande curl complète sans la nettoyer d'abord" est un piège facile à
+reproduire, pas un simple coup de malchance. À voir avec l'utilisateur
+si une consigne plus systématique (ex. toujours utiliser `read -s`
+d'emblée pour tout test impliquant un secret, plutôt qu'en rattrapage
+après coup) vaut la peine d'être actée une fois pour toutes.
+
 ## 🔶 En cours le 08/10/2026 — calculateur d'itinéraire Google Routes API, mise en place en cours
 
 Contexte : l'utilisateur a vérifié manuellement que le réseau TABM/Métropole
@@ -140,10 +280,16 @@ structurellement plutôt que de le gérer après coup :
   sandbox connu, sans rapport) et `verifier_backoffice.py` (12/12)
   relancées sans régression.
 
+**Mesure de latence réelle faite le 09/10/2026** (après l'incident de
+rotation d'`API_TOKEN` ci-dessus) : deux appels réels en production,
+619 ms puis 436 ms — largement au-dessus des 300 ms, de façon
+constante sur deux mesures indépendantes, pas un accident ponctuel.
+**Confirme que la décision de conception (Google jamais en tentative
+live bloquante, uniquement en repli explicite) était la bonne** — un
+timeout de 4s reste raisonnable pour ce repli assumé hors chemin
+critique. Question fermée.
+
 **Reste ouvert, volontairement pas traité ce soir** :
-- Mesurer la latence réelle depuis Clever Cloud (pas Cloud Shell) avant
-  toute activation en conditions réelles — c'est ce chiffre qui dira si
-  le timeout de 4s est raisonnable ou s'il faut revoir l'architecture.
 - L'outil d'envoi de SMS (Twilio) n'existe pas du tout encore — sans lui,
   `calculer_itineraire_complexe` peut répondre à l'oral mais pas encore
   tenir la promesse "je vous l'envoie par SMS".
