@@ -1,5 +1,30 @@
 # Prochaines étapes — état au 25/09/2026
 
+## 💡 Idées back-office notées le 12/10/2026, pas prioritaires
+
+Trois évolutions demandées par l'utilisateur, à reprendre ensemble plus
+tard — pas d'action aujourd'hui :
+
+1. **Outil de moyenne horaire des appels, à enrichir.** Courbes pour
+   visualiser les pics horaires (heures pleines/creuses), peut-être
+   ventilées par tranche de 15 min. Voir aussi comment l'intégrer
+   proprement à la page (actuellement une simple tuile).
+2. **Enrichir la base de connaissance "commercial" par des documents
+   (PDF) injectés depuis le back-office**, en complément du site web
+   scrapé. Point d'attention déjà identifié par l'utilisateur lui-même :
+   gestion des conflits entre sources documentaires (site web vs PDF
+   injecté sur le même sujet) — à trancher avant de construire quoi que
+   ce soit, pas une simple question d'upload de fichier.
+3. **Alerte d'expiration du GTFS visible directement dans le
+   back-office**, pas seulement dans les logs de démarrage du serveur
+   (actuellement : un message affiché uniquement au lancement de
+   l'application, que l'équipe CRC ne voit jamais) — pour que les
+   agents sachent qu'une mise à jour est nécessaire sans dépendre de
+   Claude pour le leur signaler. Déclenché le 12/10 par une vraie
+   alerte vue en local : GTFS actuel expirant le 18/10/2026, mais
+   l'utilisateur confirme que ça reste acceptable en mode test tant que
+   l'équipe réseau n'a pas publié de nouveau GTFS — pas une urgence.
+
 ## 🔶 En cours le 12/10/2026 — envoi SMS de l'itinéraire complexe (Twilio)
 
 Suite directe de l'entrée du 08/10 ci-dessous : premier bout du "Graal"
