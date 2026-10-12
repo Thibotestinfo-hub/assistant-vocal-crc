@@ -59,11 +59,12 @@ def formater_sms_itineraire(etapes, duree_totale_min):
     """Construit le texte du SMS à partir des étapes structurées
     renvoyées par calculer_itineraire_complexe — jamais de texte libre
     en entrée (voir docstring du module)."""
-    lignes = ["🚍 Votre itinéraire TABM", ""]
+    lignes = ["📋 Récap de votre itinéraire TABM", ""]
     premiere_transport = True
     for etape in etapes:
         if etape["type"] == "marche":
-            lignes.append("🚶 Marche")
+            duree = etape.get("duree_min")
+            lignes.append(f"🚶 Marche, environ {duree} min" if duree else "🚶 Marche")
         else:
             if not premiere_transport:
                 lignes.append("🔄 Correspondance")

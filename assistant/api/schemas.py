@@ -233,6 +233,7 @@ class ItineraireComplexeRequete(BaseModel):
 
 class EtapeItineraireComplexe(BaseModel):
     type: Literal["marche", "transport"]
+    duree_min: Optional[int] = None
     ligne: Optional[str] = None
     mode: Optional[str] = None
     destination: Optional[str] = None
