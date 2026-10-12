@@ -747,6 +747,12 @@ def _transcription_appel(donnees):
     tours = donnees.get("transcript") or []
     blocs = []
     for tour in tours:
+        if not isinstance(tour, dict):
+            # Forme inattendue (voir docstring) : on ignore ce tour plutôt
+            # que de faire planter toute la page d'appels pour une seule
+            # ligne malformée (trouvé le 12/10/2026 en testant un payload
+            # cassé — voir assistant/backoffice/appels.py).
+            continue
         role_brut = tour.get("role")
         role = _NOMS_ROLES.get(role_brut, role_brut or "—")
         message = (tour.get("message") or "").strip()
