@@ -22,6 +22,10 @@ COLONNES_DEMANDES_RAPPEL = [
     "id", "cree_le", "telephone", "nom", "email", "motif", "resume", "opt_in_marketing",
 ]
 
+COLONNES_SMS_ENVOYES = [
+    "id", "cree_le", "telephone", "succes", "erreur", "conversation_id", "texte",
+]
+
 
 def _exporter_csv(table, colonnes):
     conn = connexion_app()
@@ -56,6 +60,14 @@ def supprimer_objet_perdu(declaration_id):
 
 def exporter_demandes_rappel():
     return _exporter_csv("demandes_rappel", COLONNES_DEMANDES_RAPPEL)
+
+
+def exporter_sms_envoyes():
+    """Pour diagnostiquer envoyer_sms_itineraire (voir assistant/outils/
+    sms.py) : succes/erreur consignés par la tâche de fond, sans autre
+    moyen de les consulter aujourd'hui (pas d'écran back-office dédié,
+    voir docs/prochaines-etapes.md 12/10/2026)."""
+    return _exporter_csv("sms_envoyes", COLONNES_SMS_ENVOYES)
 
 
 def lister_demandes_rappel(limite=200):

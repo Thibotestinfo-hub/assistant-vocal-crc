@@ -41,7 +41,7 @@ from assistant.backoffice.appels import (
     resumer_evaluations, resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
 )
 from assistant.backoffice.exports import (
-    exporter_demandes_rappel, exporter_objets_perdus, lister_demandes_rappel, supprimer_objet_perdu,
+    exporter_demandes_rappel, exporter_objets_perdus, exporter_sms_envoyes, lister_demandes_rappel, supprimer_objet_perdu,
 )
 from assistant.backoffice.page import page_backoffice
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
@@ -394,6 +394,14 @@ def route_backoffice_supprimer_objet_perdu(declaration_id: int):
 @app.get("/backoffice/exports/demandes_rappel.csv", dependencies=[Depends(verifier_acces_backoffice)])
 def route_export_demandes_rappel():
     return _reponse_csv(exporter_demandes_rappel(), "demandes_rappel.csv")
+
+
+@app.get("/backoffice/exports/sms_envoyes.csv", dependencies=[Depends(verifier_acces_backoffice)])
+def route_export_sms_envoyes():
+    """Diagnostic de envoyer_sms_itineraire (voir assistant/outils/sms.py)
+    — pas encore d'écran back-office dédié, voir docs/prochaines-etapes.md
+    12/10/2026."""
+    return _reponse_csv(exporter_sms_envoyes(), "sms_envoyes.csv")
 
 
 @app.post("/backoffice/activation/{outil}/basculer",
