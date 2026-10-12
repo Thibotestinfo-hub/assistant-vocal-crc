@@ -111,13 +111,19 @@ def _consigner(telephone, texte, succes, erreur, conversation_id):
 
 def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=None, heure=None, conversation_id=None):
     """Fonction destinée à tourner en tâche de fond (voir route dans
-    assistant/api/main.py) — ne lève jamais, consigne toujours le
-    résultat dans sms_envoyes."""
-    resultat = calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date, heure)
-    if not resultat.get("trouve"):
-        _consigner(telephone, None, False, resultat.get("erreur") or "itinéraire introuvable au moment de l'envoi", conversation_id)
-        return
+    assistant/api/main.py) — ne lève jamais, consigne toujours un
+    résultat dans sms_envoyes, même une erreur totalement imprévue
+    (le try/except large est volontaire ici : une tâche de fond qui
+    plante en silence, sans aucune trace, est pire qu'une ligne
+    d'erreur — personne ne peut alors savoir qu'elle a échoué)."""
+    try:
+        resultat = calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date, heure)
+        if not resultat.get("trouve"):
+            _consigner(telephone, None, False, resultat.get("erreur") or "itinéraire introuvable au moment de l'envoi", conversation_id)
+            return
 
-    texte = formater_sms_itineraire(resultat["etapes"], resultat.get("duree_totale_min"))
-    succes, erreur = _envoyer_requete_twilio(telephone, texte)
-    _consigner(telephone, texte, succes, erreur, conversation_id)
+        texte = formater_sms_itineraire(resultat["etapes"], resultat.get("duree_totale_min"))
+        succes, erreur = _envoyer_requete_twilio(telephone, texte)
+        _consigner(telephone, texte, succes, erreur, conversation_id)
+    except Exception as exc:
+        _consigner(telephone, None, False, f"erreur imprévue : {exc!r}", conversation_id)
