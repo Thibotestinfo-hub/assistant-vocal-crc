@@ -15,6 +15,12 @@ site_web: "https://www.salonetangcotebleue.fr/"
 # .env, jamais ici).
 elevenlabs_agent_id: "agent_7101m00afyqfe16re00h46qnbnd3"
 
+# Numéro Twilio depuis lequel les SMS (itinéraire complexe) sont envoyés
+# — pas un secret, juste une référence. Les identifiants pour agir
+# dessus (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) sont dans .env, jamais
+# ici (voir assistant/outils/sms.py).
+twilio_numero_envoi: "+33939205690"
+
 # Voix proposées à l'équipe CRC depuis le back-office (choisies parmi
 # celles ajoutées à "Mes voix" côté ElevenLabs, Étape 6 point B). Liste
 # volontairement statique plutôt qu'interrogée en direct à chaque

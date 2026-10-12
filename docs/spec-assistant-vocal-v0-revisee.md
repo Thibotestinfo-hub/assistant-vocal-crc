@@ -283,7 +283,26 @@ Ajouté le 08/10/2026. S'appuie sur l'API Google Routes (trajets nécessitant de
 
 Réponse : une liste d'étapes, chacune de type `marche` ou `transport` (ligne, destination, arrêt de départ/arrivée, heures). Si `trouve` est faux (API indisponible, clé non configurée, ou aucun trajet trouvé), même règle que les autres outils : ne pas inventer, basculer en sortie.
 
-**Consigne de prompt pas encore stabilisée** (à retravailler ensemble avant activation réelle) : quand ce calculateur trouve un trajet, l'agent peut le restituer à l'oral, puis proposer l'envoi du détail par SMS — mais l'outil d'envoi de SMS n'existe pas encore (fil Twilio séparé, pas commencé). Ne pas activer ce bouton en back-office avant que les deux soient prêts ensemble.
+**Consigne de prompt pas encore stabilisée** (à retravailler ensemble avant activation réelle) : quand ce calculateur trouve un trajet, l'agent peut le restituer à l'oral, puis proposer l'envoi du détail par SMS via `envoyer_sms_itineraire` (ci-dessous).
+
+### `envoyer_sms_itineraire` — expérimental, désactivé par défaut, interrupteur séparé
+
+Ajouté le 12/10/2026. Envoie par SMS (Twilio) le détail d'un trajet déjà trouvé par `calculer_itineraire_complexe`, à proposer uniquement après que l'appelant a donné son accord oral. **Le texte du SMS n'est jamais composé par l'agent** : l'outil recalcule lui-même l'itinéraire à partir des mêmes paramètres, pour ne jamais risquer un SMS qui contredit ce qui a été dit à l'oral (voir assistant/outils/sms.py).
+
+```json
+{
+  "name": "envoyer_sms_itineraire",
+  "parameters": {
+    "telephone": { "type": "string" },
+    "arret_depart_id": { "type": "string" },
+    "arret_arrivee_id": { "type": "string" },
+    "date": { "type": "string", "required": false },
+    "heure": { "type": "string", "required": false }
+  }
+}
+```
+
+Répond tout de suite (`accepte: true`) — l'envoi réel se fait en tâche de fond, après la réponse, pour ne jamais ajouter sa latence (calcul Google + Twilio) au tour de parole en direct. **Consigne de prompt pas encore stabilisée** (à retravailler ensemble) : demander explicitement le numéro de téléphone (même règle de reformulation que pour `enregistrer_objet_perdu`/`demander_rappel`, jamais l'inventer), puis une phrase de transition courte du type « Je vous envoie ça par SMS dans un instant. » avant de poursuivre ou clore l'appel.
 
 ---
 
