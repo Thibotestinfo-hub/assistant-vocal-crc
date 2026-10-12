@@ -214,8 +214,9 @@ def route_envoyer_sms_itineraire(requete: EnvoiSmsItineraireRequete, taches_fond
     assistant/outils/sms.py)."""
     taches_fond.add_task(
         envoyer_sms_itineraire,
-        requete.telephone, requete.arret_depart_id, requete.arret_arrivee_id,
-        requete.date, requete.heure, requete.conversation_id,
+        telephone=requete.telephone, arret_depart_id=requete.arret_depart_id,
+        arret_arrivee_id=requete.arret_arrivee_id, date=requete.date, heure=requete.heure,
+        nom=requete.nom, conversation_id=requete.conversation_id,
     )
     return {"accepte": True, "erreur": None}
 

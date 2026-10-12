@@ -241,6 +241,12 @@ _COLONNES_RAPPEL = {
     "traite": "INTEGER NOT NULL DEFAULT 0",
 }
 
+# nom ajouté après coup (12/10/2026) : personnalisation du SMS
+# ("Bonjour Jean,"), table sms_envoyes déjà en production avant cet ajout.
+_COLONNES_SMS = {
+    "nom": "TEXT",
+}
+
 
 def _migrer_colonnes_manquantes(conn):
     def ajouter_colonnes(table, colonnes):
@@ -251,6 +257,7 @@ def _migrer_colonnes_manquantes(conn):
 
     ajouter_colonnes("appels", _COLONNES_TRACABILITE)
     ajouter_colonnes("demandes_rappel", _COLONNES_RAPPEL)
+    ajouter_colonnes("sms_envoyes", _COLONNES_SMS)
 
 
 def connexion_gtfs():

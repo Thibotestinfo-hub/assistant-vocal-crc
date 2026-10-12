@@ -1,5 +1,53 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 12/10/2026 — premier appel réel complet réussi, 5 retours UX de l'utilisateur traités
+
+Premier appel de bout en bout avec les deux outils déclarés côté
+ElevenLabs et la consigne de prompt stabilisée : **ça fonctionne**.
+Cinq retours de l'utilisateur après ce test, traités un par un :
+
+1. **Latence perçue avant le calculateur complexe** — prompt-only :
+   l'agent annonce maintenant qu'il continue à chercher avant d'appeler
+   calculer_itineraire_complexe, au lieu de laisser un silence.
+2. **Débit trop rapide à l'énoncé du trajet, risque d'interruption** —
+   deux leviers pris ensemble : l'agent annonce d'abord la complexité du
+   trajet ET mentionne l'existence du SMS *avant* de détailler (pour que
+   l'appelant sache qu'il n'a pas besoin de tout noter dès le début,
+   pas seulement après). Le troisième levier qu'avait évoqué
+   l'utilisateur (ralentir réellement le débit vocal) n'a pas été
+   ajouté au prompt — pas de certitude que les balises audio v3
+   ([lentement], etc.) soient fiables pour ça sans l'avoir testé en
+   vrai ; proposé à l'utilisateur comme piste à essayer elle-même.
+3. **Prénom non demandé, utile pour personnaliser le SMS** — nouveau
+   paramètre optionnel `nom` sur `envoyer_sms_itineraire` (Pydantic,
+   route, table `sms_envoyes` migrée via `_migrer_colonnes_manquantes`
+   car déjà en production). Le SMS s'ouvre sur "Bonjour {nom}," si
+   fourni, sinon reste générique — jamais bloquant si l'appelant ne le
+   donne pas.
+4. **Structure du SMS à revoir** (comparée à Google Maps) : ligne +
+   direction (panneau du bus) + arrêt de descente maintenant affichés
+   séparément, plus "Marcher vers [arrêt suivant]" déduit de l'étape
+   suivante au lieu d'un "Marche" sec sans destination.
+5. **Lien Google Maps cliquable dans le SMS, trajet pré-rempli** —
+   implémenté avec le format d'URL universel
+   (`google.com/maps/dir/?api=1&origin=...&destination=...&travelmode=transit`),
+   aucun appel API supplémentaire ni coût : les coordonnées des deux
+   arrêts sont déjà résolues pour l'appel à Google Routes lui-même.
+
+Contrat `envoyer_sms_itineraire` et consigne de prompt (§4/§5 de la
+spec) mis à jour en conséquence — nécessite de redéclarer le paramètre
+`nom` côté outil ElevenLabs et de recoller la section "Itinéraire" du
+prompt.
+
+Vérifié en local : formatage du SMS avec nom/lien/durée de marche et
+sans (dégradation propre dans tous les cas), migration de colonne
+confirmée sur la base locale existante, lien Google Maps généré
+correct. Suites `verifier_api.py` (7/8, échec réseau sandbox connu) et
+`verifier_backoffice.py` (12/12) relancées sans régression.
+
+**Reste à faire** : nouveau test d'appel une fois le paramètre `nom`
+et la consigne de prompt mis à jour côté ElevenLabs.
+
 ## ✅ Fait le 12/10/2026 — outils déclarés côté ElevenLabs, consigne de prompt écrite, durée de marche ajoutée
 
 Suite du premier test d'appel réel : l'agent ne trouvait pas d'itinéraire

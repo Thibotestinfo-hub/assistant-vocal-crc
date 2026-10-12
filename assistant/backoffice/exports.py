@@ -23,7 +23,7 @@ COLONNES_DEMANDES_RAPPEL = [
 ]
 
 COLONNES_SMS_ENVOYES = [
-    "id", "cree_le", "telephone", "succes", "erreur", "conversation_id", "texte",
+    "id", "cree_le", "telephone", "nom", "succes", "erreur", "conversation_id", "texte",
 ]
 
 

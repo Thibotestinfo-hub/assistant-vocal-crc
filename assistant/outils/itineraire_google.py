@@ -85,27 +85,51 @@ def _duree_min(duree_brute):
 
 
 def _etapes_depuis_reponse(route):
+    # À plat : une étape de marche a besoin de connaître l'arrêt de
+    # l'étape SUIVANTE pour dire "marcher vers..." (voir docs/
+    # prochaines-etapes.md, 12/10/2026) — plus simple de travailler sur
+    # une liste de steps indexable que sur l'imbrication legs/steps.
+    steps = [s for leg in route.get("legs", []) for s in leg.get("steps", [])]
     etapes = []
-    for leg in route.get("legs", []):
-        for step in leg.get("steps", []):
-            if step.get("travelMode") != "TRANSIT":
-                etapes.append({"type": "marche", "duree_min": _duree_min(step.get("staticDuration"))})
-                continue
-            details = step.get("transitDetails", {})
-            ligne = details.get("transitLine", {})
-            arrets = details.get("stopDetails", {})
-            heures = details.get("localizedValues", {})
+    for i, step in enumerate(steps):
+        if step.get("travelMode") != "TRANSIT":
+            vers = None
+            if i + 1 < len(steps) and steps[i + 1].get("travelMode") == "TRANSIT":
+                arret_suivant = steps[i + 1].get("transitDetails", {}).get("stopDetails", {})
+                vers = (arret_suivant.get("departureStop") or {}).get("name")
             etapes.append({
-                "type": "transport",
-                "ligne": ligne.get("nameShort") or ligne.get("name"),
-                "mode": (ligne.get("vehicle") or {}).get("type"),
-                "destination": details.get("headsign"),
-                "arret_depart": (arrets.get("departureStop") or {}).get("name"),
-                "arret_arrivee": (arrets.get("arrivalStop") or {}).get("name"),
-                "depart": ((heures.get("departureTime") or {}).get("time") or {}).get("text"),
-                "arrivee": ((heures.get("arrivalTime") or {}).get("time") or {}).get("text"),
+                "type": "marche",
+                "duree_min": _duree_min(step.get("staticDuration")),
+                "vers": vers,
             })
+            continue
+        details = step.get("transitDetails", {})
+        ligne = details.get("transitLine", {})
+        arrets = details.get("stopDetails", {})
+        heures = details.get("localizedValues", {})
+        etapes.append({
+            "type": "transport",
+            "ligne": ligne.get("nameShort") or ligne.get("name"),
+            "mode": (ligne.get("vehicle") or {}).get("type"),
+            "destination": details.get("headsign"),
+            "arret_depart": (arrets.get("departureStop") or {}).get("name"),
+            "arret_arrivee": (arrets.get("arrivalStop") or {}).get("name"),
+            "depart": ((heures.get("departureTime") or {}).get("time") or {}).get("text"),
+            "arrivee": ((heures.get("arrivalTime") or {}).get("time") or {}).get("text"),
+        })
     return etapes
+
+
+def _lien_google_maps(arret_depart, arret_arrivee):
+    """Lien universel Google Maps (web/iOS/Android), trajet pré-rempli en
+    mode transport en commun — aucun appel API, aucun coût, juste les
+    coordonnées qu'on a déjà résolues pour l'appel à Google Routes."""
+    return (
+        "https://www.google.com/maps/dir/?api=1"
+        f"&origin={arret_depart['lat']},{arret_depart['lon']}"
+        f"&destination={arret_arrivee['lat']},{arret_arrivee['lon']}"
+        "&travelmode=transit"
+    )
 
 
 def calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date=None, heure=None, conn=None):
@@ -154,4 +178,9 @@ def calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date=None, h
     if not etapes:
         return {"trouve": False, "erreur": "réponse du calculateur complexe vide ou inattendue"}
 
-    return {"trouve": True, "etapes": etapes, "duree_totale_min": _duree_min(routes[0].get("duration"))}
+    return {
+        "trouve": True,
+        "etapes": etapes,
+        "duree_totale_min": _duree_min(routes[0].get("duration")),
+        "lien_google_maps": _lien_google_maps(arret_depart, arret_arrivee),
+    }
