@@ -1,5 +1,87 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 12/10/2026 — outils déclarés côté ElevenLabs, consigne de prompt écrite, durée de marche ajoutée
+
+Suite du premier test d'appel réel : l'agent ne trouvait pas d'itinéraire
+complexe et proposait une mise en relation — cause identifiée, pas un bug
+caché : `calculer_itineraire_complexe` et `envoyer_sms_itineraire`
+n'avaient jamais été déclarés comme outils côté agent ElevenLabs (étape
+manuelle systématique pour chaque nouvel outil de ce projet, jamais
+automatique). Contrats complétés dans la spec (§4, champ `description`
+manquant — essentiel pour qu'ElevenLabs sache quand les appeler — et
+descriptions de paramètres détaillées), puis les deux outils déclarés
+par l'utilisateur côté interface.
+
+**Remarque de l'utilisateur en relisant le brouillon de consigne de
+prompt, prise en compte** : annoncer une section de marche sans
+indication de durée ("rejoignez l'arrêt...") est trop sec à l'oral —
+contrairement à un horaire de bus, l'appelant n'a aucun repère pour
+savoir si c'est 2 minutes ou 15. Problème trouvé en creusant : **la
+donnée n'existait même pas** — le champ demandé à l'API Google
+(`FIELD_MASK`) ne récupérait pas la durée de marche. Corrigé :
+`routes.legs.steps.staticDuration` ajouté à la requête,
+`itineraire_google.py` l'expose dans chaque étape (`duree_min`, jamais
+à zéro par défaut si absente — CLAUDE.md, exactitude), répercuté dans
+le SMS ("🚶 Marche, environ 4 min") et dans la consigne de prompt (§5,
+section Itinéraire, maintenant stabilisée).
+
+**Idée "quai opposé" (même remarque), pas construite** : à la
+connaissance de Claude, l'API Google Routes ne descend pas à ce niveau
+de détail (arrêt, pas numéro de quai) — pas de tentative d'implémentation,
+question laissée ouverte si une vraie réponse Google contredit ça un jour.
+
+**Angle produit noté par l'utilisateur, pas actionné** : le SMS
+d'itinéraire, proposé comme un service réel (pas une simple formalité),
+pourrait légitimer à terme la collecte d'un numéro pour recontacter un
+appelant — contrairement à une demande de numéro "à froid", qui ne fait
+pas sens hors contexte de service rendu. Rejoint le point déjà noté sur
+le registre de consentement (actuellement un simple log succès/échec,
+pas un opt-in structuré comme sur objets_perdus/demandes_rappel) — à
+reprendre ensemble, pas aujourd'hui.
+
+**SMS recadré comme un "récap" plutôt qu'un envoi systématique**, à la
+demande de l'utilisateur : titre du SMS changé ("📋 Récap de votre
+itinéraire TABM"), phrase de proposition orale changée en service
+optionnel ("Si vous voulez, je peux vous envoyer un récap par SMS.").
+
+Vérifié en local (formatage avec et sans durée de marche connue, suites
+`verifier_api.py` 7/8 — démarrage à froid confirmé sans rapport, ré-essai
+propre — et `verifier_backoffice.py` 12/12). **Pas encore retesté en
+appel réel** avec les outils maintenant déclarés côté ElevenLabs — à
+faire par l'utilisateur à la prochaine occasion.
+
+## ✅ Fait le 12/10/2026 — premier envoi SMS réel réussi, bug de visibilité corrigé au passage
+
+Premier test réel d'`envoyer_sms_itineraire` : aucun SMS reçu, et
+surtout **aucune trace dans `sms_envoyes`** — silence total, aucun
+moyen de diagnostiquer. Deux correctifs enchaînés :
+
+1. Export CSV `sms_envoyes.csv` ajouté (`assistant/backoffice/
+   exports.py`, même route que les exports existants), pour pouvoir
+   consulter le résultat des tâches de fond sans accès à la base de
+   production — manquait depuis le début, gap comblé dans l'urgence du
+   diagnostic plutôt que découvert plus tard.
+2. Cause racine du silence : le `try/except` d'`envoyer_sms_itineraire`
+   n'attrapait que les erreurs réseau vers Google/Twilio, pas une
+   exception imprévue ailleurs dans la fonction — une tâche de fond qui
+   plante en dehors de ce périmètre ne laissait donc aucune trace.
+   Élargi à toute exception. Vérifié en local en provoquant une vraie
+   exception (heure mal formée) : désormais bien consignée au lieu de
+   disparaître.
+
+Après redéploiement : **premier SMS réel reçu avec succès**
+(Émile Ripert → Mairie Sud), texte formaté conforme à ce qu'on avait
+préparé ensemble (émojis par étape, correspondance visible, durée
+totale), `succes:1` dans `sms_envoyes`. La chaîne complète fonctionne
+de bout en bout : recalcul Google → formatage → envoi Twilio → journal.
+
+**Reste à faire** : test en conditions réelles via un vrai appel
+(Phase 2) — trajets suggérés : Émile Ripert (Velaux) → la Clinique de
+Marignane (force le passage par le calculateur complexe, vérifié dans
+le GTFS le 12/10), avec Mairie Sud (Vitrolles) → Mairie des
+Pennes-Mirabeau et Clinique de Rognac → Clinique de Marignane en
+solutions de repli.
+
 ## 💡 Idées back-office notées le 12/10/2026, pas prioritaires
 
 Trois évolutions demandées par l'utilisateur, à reprendre ensemble plus

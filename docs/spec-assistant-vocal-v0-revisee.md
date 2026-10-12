@@ -272,18 +272,17 @@ Ajouté le 08/10/2026. S'appuie sur l'API Google Routes (trajets nécessitant de
 ```json
 {
   "name": "calculer_itineraire_complexe",
+  "description": "Calcule un itinéraire via un service externe (Google), pour les trajets nécessitant de la marche ou plus d'une correspondance. À appeler UNIQUEMENT si calculer_itineraire a déjà été appelé pour le même trajet et a renvoyé trouve=false. Ne jamais l'appeler en même temps que calculer_itineraire, ni avant lui, pour le même trajet.",
   "parameters": {
-    "arret_depart_id": { "type": "string" },
-    "arret_arrivee_id": { "type": "string" },
-    "date": { "type": "string", "required": false },
-    "heure": { "type": "string", "required": false }
+    "arret_depart_id": { "type": "string", "description": "Identifiant de l'arrêt de départ, déjà résolu via rechercher_arret ou rechercher_repere" },
+    "arret_arrivee_id": { "type": "string", "description": "Identifiant de l'arrêt d'arrivée, déjà résolu via rechercher_arret ou rechercher_repere" },
+    "date": { "type": "string", "description": "ISO (AAAA-MM-JJ), défaut aujourd'hui", "required": false },
+    "heure": { "type": "string", "description": "HH:MM, défaut maintenant", "required": false }
   }
 }
 ```
 
-Réponse : une liste d'étapes, chacune de type `marche` ou `transport` (ligne, destination, arrêt de départ/arrivée, heures). Si `trouve` est faux (API indisponible, clé non configurée, ou aucun trajet trouvé), même règle que les autres outils : ne pas inventer, basculer en sortie.
-
-**Consigne de prompt pas encore stabilisée** (à retravailler ensemble avant activation réelle) : quand ce calculateur trouve un trajet, l'agent peut le restituer à l'oral, puis proposer l'envoi du détail par SMS via `envoyer_sms_itineraire` (ci-dessous).
+Réponse : une liste d'étapes, chacune de type `marche` ou `transport` (ligne, destination, arrêt de départ/arrivée, heures, et `duree_min` pour une étape de marche — absente si Google ne l'a pas fournie, jamais à zéro par défaut). Si `trouve` est faux (API indisponible, clé non configurée, ou aucun trajet trouvé), même règle que les autres outils : ne pas inventer, basculer en sortie.
 
 ### `envoyer_sms_itineraire` — expérimental, désactivé par défaut, interrupteur séparé
 
@@ -292,12 +291,14 @@ Ajouté le 12/10/2026. Envoie par SMS (Twilio) le détail d'un trajet déjà tro
 ```json
 {
   "name": "envoyer_sms_itineraire",
+  "description": "Envoie par SMS le détail d'un itinéraire déjà trouvé par calculer_itineraire_complexe. À appeler UNIQUEMENT après accord explicite de l'appelant et obtention de son numéro de téléphone, jamais sans ce consentement.",
   "parameters": {
-    "telephone": { "type": "string" },
-    "arret_depart_id": { "type": "string" },
-    "arret_arrivee_id": { "type": "string" },
-    "date": { "type": "string", "required": false },
-    "heure": { "type": "string", "required": false }
+    "telephone": { "type": "string", "description": "Numéro de l'appelant, redemandé explicitement et reformulé avant l'appel de l'outil" },
+    "arret_depart_id": { "type": "string", "description": "Même valeur que celle utilisée pour calculer_itineraire_complexe" },
+    "arret_arrivee_id": { "type": "string", "description": "Même valeur que celle utilisée pour calculer_itineraire_complexe" },
+    "date": { "type": "string", "description": "ISO (AAAA-MM-JJ), même valeur que calculer_itineraire_complexe", "required": false },
+    "heure": { "type": "string", "description": "HH:MM, même valeur que calculer_itineraire_complexe", "required": false },
+    "conversation_id": { "type": "string", "description": "Fourni automatiquement par {{system__conversation_id}}, pas par l'appelant", "required": false }
   }
 }
 ```
@@ -416,10 +417,32 @@ l'heure d'arrivée.
 Si une correspondance est nécessaire, annonce les deux lignes et le
 nom de l'arrêt de correspondance, sans détailler le temps d'attente
 sauf si l'appelant le demande.
-Si l'outil ne trouve rien, ne propose jamais un trajet à l'improviste :
-tu bascules en sortie, comme pour toute information indisponible.
 Présente toujours le trajet comme prévu, pas comme réel — même
 prudence que pour les horaires.
+
+Si calculer_itineraire renvoie trouve=false, appelle calculer_itineraire_complexe
+avec les mêmes arrêts avant de conclure qu'aucun trajet n'existe. Ne les appelle
+jamais tous les deux pour le même trajet, et jamais calculer_itineraire_complexe
+en premier.
+
+Si calculer_itineraire_complexe trouve un trajet, annonce-le étape par étape :
+pour chaque section de marche, dis "rejoignez l'arrêt..." suivi de la durée si
+elle est connue ("il y a environ quatre minutes de marche") — ne dis jamais de
+durée si l'outil n'en a pas fourni, invente encore moins un ordre de grandeur ;
+pour chaque section en bus, annonce la ligne, la destination, l'heure de départ
+et d'arrivée, comme pour un trajet simple. S'il y a plusieurs sections de bus,
+dis "ensuite" avant chacune, sans détailler le temps d'attente sauf si
+l'appelant le demande.
+
+Une fois le trajet annoncé, propose-le comme un service, pas une obligation :
+« Si vous voulez, je peux vous envoyer un récap par SMS. » Si l'appelant
+accepte, demande son numéro de téléphone, fais-le répéter et confirme-le avant
+d'appeler envoyer_sms_itineraire — jamais sans ce numéro confirmé à l'oral.
+N'appelle cet outil qu'une seule fois par trajet proposé.
+
+Si calculer_itineraire_complexe renvoie aussi trouve=false, ne propose jamais
+un trajet à l'improviste : tu bascules en sortie, comme pour toute information
+indisponible.
 
 ## Répondre sur le commercial et le pratique
 Appuie-toi sur rechercher_information. Réponds en une ou deux

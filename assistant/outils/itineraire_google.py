@@ -44,6 +44,7 @@ TIMEOUT_SECONDES = 4.0
 FIELD_MASK = (
     "routes.duration,"
     "routes.legs.steps.travelMode,"
+    "routes.legs.steps.staticDuration,"
     "routes.legs.steps.transitDetails"
 )
 
@@ -74,12 +75,21 @@ def _departure_time_rfc3339(date, heure):
     return dt_local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _duree_min(duree_brute):
+    """Convertit une durée Google au format '240s' en minutes entières,
+    ou None si absente — jamais 0 par défaut (CLAUDE.md, exactitude :
+    une durée inconnue ne doit jamais être confondue avec zéro minute)."""
+    if not duree_brute:
+        return None
+    return int(float(duree_brute.rstrip("s"))) // 60
+
+
 def _etapes_depuis_reponse(route):
     etapes = []
     for leg in route.get("legs", []):
         for step in leg.get("steps", []):
             if step.get("travelMode") != "TRANSIT":
-                etapes.append({"type": "marche"})
+                etapes.append({"type": "marche", "duree_min": _duree_min(step.get("staticDuration"))})
                 continue
             details = step.get("transitDetails", {})
             ligne = details.get("transitLine", {})
@@ -144,7 +154,4 @@ def calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date=None, h
     if not etapes:
         return {"trouve": False, "erreur": "réponse du calculateur complexe vide ou inattendue"}
 
-    duree_brute = routes[0].get("duration", "")
-    duree_min = int(float(duree_brute.rstrip("s"))) // 60 if duree_brute else None
-
-    return {"trouve": True, "etapes": etapes, "duree_totale_min": duree_min}
+    return {"trouve": True, "etapes": etapes, "duree_totale_min": _duree_min(routes[0].get("duration"))}
