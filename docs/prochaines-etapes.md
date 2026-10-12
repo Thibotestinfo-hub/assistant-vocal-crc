@@ -1,5 +1,78 @@
 # Prochaines étapes — état au 25/09/2026
 
+## 🔶 En cours le 12/10/2026 — appels téléphoniques réels absents du back-office, cause isolée au canal Twilio
+
+Signalé une 2e fois par l'utilisateur : un vrai appel téléphonique
+(numéro Twilio) n'apparaît pas du tout dans `/backoffice/appels`, même
+après rafraîchissement et en navigation privée (élimine un problème de
+cache navigateur). Investigation menée ensemble, étape par étape :
+
+1. **Écarté** : notre serveur accepte toujours le webhook correctement
+   (`curl` direct sur `/webhooks/elevenlabs/fin_appel` → 200). Rien
+   cassé côté authentification/réseau par les changements du jour.
+2. **Écarté** : republication du webhook post-appel côté ElevenLabs
+   (resélectionné + republié par précaution) — n'a pas résolu le
+   problème, donc pas (seulement) un souci de publication oubliée.
+3. **Signal clé trouvé** : un test via le **widget** ElevenLabs (pas un
+   appel téléphonique) apparaît, lui, correctement dans le back-office,
+   presque immédiatement. **Tous les appels manquants à ce jour étaient
+   des vrais appels téléphoniques Twilio ; la seule vérification
+   réussie depuis la rotation du jeton (09/10) était aussi un test
+   widget.** Forte présomption que le problème est spécifique au canal
+   téléphonique, pas aux webhooks en général — à confirmer avec
+   d'autres tests, et à chercher du côté d'un éventuel réglage propre
+   au numéro Twilio/à l'intégration téléphonique côté ElevenLabs,
+   séparé des réglages génériques de l'agent déjà vérifiés.
+
+**Deux vrais bugs de robustesse trouvés et corrigés en creusant**
+(indépendants de la cause ci-dessus, mais qui auraient de toute façon
+pu faire perdre silencieusement un appel ou planter toute la page) :
+
+- `enregistrer_appel()` (`assistant/backoffice/appels.py`) : le
+  commentaire du code promettait "ne lève jamais d'exception sur un
+  format inattendu", mais `_extraire_tracabilite()` n'était pas
+  réellement blindée contre toute forme de payload — jamais vérifiée
+  sur un vrai appel téléphonique. Un seul champ de forme inattendue
+  (ex. `transcript` non conforme) faisait perdre **tout l'appel**
+  plutôt qu'une seule métrique. Corrigé : `try/except` autour de
+  l'extraction, repli sur des métriques vides si elle échoue — la
+  ligne (conversation_id, payload brut complet) est maintenant
+  toujours insérée.
+- `_transcription_appel()` (`assistant/backoffice/page.py`) : même
+  angle mort côté affichage — un `transcript` de forme inattendue
+  faisait planter **toute la page** `/backoffice/appels` (pas
+  seulement la ligne concernée), trouvé en testant le correctif
+  ci-dessus avec un payload volontairement cassé. Corrigé : les tours
+  de transcript qui ne sont pas des objets valides sont ignorés plutôt
+  que de faire planter le rendu.
+
+Vérifié en local : payload cassé (transcript avec un élément non-objet)
+→ avant le correctif, perte totale de l'appel ET plantage de la page ;
+après, ligne conservée (métriques vides) et page affichée normalement
+(200). Nettoyage des lignes de test fait avant de relancer les suites.
+`verifier_api.py` (7/8, échec réseau sandbox connu) et
+`verifier_backoffice.py` (12/12) relancées sans régression.
+
+**Reste ouvert** :
+- La cause réelle du silence côté téléphonie Twilio n'est pas encore
+  trouvée — à investiguer côté ElevenLabs (réglage propre au numéro,
+  pas à l'agent générique).
+- Deux bugs signalés par l'utilisateur en testant via le widget, pas
+  encore traités (méthode "une chose à la fois") :
+  - La question de satisfaction est validée par l'agent sans que
+    l'appelant y réponde — **récidive** d'un bug déjà corrigé le
+    28/09/2026 par une règle de prompt (jamais appeler
+    `enregistrer_satisfaction` dans le même tour que la question). La
+    règle existe toujours dans la spec — à vérifier si elle est
+    toujours bien copiée côté ElevenLabs, ou si le problème est plus
+    profond qu'une consigne de prompt.
+  - Colonne "Voix" vide pour plusieurs appels dans le tableau du
+    back-office, signalé comme un problème récurrent, antérieur à
+    aujourd'hui — pas encore diagnostiqué (piste la plus probable à ce
+    stade : `voix_utilisees` dépend de `per_voice_usage` dans le
+    payload, peut-être absent pour certains types d'appels courts ou
+    certaines voix — à vérifier sur un vrai payload avant de conclure).
+
 ## ✅ Fait le 12/10/2026 — bug de marches dupliquées corrigé, SMS simplifié, 5 nouveaux retours UX
 
 Deuxième appel réel avec les outils déclarés : ça fonctionne, mais les

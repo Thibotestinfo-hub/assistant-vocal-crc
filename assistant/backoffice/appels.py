@@ -71,16 +71,34 @@ def _extraire_tracabilite(donnees):
     }
 
 
+_TRACABILITE_VIDE = {
+    "duree_secs": None, "cout_usd": None, "minutes_asr": None, "minutes_tts": None,
+    "modeles_llm": None, "tokens_llm": None, "outils_utilises": None, "voix_utilisees": None,
+}
+
+
 def enregistrer_appel(charge_brute: dict):
     """Insère (ou met à jour si déjà vu) un appel à partir de la charge
     du webhook ElevenLabs. Ne lève jamais d'exception sur un format
     inattendu : un appel dont on ne reconnaît aucun champ est quand
-    même stocké, pour ne perdre aucune donnée reçue."""
+    même stocké, pour ne perdre aucune donnée reçue.
+
+    _extraire_tracabilite() est défensive (.get() partout), mais pas
+    blindée contre toute forme de payload imprévue (ex. un appel
+    téléphonique réel structuré différemment d'un appel widget, jamais
+    vérifié sur un vrai payload téléphonique à ce jour) — un seul champ
+    de forme inattendue y ferait une exception non rattrapée, perdant
+    tout l'appel plutôt qu'une seule métrique. D'où ce try/except : la
+    ligne est TOUJOURS insérée (donnees_brutes complet, conversation_id),
+    même si l'extraction des métriques échoue entièrement."""
     donnees = charge_brute.get("data", charge_brute) if isinstance(charge_brute, dict) else {}
     conversation_id = donnees.get("conversation_id")
     agent_id = donnees.get("agent_id")
     statut = donnees.get("status")
-    tracabilite = _extraire_tracabilite(donnees)
+    try:
+        tracabilite = _extraire_tracabilite(donnees)
+    except Exception:
+        tracabilite = _TRACABILITE_VIDE
 
     conn = connexion_app()
     conn.execute(
