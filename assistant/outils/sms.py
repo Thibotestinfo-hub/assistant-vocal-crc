@@ -55,28 +55,48 @@ def _vers_e164(telephone):
     return "+33" + nettoye[1:]
 
 
-def formater_sms_itineraire(etapes, duree_totale_min):
+def _ligne_marche(etape):
+    duree = etape.get("duree_min")
+    vers = etape.get("vers")
+    if vers and duree:
+        return f"🚶 Marcher vers {vers} (environ {duree} min)"
+    if vers:
+        return f"🚶 Marcher vers {vers}"
+    if duree:
+        return f"🚶 Marche, environ {duree} min"
+    return "🚶 Marche"
+
+
+def formater_sms_itineraire(etapes, duree_totale_min, nom=None, lien_google_maps=None):
     """Construit le texte du SMS à partir des étapes structurées
     renvoyées par calculer_itineraire_complexe — jamais de texte libre
-    en entrée (voir docstring du module)."""
-    lignes = ["📋 Récap de votre itinéraire TABM", ""]
+    en entrée (voir docstring du module). Format pensé pour se
+    rapprocher de ce qu'on voit sur Google Maps : ligne, direction
+    (panneau du bus) et arrêt de descente clairement séparés, pas
+    fondus dans une seule flèche."""
+    titre = f"📋 Bonjour {nom}, voici votre itinéraire TABM" if nom else "📋 Récap de votre itinéraire TABM"
+    lignes = [titre, ""]
     premiere_transport = True
     for etape in etapes:
         if etape["type"] == "marche":
-            duree = etape.get("duree_min")
-            lignes.append(f"🚶 Marche, environ {duree} min" if duree else "🚶 Marche")
+            lignes.append(_ligne_marche(etape))
         else:
             if not premiere_transport:
                 lignes.append("🔄 Correspondance")
             premiere_transport = False
             ligne = etape.get("ligne") or "?"
-            destination = etape.get("arret_arrivee") or etape.get("destination") or "?"
-            lignes.append(f"🚌 Ligne {ligne} → {destination}")
+            direction = etape.get("destination") or "?"
+            arret_arrivee = etape.get("arret_arrivee") or "?"
+            lignes.append(f"🚌 Ligne {ligne} - direction {direction}")
+            lignes.append(f"   Descendre à {arret_arrivee}")
             if etape.get("depart") and etape.get("arrivee"):
                 lignes.append(f"   {etape['depart']} → {etape['arrivee']}")
     lignes.append("")
     if duree_totale_min is not None:
         lignes.append(f"⏱ Durée totale : {duree_totale_min} min")
+    if lien_google_maps:
+        lignes.append("")
+        lignes.append(f"📍 Voir sur Google Maps : {lien_google_maps}")
     return "\n".join(lignes)
 
 
@@ -99,18 +119,18 @@ def _envoyer_requete_twilio(telephone, texte):
     return True, None
 
 
-def _consigner(telephone, texte, succes, erreur, conversation_id):
+def _consigner(telephone, nom, texte, succes, erreur, conversation_id):
     conn = connexion_app()
     conn.execute(
-        "INSERT INTO sms_envoyes (cree_le, telephone, texte, succes, erreur, conversation_id) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (horodatage(), telephone, texte, int(succes), erreur, conversation_id),
+        "INSERT INTO sms_envoyes (cree_le, telephone, nom, texte, succes, erreur, conversation_id) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (horodatage(), telephone, nom, texte, int(succes), erreur, conversation_id),
     )
     conn.commit()
     conn.close()
 
 
-def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=None, heure=None, conversation_id=None):
+def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=None, heure=None, nom=None, conversation_id=None):
     """Fonction destinée à tourner en tâche de fond (voir route dans
     assistant/api/main.py) — ne lève jamais, consigne toujours un
     résultat dans sms_envoyes, même une erreur totalement imprévue
@@ -120,11 +140,13 @@ def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=No
     try:
         resultat = calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date, heure)
         if not resultat.get("trouve"):
-            _consigner(telephone, None, False, resultat.get("erreur") or "itinéraire introuvable au moment de l'envoi", conversation_id)
+            _consigner(telephone, nom, None, False, resultat.get("erreur") or "itinéraire introuvable au moment de l'envoi", conversation_id)
             return
 
-        texte = formater_sms_itineraire(resultat["etapes"], resultat.get("duree_totale_min"))
+        texte = formater_sms_itineraire(
+            resultat["etapes"], resultat.get("duree_totale_min"), nom, resultat.get("lien_google_maps"),
+        )
         succes, erreur = _envoyer_requete_twilio(telephone, texte)
-        _consigner(telephone, texte, succes, erreur, conversation_id)
+        _consigner(telephone, nom, texte, succes, erreur, conversation_id)
     except Exception as exc:
-        _consigner(telephone, None, False, f"erreur imprévue : {exc!r}", conversation_id)
+        _consigner(telephone, nom, None, False, f"erreur imprévue : {exc!r}", conversation_id)

@@ -294,6 +294,7 @@ Ajouté le 12/10/2026. Envoie par SMS (Twilio) le détail d'un trajet déjà tro
   "description": "Envoie par SMS le détail d'un itinéraire déjà trouvé par calculer_itineraire_complexe. À appeler UNIQUEMENT après accord explicite de l'appelant et obtention de son numéro de téléphone, jamais sans ce consentement.",
   "parameters": {
     "telephone": { "type": "string", "description": "Numéro de l'appelant, redemandé explicitement et reformulé avant l'appel de l'outil" },
+    "nom": { "type": "string", "description": "Prénom (ou prénom + nom) de l'appelant, demandé en même temps que le téléphone, pour personnaliser le SMS", "required": false },
     "arret_depart_id": { "type": "string", "description": "Même valeur que celle utilisée pour calculer_itineraire_complexe" },
     "arret_arrivee_id": { "type": "string", "description": "Même valeur que celle utilisée pour calculer_itineraire_complexe" },
     "date": { "type": "string", "description": "ISO (AAAA-MM-JJ), même valeur que calculer_itineraire_complexe", "required": false },
@@ -303,7 +304,7 @@ Ajouté le 12/10/2026. Envoie par SMS (Twilio) le détail d'un trajet déjà tro
 }
 ```
 
-Répond tout de suite (`accepte: true`) — l'envoi réel se fait en tâche de fond, après la réponse, pour ne jamais ajouter sa latence (calcul Google + Twilio) au tour de parole en direct. **Consigne de prompt pas encore stabilisée** (à retravailler ensemble) : demander explicitement le numéro de téléphone (même règle de reformulation que pour `enregistrer_objet_perdu`/`demander_rappel`, jamais l'inventer), puis une phrase de transition courte du type « Je vous envoie ça par SMS dans un instant. » avant de poursuivre ou clore l'appel.
+Répond tout de suite (`accepte: true`) — l'envoi réel se fait en tâche de fond, après la réponse, pour ne jamais ajouter sa latence (calcul Google + Twilio) au tour de parole en direct. Le SMS inclut, s'ils sont disponibles : la durée de chaque section de marche, un lien Google Maps avec le trajet pré-rempli, et une formule personnalisée si un prénom a été recueilli.
 
 ---
 
@@ -420,25 +421,36 @@ sauf si l'appelant le demande.
 Présente toujours le trajet comme prévu, pas comme réel — même
 prudence que pour les horaires.
 
-Si calculer_itineraire renvoie trouve=false, appelle calculer_itineraire_complexe
-avec les mêmes arrêts avant de conclure qu'aucun trajet n'existe. Ne les appelle
-jamais tous les deux pour le même trajet, et jamais calculer_itineraire_complexe
-en premier.
+Si calculer_itineraire renvoie trouve=false, annonce d'abord que tu continues
+à chercher ("D'accord, laissez-moi quelques instants pour trouver le meilleur
+itinéraire.") avant d'appeler calculer_itineraire_complexe avec les mêmes
+arrêts — cet appel est plus lent que le reste (service externe), mieux vaut
+le dire que laisser un silence. Ne les appelle jamais tous les deux pour le
+même trajet, et jamais calculer_itineraire_complexe en premier.
 
-Si calculer_itineraire_complexe trouve un trajet, annonce-le étape par étape :
-pour chaque section de marche, dis "rejoignez l'arrêt..." suivi de la durée si
-elle est connue ("il y a environ quatre minutes de marche") — ne dis jamais de
-durée si l'outil n'en a pas fourni, invente encore moins un ordre de grandeur ;
-pour chaque section en bus, annonce la ligne, la destination, l'heure de départ
-et d'arrivée, comme pour un trajet simple. S'il y a plusieurs sections de bus,
+Si calculer_itineraire_complexe trouve un trajet, annonce d'abord sa
+complexité avant de détailler, et mentionne tout de suite que le SMS existe
+— l'appelant doit savoir qu'il n'a pas besoin de tout noter avant même que
+tu commences : « J'ai trouvé une solution avec une correspondance, je vais
+vous détailler ça, et je pourrai vous l'envoyer par SMS si vous voulez. »
+(adapte "une correspondance" au nombre réel d'étapes en bus).
+
+Détaille ensuite étape par étape, à un rythme posé : pour chaque section de
+marche, dis "rejoignez l'arrêt..." suivi de la durée si elle est connue ("il
+y a environ quatre minutes de marche") — ne dis jamais de durée si l'outil
+n'en a pas fourni, invente encore moins un ordre de grandeur ; pour chaque
+section en bus, annonce la ligne, la destination, l'heure de départ et
+d'arrivée, comme pour un trajet simple. S'il y a plusieurs sections de bus,
 dis "ensuite" avant chacune, sans détailler le temps d'attente sauf si
 l'appelant le demande.
 
-Une fois le trajet annoncé, propose-le comme un service, pas une obligation :
-« Si vous voulez, je peux vous envoyer un récap par SMS. » Si l'appelant
-accepte, demande son numéro de téléphone, fais-le répéter et confirme-le avant
-d'appeler envoyer_sms_itineraire — jamais sans ce numéro confirmé à l'oral.
-N'appelle cet outil qu'une seule fois par trajet proposé.
+Une fois le trajet détaillé, repropose le SMS explicitement, comme un
+service, pas une obligation : « Je vous envoie ça par SMS ? » Si l'appelant
+accepte, demande son prénom et son numéro de téléphone, fais répéter le
+numéro et confirme-le avant d'appeler envoyer_sms_itineraire — jamais sans
+ce numéro confirmé à l'oral. Si l'appelant ne donne pas son prénom, envoie
+quand même le SMS sans ce prénom plutôt que d'insister. N'appelle cet outil
+qu'une seule fois par trajet proposé.
 
 Si calculer_itineraire_complexe renvoie aussi trouve=false, ne propose jamais
 un trajet à l'improviste : tu bascules en sortie, comme pour toute information

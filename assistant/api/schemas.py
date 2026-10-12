@@ -234,6 +234,7 @@ class ItineraireComplexeRequete(BaseModel):
 class EtapeItineraireComplexe(BaseModel):
     type: Literal["marche", "transport"]
     duree_min: Optional[int] = None
+    vers: Optional[str] = None
     ligne: Optional[str] = None
     mode: Optional[str] = None
     destination: Optional[str] = None
@@ -247,6 +248,7 @@ class ItineraireComplexeReponse(BaseModel):
     trouve: bool
     etapes: Optional[list[EtapeItineraireComplexe]] = None
     duree_totale_min: Optional[int] = None
+    lien_google_maps: Optional[str] = None
     erreur: Optional[str] = None
 
 
@@ -257,6 +259,7 @@ class ItineraireComplexeReponse(BaseModel):
 
 class EnvoiSmsItineraireRequete(BaseModel):
     telephone: str
+    nom: Optional[str] = None
     arret_depart_id: str
     arret_arrivee_id: str
     date: Optional[str] = None
