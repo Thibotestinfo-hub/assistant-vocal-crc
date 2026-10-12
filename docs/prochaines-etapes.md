@@ -1,5 +1,37 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 12/10/2026 — premier envoi SMS réel réussi, bug de visibilité corrigé au passage
+
+Premier test réel d'`envoyer_sms_itineraire` : aucun SMS reçu, et
+surtout **aucune trace dans `sms_envoyes`** — silence total, aucun
+moyen de diagnostiquer. Deux correctifs enchaînés :
+
+1. Export CSV `sms_envoyes.csv` ajouté (`assistant/backoffice/
+   exports.py`, même route que les exports existants), pour pouvoir
+   consulter le résultat des tâches de fond sans accès à la base de
+   production — manquait depuis le début, gap comblé dans l'urgence du
+   diagnostic plutôt que découvert plus tard.
+2. Cause racine du silence : le `try/except` d'`envoyer_sms_itineraire`
+   n'attrapait que les erreurs réseau vers Google/Twilio, pas une
+   exception imprévue ailleurs dans la fonction — une tâche de fond qui
+   plante en dehors de ce périmètre ne laissait donc aucune trace.
+   Élargi à toute exception. Vérifié en local en provoquant une vraie
+   exception (heure mal formée) : désormais bien consignée au lieu de
+   disparaître.
+
+Après redéploiement : **premier SMS réel reçu avec succès**
+(Émile Ripert → Mairie Sud), texte formaté conforme à ce qu'on avait
+préparé ensemble (émojis par étape, correspondance visible, durée
+totale), `succes:1` dans `sms_envoyes`. La chaîne complète fonctionne
+de bout en bout : recalcul Google → formatage → envoi Twilio → journal.
+
+**Reste à faire** : test en conditions réelles via un vrai appel
+(Phase 2) — trajets suggérés : Émile Ripert (Velaux) → la Clinique de
+Marignane (force le passage par le calculateur complexe, vérifié dans
+le GTFS le 12/10), avec Mairie Sud (Vitrolles) → Mairie des
+Pennes-Mirabeau et Clinique de Rognac → Clinique de Marignane en
+solutions de repli.
+
 ## 💡 Idées back-office notées le 12/10/2026, pas prioritaires
 
 Trois évolutions demandées par l'utilisateur, à reprendre ensemble plus
