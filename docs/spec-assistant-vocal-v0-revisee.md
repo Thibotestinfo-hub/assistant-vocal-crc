@@ -272,11 +272,12 @@ Ajouté le 08/10/2026. S'appuie sur l'API Google Routes (trajets nécessitant de
 ```json
 {
   "name": "calculer_itineraire_complexe",
+  "description": "Calcule un itinéraire via un service externe (Google), pour les trajets nécessitant de la marche ou plus d'une correspondance. À appeler UNIQUEMENT si calculer_itineraire a déjà été appelé pour le même trajet et a renvoyé trouve=false. Ne jamais l'appeler en même temps que calculer_itineraire, ni avant lui, pour le même trajet.",
   "parameters": {
-    "arret_depart_id": { "type": "string" },
-    "arret_arrivee_id": { "type": "string" },
-    "date": { "type": "string", "required": false },
-    "heure": { "type": "string", "required": false }
+    "arret_depart_id": { "type": "string", "description": "Identifiant de l'arrêt de départ, déjà résolu via rechercher_arret ou rechercher_repere" },
+    "arret_arrivee_id": { "type": "string", "description": "Identifiant de l'arrêt d'arrivée, déjà résolu via rechercher_arret ou rechercher_repere" },
+    "date": { "type": "string", "description": "ISO (AAAA-MM-JJ), défaut aujourd'hui", "required": false },
+    "heure": { "type": "string", "description": "HH:MM, défaut maintenant", "required": false }
   }
 }
 ```
@@ -292,12 +293,14 @@ Ajouté le 12/10/2026. Envoie par SMS (Twilio) le détail d'un trajet déjà tro
 ```json
 {
   "name": "envoyer_sms_itineraire",
+  "description": "Envoie par SMS le détail d'un itinéraire déjà trouvé par calculer_itineraire_complexe. À appeler UNIQUEMENT après accord explicite de l'appelant et obtention de son numéro de téléphone, jamais sans ce consentement.",
   "parameters": {
-    "telephone": { "type": "string" },
-    "arret_depart_id": { "type": "string" },
-    "arret_arrivee_id": { "type": "string" },
-    "date": { "type": "string", "required": false },
-    "heure": { "type": "string", "required": false }
+    "telephone": { "type": "string", "description": "Numéro de l'appelant, redemandé explicitement et reformulé avant l'appel de l'outil" },
+    "arret_depart_id": { "type": "string", "description": "Même valeur que celle utilisée pour calculer_itineraire_complexe" },
+    "arret_arrivee_id": { "type": "string", "description": "Même valeur que celle utilisée pour calculer_itineraire_complexe" },
+    "date": { "type": "string", "description": "ISO (AAAA-MM-JJ), même valeur que calculer_itineraire_complexe", "required": false },
+    "heure": { "type": "string", "description": "HH:MM, même valeur que calculer_itineraire_complexe", "required": false },
+    "conversation_id": { "type": "string", "description": "Fourni automatiquement par {{system__conversation_id}}, pas par l'appelant", "required": false }
   }
 }
 ```
