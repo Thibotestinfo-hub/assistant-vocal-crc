@@ -1,5 +1,51 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — format du SMS refait à partir de la vraie maquette
+
+Suite du point 5 des REX ci-dessous : l'utilisateur a repartagé l'image
+de la maquette ("Assistant TABM"), jamais vue directement jusqu'ici
+(reconstruite plus tôt dans la session à partir d'une description texte
+dans un résumé de conversation). Comparaison précise faite, plusieurs
+écarts trouvés et corrigés dans `assistant/outils/sms.py` :
+
+- **En-tête** : "Arrivée à [DESTINATION] : HH:MM" en première ligne,
+  puis "durée · N bus · N changements" (et non plus un titre
+  "Bonjour..." qui n'existe pas dans la maquette — personnalisation
+  retirée du texte du SMS, le prénom/nom reste utilisé ailleurs pour le
+  suivi back-office).
+- **Durée totale** : "1 h 09" au-delà d'une heure plutôt que "69 min"
+  (nouveau `_duree_libelle`).
+- **Marche initiale** : heure réelle de départ à pied affichée
+  ("Départ 15:10 · 3 min à pied"), calculée à rebours depuis l'heure du
+  premier bus moins la durée de marche — nouveau calcul
+  (`heure_depart_reelle`), jamais affiché si l'un des deux manque.
+- **Temps d'attente** : repositionné à la fin du bloc du trajet qui
+  précède (juste après "Descendre..."), pas au début du suivant comme
+  dans la version précédente — même donnée, autre emplacement, pour
+  coller à la maquette.
+- **Numérotation** : seuls les trajets en bus sont numérotés (1, 2, 3),
+  les étapes de marche ne le sont pas — la version précédente numérotait
+  tout, y compris les marches.
+- **"Horaires à jour à HH:MM"** : ajouté en pied de SMS, calculé au
+  moment de la construction du texte (jamais une valeur statique ou
+  devinée).
+- **Version texte (GSM-7)** : en retirant les accents des textes qu'on
+  écrit nous-mêmes, un bug est apparu — les noms d'arrêts réels
+  ("Plantée", "Émile Ripert") contiennent eux aussi des accents, donc
+  un seul d'entre eux suffisait à faire basculer tout le SMS en UCS-2
+  malgré le format "texte" choisi. Nouveau `_sans_accents()` appliqué
+  à toutes les données dynamiques (nom d'arrêt, ligne, direction),
+  vérifié par un test explicite (SMS généré 100% ASCII).
+
+Vérifié en local : rendu emoji comparé ligne à ligne à la maquette sur
+les données exactes de l'exemple (Emile Ripert → Sainte Anne, 3 bus) —
+correspondance confirmée. Cas limites testés (1 seul bus sans
+changement, données manquantes — jamais de valeur fabriquée, juste
+l'absence de la ligne concernée). Segments SMS recalculés sur l'exemple
+réel : 7 segments en emoji contre 3 en texte, cohérent avec l'écart
+déjà mesuré. `verifier_api.py` (7/8, échec sandbox connu) et
+`verifier_backoffice.py` (12/12) sans régression.
+
 ## ✅ Fait le 13/10/2026 — 5 REX d'un nouveau test réel, analysés via webhook
 
 Test complet après republication du prompt corrigé. 5 retours, chacun

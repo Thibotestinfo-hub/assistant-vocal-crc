@@ -36,12 +36,15 @@ d'un échec par la voix à ce stade.
 """
 
 import os
+import unicodedata
+from datetime import datetime
 
 import httpx
 import yaml
 from pathlib import Path
 
 from assistant.outils.db import connexion_app, horodatage, obtenir_parametre
+from assistant.outils.horaires_theoriques import FUSEAU
 from assistant.outils.itineraire_google import calculer_itineraire_complexe
 
 RACINE = Path(__file__).resolve().parent.parent.parent
@@ -86,13 +89,37 @@ def _hhmm(total_minutes):
     return f"{total_minutes // 60:02d}:{total_minutes % 60:02d}"
 
 
+def _sans_accents(texte):
+    """Pour la version "texte" du SMS (garantie 100% GSM-7, voir
+    docstring du module) : les noms d'arrêts et de communes réels
+    contiennent des accents ("Plantée", "Émile Ripert"), contrairement
+    aux textes qu'on écrit nous-mêmes dans ce fichier — il faut aussi
+    les nettoyer, sinon un seul arrêt accentué suffit à faire basculer
+    tout le SMS en UCS-2 malgré le format "texte" choisi."""
+    if not texte:
+        return texte
+    forme = unicodedata.normalize("NFD", texte)
+    return "".join(c for c in forme if unicodedata.category(c) != "Mn")
+
+
+def _duree_libelle(minutes):
+    """"1 h 09" au-delà d'une heure, "43 min" sinon — None si la durée
+    totale n'est pas connue (jamais 0 par défaut)."""
+    if minutes is None:
+        return None
+    if minutes < 60:
+        return f"{minutes} min"
+    return f"{minutes // 60} h {minutes % 60:02d}"
+
+
 def _preparer_contexte_sms(etapes, duree_totale_min, destination):
     """Calcule, une seule fois, tout ce dont les deux formats de SMS ont
     besoin : temps d'attente avant chaque bus (déduit des horaires des
-    étapes, jamais inventé — None si une donnée manque) et heure
-    d'arrivée finale réelle (horaire du dernier transport + marche
-    finale si sa durée est connue). Une valeur manquante reste None et
-    n'est simplement pas affichée par les formateurs (CLAUDE.md,
+    étapes, jamais inventé — None si une donnée manque), heure réelle de
+    départ à pied (si la première étape est une marche de durée connue)
+    et heure d'arrivée finale réelle (horaire du dernier transport +
+    marche finale si sa durée est connue). Une valeur manquante reste
+    None et n'est simplement pas affichée par les formateurs (CLAUDE.md,
     exactitude : on ne remplace jamais une donnée absente par une
     approximation)."""
     etapes = [dict(e) for e in etapes]  # copie : on ajoute attente_min sans modifier l'original
@@ -124,117 +151,160 @@ def _preparer_contexte_sms(etapes, duree_totale_min, destination):
         if base is not None and marche_finale is not None:
             heure_arrivee_finale = _hhmm(base + marche_finale)
 
+    heure_depart_reelle = None
+    if etapes and etapes[0]["type"] == "marche" and etapes[0].get("duree_min") is not None and transports:
+        premier_depart = _minutes(transports[0].get("depart"))
+        if premier_depart is not None:
+            heure_depart_reelle = _hhmm(premier_depart - etapes[0]["duree_min"])
+
     return {
         "etapes": etapes,
         "duree_totale_min": duree_totale_min,
+        "duree_totale_libelle": _duree_libelle(duree_totale_min),
         "destination": destination,
         "nb_bus": nb_bus,
-        "nb_correspondances": max(nb_bus - 1, 0),
+        "nb_changements": max(nb_bus - 1, 0),
         "heure_arrivee_finale": heure_arrivee_finale,
+        "heure_depart_reelle": heure_depart_reelle,
+        "heure_calcul": datetime.now(FUSEAU).strftime("%H:%M"),
     }
 
 
-def _formater_sms_emoji(ctx, nom):
-    titre = f"📋 Bonjour {nom}, itinéraire TABM" if nom else "📋 Récap itinéraire TABM"
-    lignes = [titre]
+def _entete_resume(ctx, emoji):
+    """En-tête commun aux deux formats : "Arrivée à X : HH:MM" puis
+    "durée · N bus · N changements" — calqué sur la maquette fournie
+    par l'utilisateur le 13/10/2026."""
+    verbe = "Arrivée à" if emoji else "Arrivee a"
+    separateur = " · " if emoji else " - "
+
+    lignes = []
+    dest = ctx["destination"].upper() if ctx["destination"] else None
+    if dest and not emoji:
+        dest = _sans_accents(dest)
+    if dest and ctx["heure_arrivee_finale"]:
+        lignes.append(f"{verbe} {dest} : {ctx['heure_arrivee_finale']}")
+    elif dest:
+        lignes.append(f"{verbe} {dest}")
 
     resume = []
-    if ctx["duree_totale_min"] is not None:
-        resume.append(f"⏱ {ctx['duree_totale_min']} min")
+    if ctx["duree_totale_libelle"]:
+        resume.append(ctx["duree_totale_libelle"])
     if ctx["nb_bus"]:
         resume.append(f"{ctx['nb_bus']} bus")
-        if ctx["nb_correspondances"]:
-            mot = "correspondance" if ctx["nb_correspondances"] == 1 else "correspondances"
-            resume.append(f"{ctx['nb_correspondances']} {mot}")
+        if ctx["nb_changements"]:
+            mot = "changement" if ctx["nb_changements"] == 1 else "changements"
+            resume.append(f"{ctx['nb_changements']} {mot}")
     if resume:
-        lignes.append(" • ".join(resume))
+        lignes.append(separateur.join(resume))
+    return lignes
+
+
+def _formater_sms_emoji(ctx):
+    lignes = _entete_resume(ctx, emoji=True)
     lignes.append("")
 
-    numero = 1
-    for etape in ctx["etapes"]:
+    etapes = ctx["etapes"]
+    transports = [e for e in etapes if e["type"] == "transport"]
+    numero_transport = 0
+    for i, etape in enumerate(etapes):
         if etape["type"] == "marche":
             duree, vers = etape.get("duree_min"), etape.get("vers")
-            if vers and duree:
-                lignes.append(f"{numero}. 🚶 Marcher vers {vers} (environ {duree} min)")
-            elif vers:
-                lignes.append(f"{numero}. 🚶 Marcher vers {vers}")
+            if i == 0:
+                if ctx["heure_depart_reelle"] and duree and vers:
+                    lignes.append(f"🚶 Départ {ctx['heure_depart_reelle']} · {duree} min à pied")
+                    lignes.append(f"   vers {vers}")
+                elif vers:
+                    suffixe = f" (environ {duree} min)" if duree else ""
+                    lignes.append(f"🚶 Marcher vers {vers}{suffixe}")
+                lignes.append("")
+            elif i == len(etapes) - 1:
+                lignes.append(f"🚶 {duree} min à pied" if duree else "🚶 Marche à pied")
             else:
-                lignes.append(f"{numero}. 🚶 Marche" + (f" (environ {duree} min)" if duree else ""))
+                lignes.append(f"🚶 {duree} min à pied" if duree else "🚶 Marche à pied")
+                if vers:
+                    lignes.append(f"   vers {vers}")
+                lignes.append("")
         else:
+            numero_transport += 1
             ligne, direction = etape.get("ligne") or "?", etape.get("destination") or "?"
-            lignes.append(f"{numero}. 🚌 Ligne {ligne} - direction {direction}")
-            if etape.get("attente_min") is not None:
-                lignes.append(f"   🔁 Attente environ {etape['attente_min']} min, départ {etape.get('depart') or '?'}")
-            elif etape.get("depart"):
-                lignes.append(f"   Départ {etape['depart']}")
-            arrivee = f", arrivée {etape['arrivee']}" if etape.get("arrivee") else ""
-            lignes.append(f"   Descendre à {etape.get('arret_arrivee') or '?'}{arrivee}")
-        numero += 1
+            depart = etape.get("depart") or "?"
+            lignes.append(f"{numero_transport}. 🚌 Ligne {ligne} · {depart}")
+            lignes.append(f"Direction {direction}")
+            arrivee = f", {etape['arrivee']}" if etape.get("arrivee") else ""
+            lignes.append(f"🔻 Descendre {etape.get('arret_arrivee') or '?'}{arrivee}")
+            prochain = transports[numero_transport] if numero_transport < len(transports) else None
+            if prochain and prochain.get("attente_min") is not None:
+                lignes.append(f"⏱ {prochain['attente_min']} min d'attente")
+            lignes.append("")
 
-    lignes.append("")
-    arrivee_ligne = f"🏁 Arrivée à {ctx['destination']}" if ctx["destination"] else "🏁 Arrivée à destination"
     if ctx["heure_arrivee_finale"]:
-        arrivee_ligne += f" vers {ctx['heure_arrivee_finale']}"
-    lignes.append(arrivee_ligne)
-    return "\n".join(lignes)
+        lignes.append(f"🏁 Arrivée {ctx['heure_arrivee_finale']}")
+    lignes.append("")
+    lignes.append(f"Horaires à jour à {ctx['heure_calcul']}")
+    return "\n".join(lignes).strip("\n")
 
 
-def _formater_sms_texte(ctx, nom):
+def _formater_sms_texte(ctx):
     """Même contenu que la version emoji, sans aucun emoji ni caractère
     accentué (volontaire : garantit l'encodage GSM-7, 160 car./segment
     au lieu de 70 — voir docstring du module)."""
-    titre = f"Bonjour {nom}, itineraire TABM" if nom else "Recap itineraire TABM"
-    lignes = [titre]
-
-    resume = []
-    if ctx["duree_totale_min"] is not None:
-        resume.append(f"{ctx['duree_totale_min']} min")
-    if ctx["nb_bus"]:
-        resume.append(f"{ctx['nb_bus']} bus")
-        if ctx["nb_correspondances"]:
-            mot = "correspondance" if ctx["nb_correspondances"] == 1 else "correspondances"
-            resume.append(f"{ctx['nb_correspondances']} {mot}")
-    if resume:
-        lignes.append(" - ".join(resume))
+    lignes = _entete_resume(ctx, emoji=False)
     lignes.append("")
 
-    numero = 1
-    for etape in ctx["etapes"]:
+    etapes = ctx["etapes"]
+    transports = [e for e in etapes if e["type"] == "transport"]
+    numero_transport = 0
+    for i, etape in enumerate(etapes):
         if etape["type"] == "marche":
-            duree, vers = etape.get("duree_min"), etape.get("vers")
-            if vers and duree:
-                lignes.append(f"{numero}. Marcher vers {vers} (environ {duree} min)")
-            elif vers:
-                lignes.append(f"{numero}. Marcher vers {vers}")
+            duree, vers = etape.get("duree_min"), _sans_accents(etape.get("vers"))
+            if i == 0:
+                if ctx["heure_depart_reelle"] and duree and vers:
+                    lignes.append(f"Depart {ctx['heure_depart_reelle']} - {duree} min a pied")
+                    lignes.append(f"   vers {vers}")
+                elif vers:
+                    suffixe = f" (environ {duree} min)" if duree else ""
+                    lignes.append(f"Marcher vers {vers}{suffixe}")
+                lignes.append("")
+            elif i == len(etapes) - 1:
+                lignes.append(f"{duree} min a pied" if duree else "Marche a pied")
             else:
-                lignes.append(f"{numero}. Marche" + (f" (environ {duree} min)" if duree else ""))
+                lignes.append(f"{duree} min a pied" if duree else "Marche a pied")
+                if vers:
+                    lignes.append(f"   vers {vers}")
+                lignes.append("")
         else:
-            ligne, direction = etape.get("ligne") or "?", etape.get("destination") or "?"
-            lignes.append(f"{numero}. Bus ligne {ligne}, direction {direction}")
-            if etape.get("attente_min") is not None:
-                lignes.append(f"   Attente environ {etape['attente_min']} min, depart {etape.get('depart') or '?'}")
-            elif etape.get("depart"):
-                lignes.append(f"   Depart {etape['depart']}")
-            arrivee = f", arrivee {etape['arrivee']}" if etape.get("arrivee") else ""
-            lignes.append(f"   Descendre a {etape.get('arret_arrivee') or '?'}{arrivee}")
-        numero += 1
+            numero_transport += 1
+            ligne = _sans_accents(etape.get("ligne")) or "?"
+            direction = _sans_accents(etape.get("destination")) or "?"
+            depart = etape.get("depart") or "?"
+            lignes.append(f"{numero_transport}. Bus ligne {ligne} - {depart}")
+            lignes.append(f"Direction {direction}")
+            arrivee = f", {etape['arrivee']}" if etape.get("arrivee") else ""
+            lignes.append(f"Descendre a {_sans_accents(etape.get('arret_arrivee')) or '?'}{arrivee}")
+            prochain = transports[numero_transport] if numero_transport < len(transports) else None
+            if prochain and prochain.get("attente_min") is not None:
+                lignes.append(f"Attente {prochain['attente_min']} min")
+            lignes.append("")
 
-    lignes.append("")
-    arrivee_ligne = f"Arrivee a {ctx['destination']}" if ctx["destination"] else "Arrivee a destination"
     if ctx["heure_arrivee_finale"]:
-        arrivee_ligne += f" vers {ctx['heure_arrivee_finale']}"
-    lignes.append(arrivee_ligne)
-    return "\n".join(lignes)
+        lignes.append(f"Arrivee {ctx['heure_arrivee_finale']}")
+    lignes.append("")
+    lignes.append(f"Horaires a jour a {ctx['heure_calcul']}")
+    return "\n".join(lignes).strip("\n")
 
 
-def formater_sms_itineraire(etapes, duree_totale_min, nom=None, lien_google_maps=None, destination=None):
+def formater_sms_itineraire(etapes, duree_totale_min, lien_google_maps=None, destination=None):
     """Construit le texte du SMS à partir des étapes structurées
     renvoyées par calculer_itineraire_complexe — jamais de texte libre
     en entrée (voir docstring du module). Le format (emoji ou texte) est
-    choisi depuis le back-office, "emoji" par défaut si jamais réglé."""
+    choisi depuis le back-office, "emoji" par défaut si jamais réglé.
+    Pas de formule d'accueil personnalisée (maquette fournie par
+    l'utilisateur le 13/10/2026, qui n'en a pas) — le prénom/nom de
+    l'appelant reste utilisé ailleurs (suivi back-office, voir
+    envoyer_sms_itineraire), juste plus dans le texte du SMS lui-même."""
     ctx = _preparer_contexte_sms(etapes, duree_totale_min, destination)
     format_choisi = obtenir_parametre("format_sms", "emoji")
-    texte = _formater_sms_texte(ctx, nom) if format_choisi == "texte" else _formater_sms_emoji(ctx, nom)
+    texte = _formater_sms_texte(ctx) if format_choisi == "texte" else _formater_sms_emoji(ctx)
     if lien_google_maps:
         prefixe = "Lien : " if format_choisi == "texte" else "📍 Voir sur Google Maps : "
         texte += "\n\n" + prefixe + lien_google_maps
@@ -290,7 +360,7 @@ def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=No
             return
 
         texte = formater_sms_itineraire(
-            resultat["etapes"], resultat.get("duree_totale_min"), nom,
+            resultat["etapes"], resultat.get("duree_totale_min"),
             resultat.get("lien_google_maps"), resultat.get("destination"),
         )
         succes, erreur = _envoyer_requete_twilio(telephone, texte)
