@@ -302,13 +302,7 @@ def resumer_satisfaction_client():
 def resumer_tracabilite():
     """Agrège la traçabilité de tous les appels qui en ont une (les
     appels enregistrés avant ce chantier n'en ont pas, et sont ignorés
-    ici plutôt que de fausser une moyenne avec des zéros).
-
-    "Horaire moyen" : moyenne arithmétique simple des minutes depuis
-    minuit à partir de cree_le (heure locale du serveur, Europe/Paris —
-    voir CLAUDE.md). Pas une moyenne circulaire : pour un réseau qui ne
-    fonctionne que le jour, c'est largement suffisant, et beaucoup plus
-    simple à lire pour l'équipe CRC."""
+    ici plutôt que de fausser une moyenne avec des zéros)."""
     conn = connexion_app()
     lignes = conn.execute(
         "SELECT cree_le, duree_secs, cout_usd, outils_utilises FROM appels "
@@ -319,20 +313,11 @@ def resumer_tracabilite():
     if not lignes:
         return {
             "nb_avec_tracabilite": 0, "duree_moyenne_secs": None,
-            "horaire_moyen": None, "cout_total_usd": None,
-            "repartition_outils": {},
+            "cout_total_usd": None, "repartition_outils": {},
         }
 
     durees = [l["duree_secs"] for l in lignes]
     couts = [l["cout_usd"] for l in lignes if l["cout_usd"] is not None]
-
-    minutes_depuis_minuit = []
-    for l in lignes:
-        try:
-            heure, minute = l["cree_le"][11:16].split(":")
-            minutes_depuis_minuit.append(int(heure) * 60 + int(minute))
-        except (ValueError, IndexError):
-            continue
 
     repartition = {}
     for l in lignes:
@@ -348,15 +333,9 @@ def resumer_tracabilite():
                 continue
             repartition[outil] = repartition.get(outil, 0) + 1
 
-    horaire_moyen = None
-    if minutes_depuis_minuit:
-        m = round(sum(minutes_depuis_minuit) / len(minutes_depuis_minuit))
-        horaire_moyen = f"{m // 60:02d}h{m % 60:02d}"
-
     return {
         "nb_avec_tracabilite": len(lignes),
         "duree_moyenne_secs": round(sum(durees) / len(durees)),
-        "horaire_moyen": horaire_moyen,
         "cout_total_usd": round(sum(couts), 4) if couts else None,
         "repartition_outils": repartition,
     }
@@ -364,12 +343,12 @@ def resumer_tracabilite():
 
 def repartition_appels_par_heure():
     """24 compteurs (0h à 23h), pour repérer les heures pleines/creuses —
-    demandé par l'utilisateur le 12/10/2026 en complément de
-    resumer_tracabilite()["horaire_moyen"], qui ne donne qu'une seule
-    moyenne et masque un éventuel motif à deux pics (ex. matin + fin de
-    journée). Même filtre que resumer_tracabilite (duree_secs IS NOT
-    NULL) : ignore les appels sans traçabilité ou incomplets, pour ne
-    pas fausser la lecture avec des lignes "à venir"."""
+    demandé par l'utilisateur le 12/10/2026, a remplacé l'ancienne
+    tuile "Horaire moyen des appels" (une seule moyenne, qui masquait un
+    éventuel motif à deux pics, ex. matin + fin de journée). Même filtre
+    que resumer_tracabilite (duree_secs IS NOT NULL) : ignore les appels
+    sans traçabilité ou incomplets, pour ne pas fausser la lecture avec
+    des lignes "à venir"."""
     conn = connexion_app()
     lignes = conn.execute(
         "SELECT cree_le FROM appels WHERE duree_secs IS NOT NULL"

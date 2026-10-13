@@ -52,7 +52,7 @@ from assistant.outils.db import _FUSEAU, definir_parametre, obtenir_parametre
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.itineraire import calculer_itineraire
 from assistant.outils.itineraire_google import calculer_itineraire_complexe
-from assistant.outils.sms import envoyer_sms_itineraire
+from assistant.outils.sms import envoyer_sms_itineraire, resumer_sms
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
 from assistant.outils.rechercher_arret import rechercher_arret
@@ -293,6 +293,7 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = 
         repartition_horaire=repartition_appels_par_heure(),
         erreur_voix=erreur_voix, detail_voix=detail_voix, erreur_prononciation=erreur_prononciation,
         format_sms=obtenir_parametre("format_sms", "emoji"),
+        resume_sms=resumer_sms(),
     )
 
 
