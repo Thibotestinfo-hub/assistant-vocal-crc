@@ -853,6 +853,28 @@ def _carte_voix(erreur_voix, detail_voix=""):
 </div>"""
 
 
+def _carte_format_sms(format_sms):
+    """Choix du format du SMS de récap d'itinéraire (voir
+    assistant/outils/sms.py) — emoji pour l'effet démo, texte sans emoji
+    ni accent pour rester en encodage GSM-7 (2-3x moins de segments,
+    donc moins cher à l'usage, voir docs/prochaines-etapes.md,
+    13/10/2026)."""
+    return f"""<div class="carte carte-format-sms">
+  <h2>Format du <em>SMS</em> d'itinéraire</h2>
+  <form method="post" action="/backoffice/parametres/format_sms">
+    <label style="display:block;margin-bottom:0.4rem">
+      <input type="radio" name="valeur" value="emoji" {"checked" if format_sms == "emoji" else ""}>
+      Emoji — plus lisible, mais 2-3x plus de SMS facturés
+    </label>
+    <label style="display:block;margin-bottom:0.8rem">
+      <input type="radio" name="valeur" value="texte" {"checked" if format_sms == "texte" else ""}>
+      Texte — sans emoji, le moins coûteux à l'usage
+    </label>
+    <button type="submit" class="bouton accent">Appliquer</button>
+  </form>
+</div>"""
+
+
 def _bandeau_rappels_attente(n):
     """Notification en haut de l'onglet Suivi : le but est qu'un agent qui
     prend son poste (par ex. à 9h, alors que la plateforme tourne depuis
@@ -1133,7 +1155,8 @@ def _carte_dictionnaire_prononciation(regles):
 
 def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_client, tracabilite,
                      demandes_rappel, en_cours, regles_prononciation, rappels_en_attente=0,
-                     repartition_horaire=None, erreur_voix=False, detail_voix="", erreur_prononciation=False):
+                     repartition_horaire=None, erreur_voix=False, detail_voix="", erreur_prononciation=False,
+                     format_sms="emoji"):
     repartition_horaire = repartition_horaire or [0] * 24
     bonnes, total_eval = satisfaction
     if total_eval:
@@ -1202,6 +1225,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     <div class="grille-live-haut">
       {_carte_power(activations)}
       {_carte_voix(erreur_voix, detail_voix)}
+      {_carte_format_sms(format_sms)}
       {_carte_appels_en_cours(en_cours)}
       <div class="carte carte-outils">
         <h2>Outils actifs</h2>

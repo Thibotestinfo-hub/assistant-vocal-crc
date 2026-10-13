@@ -48,7 +48,7 @@ from assistant.backoffice.page import page_backoffice
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
 from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix, synthetiser_texte
 from assistant.ingestion.prononciation import nom_prononcable
-from assistant.outils.db import _FUSEAU
+from assistant.outils.db import _FUSEAU, definir_parametre, obtenir_parametre
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.itineraire import calculer_itineraire
 from assistant.outils.itineraire_google import calculer_itineraire_complexe
@@ -292,6 +292,7 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = 
         compter_rappels_en_attente(),
         repartition_horaire=repartition_appels_par_heure(),
         erreur_voix=erreur_voix, detail_voix=detail_voix, erreur_prononciation=erreur_prononciation,
+        format_sms=obtenir_parametre("format_sms", "emoji"),
     )
 
 
@@ -327,6 +328,17 @@ def route_backoffice_changer_voix(voice_id: str = Form(""), ton: str = Form(""),
         print(f"changer_reglages_voix a échoué : {erreur!r}", flush=True)
         detail = quote(str(erreur)[:300])
         return RedirectResponse(f"/backoffice/appels?erreur_voix=1&detail_voix={detail}", status_code=303)
+
+
+@app.post("/backoffice/parametres/format_sms",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_changer_format_sms(valeur: Literal["emoji", "texte"] = Form(...)):
+    """Choix du format du SMS de récap d'itinéraire (voir
+    assistant/outils/sms.py) : "emoji" plus lisible mais 2-3x plus de
+    segments (donc plus cher, voir docs/prochaines-etapes.md,
+    13/10/2026), "texte" sans emoji ni accent pour rester en GSM-7."""
+    definir_parametre("format_sms", valeur)
+    return RedirectResponse("/backoffice/appels#live", status_code=303)
     return RedirectResponse("/backoffice/appels", status_code=303)
 
 

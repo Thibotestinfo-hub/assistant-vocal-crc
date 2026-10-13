@@ -168,6 +168,16 @@ CREATE TABLE IF NOT EXISTS sms_envoyes (
     erreur TEXT,
     conversation_id TEXT
 );
+
+-- Petits réglages modifiables depuis le back-office (ex. format du SMS
+-- d'itinéraire — voir assistant/backoffice/page.py, "Paramétrage"),
+-- clé/valeur plutôt qu'une colonne dédiée par réglage : on en attend
+-- plusieurs du même genre à termes (ex. source du décompte SMS,
+-- évoquée le 13/10/2026), pas la peine d'une table par réglage.
+CREATE TABLE IF NOT EXISTS parametres (
+    cle TEXT PRIMARY KEY,
+    valeur TEXT NOT NULL
+);
 """
 
 NOMS_OUTILS = [
@@ -285,3 +295,27 @@ def connexion_app():
         )
     conn.commit()
     return conn
+
+
+def obtenir_parametre(cle, defaut=None):
+    """Lit un réglage dans la table parametres (voir _SCHEMA_APP). Retourne
+    `defaut` si la clé n'a jamais été définie."""
+    conn = connexion_app()
+    try:
+        ligne = conn.execute("SELECT valeur FROM parametres WHERE cle = ?", (cle,)).fetchone()
+        return ligne["valeur"] if ligne else defaut
+    finally:
+        conn.close()
+
+
+def definir_parametre(cle, valeur):
+    conn = connexion_app()
+    try:
+        conn.execute(
+            "INSERT INTO parametres (cle, valeur) VALUES (?, ?) "
+            "ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur",
+            (cle, valeur),
+        )
+        conn.commit()
+    finally:
+        conn.close()
