@@ -1,6 +1,37 @@
 # Prochaines étapes — état au 25/09/2026
 
-## 🔶 En cours le 12/10/2026 — appels téléphoniques réels absents du back-office, cause isolée au canal Twilio
+## ✅ Fait le 13/10/2026 — graphique "Appels par heure de la journée"
+
+Première des 5 priorités notées hier soir. Choix fait avec l'utilisateur :
+version native dans notre propre back-office plutôt que "Claude
+Dashboards" (fonctionnalité Anthropic trouvée très récente, pas assez
+de certitude pour la recommander aujourd'hui) — mis de côté, pas
+exclu pour plus tard, les deux ne s'excluent pas.
+
+**Implémenté** :
+- `repartition_appels_par_heure()` (`assistant/backoffice/appels.py`) :
+  24 compteurs (0h-23h), même filtre que `resumer_tracabilite`
+  (`duree_secs IS NOT NULL`, pour ignorer les lignes incomplètes/test).
+- Histogramme en barres dessiné à la main en SVG
+  (`_svg_repartition_horaire`, `assistant/backoffice/page.py`) — même
+  logique "pas de librairie de graphiques" que le donut des motifs
+  d'appels déjà existant. Info-bulle par barre (heure + nombre
+  d'appels). Placé en carte pleine largeur sous les tuiles
+  d'indicateurs (pas à côté du donut, qui est pensé pour une colonne
+  étroite — un histogramme de 24 barres a besoin de plus de place).
+
+Vérifié en local : agrégation testée explicitement (3 appels factices à
+9h, 2 à 18h → `[0,...,3,...,2,...]` correct), rendu confirmé via les
+info-bulles de la page. Suites `verifier_api.py` (7/8, démarrage à
+froid confirmé sans rapport) et `verifier_backoffice.py` (12/12)
+relancées sans régression.
+
+**Reste à faire** : rien d'identifié pour l'instant — à l'usage,
+l'utilisateur pourra demander une granularité plus fine (tranches de
+15 min, évoqué hier comme "peut-être") si l'histogramme horaire ne
+suffit pas.
+
+## ✅ Résolu le 12/10/2026 — appels téléphoniques réels absents du back-office
 
 Signalé une 2e fois par l'utilisateur : un vrai appel téléphonique
 (numéro Twilio) n'apparaît pas du tout dans `/backoffice/appels`, même
@@ -68,10 +99,72 @@ après, ligne conservée (métriques vides) et page affichée normalement
     profond qu'une consigne de prompt.
   - Colonne "Voix" vide pour plusieurs appels dans le tableau du
     back-office, signalé comme un problème récurrent, antérieur à
-    aujourd'hui — pas encore diagnostiqué (piste la plus probable à ce
-    stade : `voix_utilisees` dépend de `per_voice_usage` dans le
-    payload, peut-être absent pour certains types d'appels courts ou
-    certaines voix — à vérifier sur un vrai payload avant de conclure).
+    aujourd'hui — **confirmé comme non séparé** en relisant le tableau
+    avec l'utilisateur : toutes les lignes à voix manquante
+    correspondaient à des appels "à venir" (incomplets) ou à 0 seconde
+    — même cause que l'absence d'appels, pas un second bug.
+
+**Cause racine trouvée et corrigée** : le webhook post-appel
+("Service CRC...") avait été recréé lors de l'incident `API_TOKEN` du
+09/10, et marchait une seule fois (un test widget) avant de rester
+silencieux pour tous les vrais appels téléphoniques depuis. Hypothèse
+confirmée via la documentation ElevenLabs (webhook désactivé
+automatiquement après trop d'échecs consécutifs) croisée avec le bug
+de robustesse trouvé le même soir (`_extraire_tracabilite` qui
+plantait sur un format de payload imprévu → notre serveur renvoyait
+une erreur à chaque vrai appel → échecs comptabilisés côté ElevenLabs).
+Resélectionner le webhook existant n'a pas suffi ; **le recréer
+entièrement** (même procédure que pour la rotation de jeton) a résolu
+le problème. Confirmé par un vrai appel réel reçu en back-office avec
+toutes ses métadonnées.
+
+**⚠️ Nouvel incident d'exposition d'`API_TOKEN`, 4e cette semaine** :
+l'utilisateur a partagé le payload complet du webhook de cet appel
+réussi pour permettre l'analyse — payload très utile, mais contenait le
+jeton en clair dans chaque `tool_calls` (en-tête `Authorization`).
+Rotation relancée aux 4 endroits habituels, cette fois 11 outils (les 9
+historiques + les 2 ajoutés cette semaine). Proposé à l'utilisateur :
+réflexe de rédaction (remplacer les valeurs d'`Authorization` par
+"REDACTED" avant de coller un payload), ou un petit script de
+nettoyage local si elle préfère — à mettre en place si l'utilisateur le
+souhaite, pas encore fait.
+
+## 📋 Priorités pour la prochaine session (notées le 12/10/2026 soir, par l'utilisateur)
+
+Dans l'ordre donné par l'utilisateur :
+
+1. **Suivi des appels par courbe** (pics horaires, heures pleines/creuses,
+   éventuellement par tranche de 15 min) — déjà noté plus haut dans ce
+   fichier (entrée "Idées back-office" du 12/10) comme non prioritaire ;
+   devient la priorité n°1 pour la prochaine session. Question ouverte
+   posée par l'utilisateur : **"Claude Dashboards"** (fonctionnalité
+   Anthropic très récente, lancée en bêta le 08/10/2026 d'après une
+   seule source trouvée, pas confirmée directement) pourrait-il servir
+   à construire cet écran ? Pas de réponse tranchée donnée ce soir,
+   faute de connaissance directe de l'outil — à explorer ensemble, sans
+   exclure la voie plus simple (graphique construit directement dans
+   notre propre back-office, données déjà disponibles).
+2. **Améliorer encore la lisibilité du SMS** — l'utilisateur dit y
+   réfléchir de son côté, pas d'idée précise encore partagée.
+3. **Explorer le choix entre plusieurs itinéraires proposés par Google**
+   (pas seulement le premier résultat) — cas d'usage donné par
+   l'utilisateur : un trajet direct nécessitant 25 min de marche vs un
+   trajet avec correspondance n'en nécessitant que 10, pertinent par
+   exemple en cas de pluie (lien avec l'idée météo déjà notée le
+   08/10) ou pour une personne ayant des difficultés à marcher.
+   L'utilisateur évoque aussi, comme extension possible mais non
+   prioritaire, une préférence pour des lignes accessibles aux personnes
+   à mobilité réduite — à condition de savoir un jour récupérer cette
+   information (pas vérifié si le GTFS ou Google Routes l'expose).
+4. **Revoir le graphe de répartition des cas d'usage du back-office** :
+   la part "satisfaction" y apparaît démesurée, alors que c'est normal
+   puisque la question est posée à chaque appel — biais de lecture du
+   graphique actuel à corriger, pas un bug.
+5. **Latence perçue, toujours en chantier** — la restructuration du
+   prompt faite aujourd'hui (avant/pendant calculer_itineraire_complexe)
+   a aidé mais ne suffit pas complètement selon l'utilisateur
+   ("Pour l'instant retenus à quai" reste l'objectif) ; à retravailler
+   ensemble, au-delà de la seule règle de prompt déjà posée.
 
 ## ✅ Fait le 12/10/2026 — bug de marches dupliquées corrigé, SMS simplifié, 5 nouveaux retours UX
 
