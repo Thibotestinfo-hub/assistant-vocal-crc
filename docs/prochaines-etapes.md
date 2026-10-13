@@ -1,5 +1,60 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — 5 REX d'un nouveau test réel, analysés via webhook
+
+Test complet après republication du prompt corrigé. 5 retours, chacun
+vérifié sur le webhook réel plutôt que supposé :
+
+**1. Tarification simple non testée** — oubli de l'utilisateur, rien à
+corriger.
+
+**2. "~10s sur l'API Google" — pas Google en cause.** Vérifié précisément
+sur les timestamps du webhook : `calculer_itineraire_complexe` a répondu
+en 1,1s (rapide). Le vrai délai (32s puis 14s) se situe entre le moment
+où l'agent annonce qu'il va vérifier et le moment où il appelle
+réellement l'outil — deux `user_turn_timeout` déclenchés entre-temps,
+avec des relances automatiques ("Je suis toujours là..."). Cause
+probable : variabilité de réponse du LLM sous-jacent (Gemini 3.1 Flash
+Lite) à déclencher l'appel d'outil, même catégorie que le repli vers un
+modèle de secours déjà observé dans un appel précédent. Pas de
+correction de code possible de notre côté — comportement du fournisseur
+LLM, pas de notre pipeline.
+
+**3. SMS envoyé sans confirmation du numéro — bug confirmé.** Le webhook
+montre `envoyer_sms_itineraire` appelé immédiatement après avoir entendu
+le numéro, sans jamais le répéter ni attendre de confirmation — la
+"confirmation" prononcée par l'agent arrivait après l'envoi, pas avant,
+en violation de la règle déjà écrite. Corrigé : la règle impose
+maintenant explicitement deux tours de parole séparés (même schéma que
+la satisfaction, qui tient mieux) — répéter le numéro et demander
+confirmation dans un tour, appeler l'outil seulement au tour suivant si
+confirmation reçue.
+
+**4. Satisfaction enregistrée sans attendre — bug confirmé, récidive.**
+Le webhook montre `enregistrer_satisfaction(satisfait=true)` appelé
+sans aucun nouveau tour de parole après la question — l'agent a réutilisé
+une phrase de l'appelante ("c'est parfait, merci beaucoup") qui
+répondait en réalité à la question précédente ("avez-vous besoin
+d'autre chose ?"), pas à la question de satisfaction posée juste après.
+Exactement le cas que la règle existante (déjà présente, déjà corrigée
+une première fois le 28/09/2026) est censée empêcher. Renforcée avec
+une phrase ciblant précisément cette confusion : une réponse antérieure
+à la question ne compte jamais, même si elle semblait positive.
+
+**5. SMS pas conforme à la maquette partagée, "horaires à jour" absent**
+— en cours, pas encore corrigé. Le format SMS construit plus tôt dans
+cette session (`assistant/outils/sms.py`) a été conçu à partir d'une
+**description texte** de la maquette (reçue dans un résumé de
+conversation), jamais de l'image elle-même. Possible que des éléments
+aient été mal reconstruits ou oubliés (le "horaires à jour" mentionné
+par l'utilisateur n'apparaît dans aucune note de cette session). Demande
+faite à l'utilisateur de repartager l'image pour comparer précisément
+plutôt que deviner une 2e fois.
+
+**Fichier modifié** : `docs/spec-assistant-vocal-v0-revisee.md`, §5
+(règle SMS/numéro de téléphone, règle satisfaction). **Pas encore collé
+côté ElevenLabs** — à faire par l'utilisateur, comme toujours.
+
 ## ✅ Fait le 13/10/2026 — latence de ~10s sur rechercher_information, trouvée et corrigée
 
 Suite directe du test téléphonique réel : un webhook montrait
