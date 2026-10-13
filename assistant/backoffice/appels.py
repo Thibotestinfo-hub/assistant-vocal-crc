@@ -362,6 +362,30 @@ def resumer_tracabilite():
     }
 
 
+def repartition_appels_par_heure():
+    """24 compteurs (0h à 23h), pour repérer les heures pleines/creuses —
+    demandé par l'utilisateur le 12/10/2026 en complément de
+    resumer_tracabilite()["horaire_moyen"], qui ne donne qu'une seule
+    moyenne et masque un éventuel motif à deux pics (ex. matin + fin de
+    journée). Même filtre que resumer_tracabilite (duree_secs IS NOT
+    NULL) : ignore les appels sans traçabilité ou incomplets, pour ne
+    pas fausser la lecture avec des lignes "à venir"."""
+    conn = connexion_app()
+    lignes = conn.execute(
+        "SELECT cree_le FROM appels WHERE duree_secs IS NOT NULL"
+    ).fetchall()
+    conn.close()
+
+    compteurs = [0] * 24
+    for l in lignes:
+        try:
+            heure = int(l["cree_le"][11:13])
+        except (ValueError, IndexError):
+            continue
+        compteurs[heure] += 1
+    return compteurs
+
+
 def obtenir_appel(appel_id):
     conn = connexion_app()
     ligne = conn.execute("SELECT * FROM appels WHERE id = ?", (appel_id,)).fetchone()

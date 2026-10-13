@@ -1,5 +1,36 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — graphique "Appels par heure de la journée"
+
+Première des 5 priorités notées hier soir. Choix fait avec l'utilisateur :
+version native dans notre propre back-office plutôt que "Claude
+Dashboards" (fonctionnalité Anthropic trouvée très récente, pas assez
+de certitude pour la recommander aujourd'hui) — mis de côté, pas
+exclu pour plus tard, les deux ne s'excluent pas.
+
+**Implémenté** :
+- `repartition_appels_par_heure()` (`assistant/backoffice/appels.py`) :
+  24 compteurs (0h-23h), même filtre que `resumer_tracabilite`
+  (`duree_secs IS NOT NULL`, pour ignorer les lignes incomplètes/test).
+- Histogramme en barres dessiné à la main en SVG
+  (`_svg_repartition_horaire`, `assistant/backoffice/page.py`) — même
+  logique "pas de librairie de graphiques" que le donut des motifs
+  d'appels déjà existant. Info-bulle par barre (heure + nombre
+  d'appels). Placé en carte pleine largeur sous les tuiles
+  d'indicateurs (pas à côté du donut, qui est pensé pour une colonne
+  étroite — un histogramme de 24 barres a besoin de plus de place).
+
+Vérifié en local : agrégation testée explicitement (3 appels factices à
+9h, 2 à 18h → `[0,...,3,...,2,...]` correct), rendu confirmé via les
+info-bulles de la page. Suites `verifier_api.py` (7/8, démarrage à
+froid confirmé sans rapport) et `verifier_backoffice.py` (12/12)
+relancées sans régression.
+
+**Reste à faire** : rien d'identifié pour l'instant — à l'usage,
+l'utilisateur pourra demander une granularité plus fine (tranches de
+15 min, évoqué hier comme "peut-être") si l'histogramme horaire ne
+suffit pas.
+
 ## ✅ Résolu le 12/10/2026 — appels téléphoniques réels absents du back-office
 
 Signalé une 2e fois par l'utilisateur : un vrai appel téléphonique

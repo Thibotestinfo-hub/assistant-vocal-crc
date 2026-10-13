@@ -1003,6 +1003,47 @@ def _legende_repartition(repartition):
     )
 
 
+def _svg_repartition_horaire(compteurs):
+    """Histogramme en barres (0h-23h), dessiné à la main en SVG — même
+    logique "pas de librairie de graphiques" que _svg_repartition. Une
+    graduation toutes les 3h pour rester lisible sans surcharger l'axe."""
+    largeur, hauteur = 420, 140
+    marge_bas = 20
+    hauteur_graphique = hauteur - marge_bas
+    maximum = max(compteurs) if any(compteurs) else 1
+    largeur_barre = largeur / 24
+
+    barres = []
+    etiquettes = []
+    for h, n in enumerate(compteurs):
+        h_barre = (n / maximum) * (hauteur_graphique - 8) if n else 0
+        x = h * largeur_barre
+        couleur = BLEU_FONCE if n else "#e6ebee"
+        barres.append(
+            f'<rect x="{x + 1:.1f}" y="{hauteur_graphique - h_barre:.1f}" '
+            f'width="{largeur_barre - 2:.1f}" height="{h_barre:.1f}" rx="2" fill="{couleur}">'
+            f'<title>{h}h : {n} appel{"s" if n > 1 else ""}</title></rect>'
+        )
+        if h % 3 == 0:
+            etiquettes.append(
+                f'<text x="{x + largeur_barre / 2:.1f}" y="{hauteur - 4}" '
+                f'text-anchor="middle" font-size="10" fill="#6b7a82">{h}h</text>'
+            )
+    return (
+        f'<svg viewBox="0 0 {largeur} {hauteur}" width="100%" height="{hauteur}" '
+        f'role="img" aria-label="Répartition des appels par heure">'
+        f'{"".join(barres)}{"".join(etiquettes)}</svg>'
+    )
+
+
+def _carte_repartition_horaire(compteurs, suffixe_trace):
+    return f"""<div class="carte" style="margin-bottom:1.5rem">
+  <h2>Appels par heure de la journée</h2>
+  <div class="sous-libelle" style="margin-bottom:0.8rem">{suffixe_trace.lstrip(' —') or 'à venir'}</div>
+  {_svg_repartition_horaire(compteurs)}
+</div>"""
+
+
 def _carte_repartition(repartition, suffixe_trace):
     # suffixe_trace vaut déjà " — sur N appels" (voir plus haut) : ne pas
     # additionner un second chiffre à côté, le total des usages d'outils
@@ -1092,7 +1133,8 @@ def _carte_dictionnaire_prononciation(regles):
 
 def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_client, tracabilite,
                      demandes_rappel, en_cours, regles_prononciation, rappels_en_attente=0,
-                     erreur_voix=False, detail_voix="", erreur_prononciation=False):
+                     repartition_horaire=None, erreur_voix=False, detail_voix="", erreur_prononciation=False):
+    repartition_horaire = repartition_horaire or [0] * 24
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -1227,6 +1269,8 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
       </div>
       {_carte_repartition(tracabilite['repartition_outils'], suffixe_trace)}
     </div>
+
+    {_carte_repartition_horaire(repartition_horaire, suffixe_trace)}
 
     <div class="carte carte-exports">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.9rem">
