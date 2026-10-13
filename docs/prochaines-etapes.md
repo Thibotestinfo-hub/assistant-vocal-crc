@@ -4,57 +4,50 @@
 
 Investigation menée avant tout code : recherche sur les mécanismes
 natifs ElevenLabs pour la latence perçue (indépendants de notre propre
-prompt). Deux trouvés :
+prompt). Deux trouvés dans la documentation publique ElevenLabs :
 - **Tool Call Sounds** (son joué pendant qu'un outil tourne — clavier,
   musique d'ascenseur) : écarté par l'utilisateur, moins naturel qu'un
   mot phatique selon elle.
 - **Soft timeout / messages de remplissage** (`soft_timeout_config`,
-  jusqu'à 7 formules + randomisation) : retenu. Relance automatiquement
-  avec une formule au choix si un tour de parole traîne, **même si
-  notre propre règle de prompt n'a pas été suivie ce tour-là** — un
-  filet de sécurité fiable plutôt qu'une règle de prompt qui dépend de
-  ce que le modèle "pense" à faire.
+  jusqu'à 7 formules + randomisation) : documenté côté API et dans le
+  guide "Conversation flow", mais **introuvable dans le dashboard de
+  l'utilisateur** après exploration complète (onglet Agent, Paramètres
+  > Avancé en entier, Workflow) — fonctionnalité probablement pas
+  encore déployée côté interface, ou réservée à un palier différent ;
+  pas de certitude sur la cause exacte, pas vérifiable depuis
+  l'extérieur du compte. **Mis de côté**, pas supprimé : les 7 formules
+  préparées restent utilisables si la fonctionnalité apparaît un jour.
+  7 formules préparées pour mémoire : « Un instant, je vérifie ça pour
+  vous. », « D'accord, je regarde ça tout de suite. », « Je consulte
+  nos informations, merci de patienter. », « Très bien, laissez-moi
+  vérifier. », « Je continue la recherche de mon côté. », « Voyons voir
+  ce que je peux vous dire. », « Ne quittez pas, je m'occupe de ça. »
 
-**7 formules proposées** (à ajouter par l'utilisateur dans son
-dashboard ElevenLabs — je n'y ai pas accès) : volontairement variées
-dans leur ouverture, jamais d'indication de durée (ElevenLabs
-déconseille officiellement ce genre d'engagement, les temps de réponse
-ne sont pas prévisibles), jamais de référence à un outil précis
-(ce mécanisme peut se déclencher sur n'importe quel ralentissement, pas
-seulement calculer_itineraire_complexe) :
-1. « Un instant, je vérifie ça pour vous. »
-2. « D'accord, je regarde ça tout de suite. »
-3. « Je consulte nos informations, merci de patienter. »
-4. « Très bien, laissez-moi vérifier. »
-5. « Je continue la recherche de mon côté. »
-6. « Voyons voir ce que je peux vous dire. »
-7. « Ne quittez pas, je m'occupe de ça. »
+**Erreur corrigée en session** : une première version du changement de
+prompt supprimait la phrase de transition systématique avant les
+outils rapides, en s'appuyant sur le soft timeout ElevenLabs comme
+filet de sécurité de repli — avant de découvrir qu'il n'est pas
+accessible. Cette version aurait fait régresser la latence perçue
+(plus aucun filet du tout sur les outils rapides qui seraient
+exceptionnellement lents). Corrigée avant que l'utilisateur ne colle
+le prompt dans ElevenLabs.
 
-Suggéré en même temps : `max_soft_timeouts_per_generation` à 1 (éviter
-d'enchaîner 2-3 formules sur une même attente, ça deviendrait
-artificiel) et `use_llm_generated_message` désactivé (garder le
-contrôle total du registre plutôt que de laisser le modèle improviser).
+**Côté prompt, fait (version corrigée)** : la règle "Style oral"
+garde la phrase de transition systématique avant chaque appel d'outil
+(comportement inchangé). Deux exceptions nommées s'y ajoutent, où la
+phrase explique en plus POURQUOI l'attente est plus longue que
+d'habitude, style "contrôleur de train", plutôt que de dire juste "un
+instant" : avant calculer_itineraire_complexe (service Google externe)
+et quand une recherche d'arrêt enchaîne plusieurs outils pour résoudre
+un itinéraire. Fichier modifié : `docs/spec-assistant-vocal-v0-revisee.md`,
+§5. Le prompt complet mis à jour a été donné à l'utilisateur en
+conversation pour collage manuel dans le champ "Invite système" côté
+ElevenLabs (jamais automatique — à refaire à chaque modification de
+cette section).
 
-**Côté prompt, fait** : la règle "Style oral" qui imposait une phrase
-de transition avant CHAQUE appel d'outil, sans exception, est
-assouplie — la plupart des outils répondent en moins d'une seconde, le
-filet de sécurité ElevenLabs ci-dessus couvre maintenant le cas où un
-outil rapide est quand même lent par accident. Seules deux exceptions
-nommées restent explicites (pas une liste que le modèle pourrait
-étendre lui-même selon qu'un outil lui "semble" lent) : avant
-calculer_itineraire_complexe (service Google externe) et quand une
-recherche d'arrêt enchaîne plusieurs outils pour résoudre un
-itinéraire. Les deux phrases ont été réécrites dans un style "contrôleur
-de train" : expliquer POURQUOI l'attente est plus longue que
-d'habitude, pas juste l'annoncer (ex. « Je vérifie auprès d'un service
-externe, ça peut prendre quelques instants. »). Fichiers modifiés :
-`docs/spec-assistant-vocal-v0-revisee.md`, §5 (règle générale et les
-deux instructions spécifiques).
-
-**Reste à faire** : l'utilisateur doit ajouter les 7 formules dans son
-dashboard ElevenLabs (guide pas à pas donné en conversation, pas dans
-ce fichier) et les tester en situation réelle — rien à vérifier côté
-code pour cette partie, c'est un réglage plateforme pur.
+**Reste à faire** : l'utilisateur doit coller le prompt mis à jour
+dans ElevenLabs et publier. Revisiter le soft timeout si la
+fonctionnalité apparaît un jour dans le dashboard.
 
 ## ✅ Fait le 13/10/2026 — 4 améliorations du back-office (priorité n°4 + opportunité)
 
