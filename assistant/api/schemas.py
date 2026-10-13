@@ -229,6 +229,10 @@ class ItineraireComplexeRequete(BaseModel):
     arret_arrivee_id: str
     date: Optional[str] = None
     heure: Optional[str] = None
+    # Jamais demandé par défaut (voir docs/prochaines-etapes.md,
+    # 13/10/2026) : uniquement si l'appelant exprime lui-même une
+    # contrainte (difficulté à marcher, envie d'éviter les changements).
+    preference: Optional[Literal["moins_marche", "moins_correspondances"]] = None
 
 
 class EtapeItineraireComplexe(BaseModel):
@@ -265,6 +269,10 @@ class EnvoiSmsItineraireRequete(BaseModel):
     arret_arrivee_id: str
     date: Optional[str] = None
     heure: Optional[str] = None
+    # Même préférence que celle utilisée pour calculer_itineraire_complexe,
+    # si l'appelant en a exprimé une — jamais un SMS qui recalcule un
+    # trajet différent de celui annoncé à l'oral (CLAUDE.md, exactitude).
+    preference: Optional[Literal["moins_marche", "moins_correspondances"]] = None
     # Optionnel : fourni par ElevenLabs via {{system__conversation_id}} si
     # câblé côté configuration de l'agent — permet de relier l'envoi à
     # l'appel dans le back-office (même mécanisme que RappelRequete).

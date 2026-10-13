@@ -1,5 +1,83 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — choix entre trajets ("moins de marche" / "moins de correspondances")
+
+3e des 5 priorités du 12/10. Investigation menée en deux volets avant
+tout code, à la demande de l'utilisateur : ce que Google Routes permet
+techniquement, et comment ça se traduit en parcours voix. Décision
+prise ensemble : la latence reste juge de paix (voir CLAUDE.md), donc
+**rien n'est demandé par défaut** — le trajet Google par défaut reste
+la seule réponse annoncée d'emblée, un second appel (plus lent, donc
+assumé) n'est déclenché que si l'appelant exprime lui-même une
+contrainte.
+
+**Ce que l'API permet** (vérifié dans la référence Routes API v2, pas
+dans l'app Google Maps grand public qui a des fonctionnalités que
+l'API n'expose pas) :
+- `transitPreferences.routingPreference` = `LESS_WALKING` ou
+  `FEWER_TRANSFERS` : un seul trajet biaisé selon le critère choisi,
+  pas une liste à comparer. Un second appel Google à chaque usage.
+- `computeAlternativeRoutes` (jusqu'à 3 alternatives, classement
+  opaque de Google, pas un critère qu'on choisit) : écarté — pas
+  exploitable pour une réponse orale claire, et pas de contrôle sur ce
+  qui différencie les trajets proposés.
+- Aucun paramètre d'accessibilité fauteuil roulant dans l'API Routes
+  (c'est une fonctionnalité de l'app Google Maps grand public depuis
+  2018, jamais exposée aux développeurs).
+
+**Investigation complémentaire, notre propre GTFS** : les colonnes
+`wheelchair_boarding` (stops.txt) et `wheelchair_accessible` (trips.txt)
+existent bien dans le flux de ce réseau, mais sont renseignées à
+**100% avec la valeur "0"** (= "aucune information", au sens strict de
+la norme GTFS) sur les 1307 arrêts et 3591 trajets vérifiés. Même
+constat que pour l'API Google : l'accessibilité fauteuil roulant n'est
+**pas exploitable aujourd'hui**, ni par Google Routes ni par notre
+propre GTFS. Sujet mis de côté (non prioritaire), mais au moins
+tranché : il faudrait une tout autre source de données pour avancer un
+jour, pas un réglage à activer sur l'existant.
+
+**Point soulevé par l'utilisateur, à garder en tête sans agir
+maintenant** : les aléas climatiques (pluie, mais aussi fortes
+chaleurs) dégradent l'expérience de mobilité multimodale (marche,
+attente, report modal vers le bus) — "moins de marche" répond déjà au
+besoin immédiat sans donnée météo, mais la question de la chaleur
+comme variable d'ajustement de mobilité est identifiée comme un sujet
+d'avenir, pas pour ce POC.
+
+**Implémenté** :
+- `calculer_itineraire_complexe(..., preference=None)` (`assistant/
+  outils/itineraire_google.py`) : `preference` vaut `"moins_marche"` ou
+  `"moins_correspondances"`, mappé vers `LESS_WALKING`/`FEWER_TRANSFERS`
+  côté Google. Absent par défaut : le corps de la requête Google est
+  identique à avant (`transitPreferences` n'apparaît que si demandé) —
+  latence du cas courant inchangée. Préférence inconnue → erreur
+  propre (`trouve: false`), jamais d'exception.
+- `preference` ajouté aux schémas `ItineraireComplexeRequete` et
+  `EnvoiSmsItineraireRequete` (`assistant/api/schemas.py`), propagé
+  dans les deux routes (`assistant/api/main.py`) et dans
+  `envoyer_sms_itineraire` (`assistant/outils/sms.py`) — le SMS doit
+  recalculer le même trajet que celui annoncé à l'oral, jamais le
+  trajet par défaut si une préférence a été exprimée.
+- Contrats mis à jour dans `docs/spec-assistant-vocal-v0-revisee.md`
+  (§4) et nouvelle règle de prompt (§5, section Itinéraire) : l'agent
+  ne propose JAMAIS ce choix de sa propre initiative, seulement en
+  réaction à une contrainte exprimée par l'appelant, avec une phrase de
+  transition avant le second appel, et le nouveau trajet annoncé comme
+  un remplacement, jamais une liste à comparer.
+
+Vérifié en local : préférence invalide rejetée proprement (par l'outil
+lui-même et par Pydantic, 422, sans toucher le réseau ni le GTFS) ;
+corps de la requête Google inspecté directement (en interceptant
+l'appel HTTP) — `transitPreferences` présent seulement si une
+préférence est passée, absent sinon (comportement par défaut
+inchangé, confirmé). `verifier_api.py` (7/8, échec réseau sandbox
+connu) et `verifier_backoffice.py` (12/12) relancées sans régression.
+
+**Reste à faire** : rien d'identifié côté code — à l'usage réel, il
+faudra vérifier que l'agent respecte bien la règle "jamais par
+défaut" en conditions réelles d'appel (comme pour toute règle de
+prompt).
+
 ## ✅ Fait le 13/10/2026 — décompte des SMS envoyés au back-office
 
 Finalise le chantier SMS (voir entrée juste au-dessous) avant de passer

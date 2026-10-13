@@ -48,6 +48,19 @@ FIELD_MASK = (
     "routes.legs.steps.transitDetails"
 )
 
+# Un seul des deux à la fois côté API Google (transitPreferences.routingPreference
+# est un seul champ, pas une liste) — "moins de marche" et "moins de
+# correspondances" côté appelant, pour rester en français simple dans le
+# contrat de l'outil (voir docs/spec-assistant-vocal-v0-revisee.md, §4).
+# Volontairement réactif, jamais demandé par défaut (voir docs/
+# prochaines-etapes.md, 13/10/2026) : chaque préférence déclenche un
+# second appel Google, donc une latence supplémentaire assumée
+# seulement sur demande explicite de l'appelant.
+_PREFERENCES_GOOGLE = {
+    "moins_marche": "LESS_WALKING",
+    "moins_correspondances": "FEWER_TRANSFERS",
+}
+
 
 def _en_tete(cle):
     return {
@@ -164,10 +177,13 @@ def _lien_google_maps(arret_depart, arret_arrivee):
     )
 
 
-def calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date=None, heure=None, conn=None):
+def calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date=None, heure=None, preference=None, conn=None):
     cle = os.environ.get("GOOGLE_ROUTES_API_KEY")
     if not cle:
         return {"trouve": False, "erreur": "calculateur complexe non configuré (GOOGLE_ROUTES_API_KEY absente)"}
+
+    if preference is not None and preference not in _PREFERENCES_GOOGLE:
+        return {"trouve": False, "erreur": f"préférence inconnue : {preference!r}"}
 
     fermer = conn is None
     conn = conn or connexion_gtfs()
@@ -194,6 +210,8 @@ def calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date=None, h
         "travelMode": "TRANSIT",
         "departureTime": _departure_time_rfc3339(date, heure),
     }
+    if preference is not None:
+        corps["transitPreferences"] = {"routingPreference": _PREFERENCES_GOOGLE[preference]}
 
     try:
         reponse = httpx.post(BASE_URL, json=corps, headers=_en_tete(cle), timeout=TIMEOUT_SECONDES)

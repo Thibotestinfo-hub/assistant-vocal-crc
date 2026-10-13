@@ -269,6 +269,8 @@ Si `trouve` est faux, l'agent applique la même règle que pour tout outil qui n
 
 Ajouté le 08/10/2026. S'appuie sur l'API Google Routes (trajets nécessitant de la marche ou plus d'une correspondance — hors du périmètre volontaire de `calculer_itineraire`). **Règle stricte : à appeler uniquement si `calculer_itineraire` a renvoyé `trouve: false` pour le même trajet, jamais les deux outils pour la même demande** — pour ne jamais risquer deux réponses différentes sur un même trajet (voir docs/prochaines-etapes.md, 08/10/2026, pour la décision de conception complète). Même paramètres que `calculer_itineraire` (mêmes `arret_depart_id`/`arret_arrivee_id` déjà résolus).
 
+`preference` (ajouté le 13/10/2026) : demande à Google de privilégier un critère précis — un seul appel Google supplémentaire, donc une latence assumée, jamais demandé par défaut (voir §5, "Itinéraire").
+
 ```json
 {
   "name": "calculer_itineraire_complexe",
@@ -277,7 +279,8 @@ Ajouté le 08/10/2026. S'appuie sur l'API Google Routes (trajets nécessitant de
     "arret_depart_id": { "type": "string", "description": "Identifiant de l'arrêt de départ, déjà résolu via rechercher_arret ou rechercher_repere" },
     "arret_arrivee_id": { "type": "string", "description": "Identifiant de l'arrêt d'arrivée, déjà résolu via rechercher_arret ou rechercher_repere" },
     "date": { "type": "string", "description": "ISO (AAAA-MM-JJ), défaut aujourd'hui", "required": false },
-    "heure": { "type": "string", "description": "HH:MM, défaut maintenant", "required": false }
+    "heure": { "type": "string", "description": "HH:MM, défaut maintenant", "required": false },
+    "preference": { "type": "string", "enum": ["moins_marche", "moins_correspondances"], "description": "UNIQUEMENT si l'appelant exprime lui-même une contrainte (difficulté à marcher, souhait d'éviter les changements) — jamais proposé ou demandé spontanément", "required": false }
   }
 }
 ```
@@ -299,6 +302,7 @@ Ajouté le 12/10/2026. Envoie par SMS (Twilio) le détail d'un trajet déjà tro
     "arret_arrivee_id": { "type": "string", "description": "Même valeur que celle utilisée pour calculer_itineraire_complexe" },
     "date": { "type": "string", "description": "ISO (AAAA-MM-JJ), même valeur que calculer_itineraire_complexe", "required": false },
     "heure": { "type": "string", "description": "HH:MM, même valeur que calculer_itineraire_complexe", "required": false },
+    "preference": { "type": "string", "enum": ["moins_marche", "moins_correspondances"], "description": "Même valeur que celle utilisée pour calculer_itineraire_complexe, si une préférence a été exprimée — le SMS doit décrire le même trajet que celui annoncé à l'oral", "required": false },
     "conversation_id": { "type": "string", "description": "Fourni automatiquement par {{system__conversation_id}}, pas par l'appelant", "required": false }
   }
 }
@@ -456,6 +460,20 @@ répéter le numéro et confirme-le avant d'appeler envoyer_sms_itineraire —
 jamais sans ce numéro confirmé à l'oral. Si l'appelant ne donne pas son
 prénom/nom, envoie quand même le SMS sans eux plutôt que d'insister.
 N'appelle cet outil qu'une seule fois par trajet proposé.
+
+Si, à un moment de l'échange sur ce trajet (avant ou après l'avoir détaillé),
+l'appelant exprime lui-même une contrainte — difficulté à marcher, souhait
+d'éviter les changements, ou toute formulation équivalente ("y a-t-il moins
+de marche", "je ne peux pas faire autant de correspondances") — rappelle
+d'abord que cela prend un instant ("Je vérifie s'il existe une meilleure
+option.") puis rappelle calculer_itineraire_complexe avec les mêmes arrêts
+et la préférence correspondante (moins_marche ou moins_correspondances).
+Annonce alors ce nouveau trajet comme un remplacement du précédent, jamais
+comme une liste d'options à comparer. Ne propose JAMAIS ce choix de ta propre
+initiative : l'appelant n'a pas à choisir entre plusieurs trajets qu'il n'a
+pas demandés. Si un SMS est envoyé après ce remplacement, transmets la même
+préférence à envoyer_sms_itineraire, pour que le SMS décrive le trajet
+annoncé, pas le premier trajet par défaut.
 
 Si calculer_itineraire_complexe renvoie aussi trouve=false, ne propose jamais
 un trajet à l'improviste : tu bascules en sortie, comme pour toute information

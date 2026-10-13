@@ -271,15 +271,20 @@ def _consigner(telephone, nom, texte, succes, erreur, conversation_id):
     conn.close()
 
 
-def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=None, heure=None, nom=None, conversation_id=None):
+def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=None, heure=None, nom=None, preference=None, conversation_id=None):
     """Fonction destinée à tourner en tâche de fond (voir route dans
     assistant/api/main.py) — ne lève jamais, consigne toujours un
     résultat dans sms_envoyes, même une erreur totalement imprévue
     (le try/except large est volontaire ici : une tâche de fond qui
     plante en silence, sans aucune trace, est pire qu'une ligne
-    d'erreur — personne ne peut alors savoir qu'elle a échoué)."""
+    d'erreur — personne ne peut alors savoir qu'elle a échoué).
+
+    preference : doit être la même valeur que celle passée à
+    calculer_itineraire_complexe pendant l'appel, sinon le SMS
+    recalculerait un trajet différent de celui annoncé à l'oral
+    (CLAUDE.md, exactitude)."""
     try:
-        resultat = calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date, heure)
+        resultat = calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date, heure, preference)
         if not resultat.get("trouve"):
             _consigner(telephone, nom, None, False, resultat.get("erreur") or "itinéraire introuvable au moment de l'envoi", conversation_id)
             return

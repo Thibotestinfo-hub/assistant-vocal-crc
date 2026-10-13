@@ -201,6 +201,7 @@ def route_calculer_itineraire_complexe(requete: ItineraireComplexeRequete):
     assistant/outils/itineraire_google.py."""
     return calculer_itineraire_complexe(
         requete.arret_depart_id, requete.arret_arrivee_id, requete.date, requete.heure,
+        requete.preference,
     )
 
 
@@ -217,7 +218,7 @@ def route_envoyer_sms_itineraire(requete: EnvoiSmsItineraireRequete, taches_fond
         envoyer_sms_itineraire,
         telephone=requete.telephone, arret_depart_id=requete.arret_depart_id,
         arret_arrivee_id=requete.arret_arrivee_id, date=requete.date, heure=requete.heure,
-        nom=requete.nom, conversation_id=requete.conversation_id,
+        nom=requete.nom, preference=requete.preference, conversation_id=requete.conversation_id,
     )
     return {"accepte": True, "erreur": None}
 
