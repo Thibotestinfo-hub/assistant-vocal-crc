@@ -199,8 +199,12 @@ def _entete_resume(ctx, emoji):
     return lignes
 
 
-def _formater_sms_emoji(ctx):
-    lignes = _entete_resume(ctx, emoji=True)
+def _formater_sms_emoji(ctx, nom):
+    if nom:
+        lignes = [f"Bonjour {nom}, voici votre itinéraire sur le réseau TABM", ""]
+    else:
+        lignes = ["Voici votre itinéraire sur le réseau TABM", ""]
+    lignes += _entete_resume(ctx, emoji=True)
     lignes.append("")
 
     etapes = ctx["etapes"]
@@ -244,11 +248,15 @@ def _formater_sms_emoji(ctx):
     return "\n".join(lignes).strip("\n")
 
 
-def _formater_sms_texte(ctx):
+def _formater_sms_texte(ctx, nom):
     """Même contenu que la version emoji, sans aucun emoji ni caractère
     accentué (volontaire : garantit l'encodage GSM-7, 160 car./segment
     au lieu de 70 — voir docstring du module)."""
-    lignes = _entete_resume(ctx, emoji=False)
+    if nom:
+        lignes = [f"Bonjour {_sans_accents(nom)}, voici votre itineraire sur le reseau TABM", ""]
+    else:
+        lignes = ["Voici votre itineraire sur le reseau TABM", ""]
+    lignes += _entete_resume(ctx, emoji=False)
     lignes.append("")
 
     etapes = ctx["etapes"]
@@ -293,18 +301,14 @@ def _formater_sms_texte(ctx):
     return "\n".join(lignes).strip("\n")
 
 
-def formater_sms_itineraire(etapes, duree_totale_min, lien_google_maps=None, destination=None):
+def formater_sms_itineraire(etapes, duree_totale_min, nom=None, lien_google_maps=None, destination=None):
     """Construit le texte du SMS à partir des étapes structurées
     renvoyées par calculer_itineraire_complexe — jamais de texte libre
     en entrée (voir docstring du module). Le format (emoji ou texte) est
-    choisi depuis le back-office, "emoji" par défaut si jamais réglé.
-    Pas de formule d'accueil personnalisée (maquette fournie par
-    l'utilisateur le 13/10/2026, qui n'en a pas) — le prénom/nom de
-    l'appelant reste utilisé ailleurs (suivi back-office, voir
-    envoyer_sms_itineraire), juste plus dans le texte du SMS lui-même."""
+    choisi depuis le back-office, "emoji" par défaut si jamais réglé."""
     ctx = _preparer_contexte_sms(etapes, duree_totale_min, destination)
     format_choisi = obtenir_parametre("format_sms", "emoji")
-    texte = _formater_sms_texte(ctx) if format_choisi == "texte" else _formater_sms_emoji(ctx)
+    texte = _formater_sms_texte(ctx, nom) if format_choisi == "texte" else _formater_sms_emoji(ctx, nom)
     if lien_google_maps:
         prefixe = "Lien : " if format_choisi == "texte" else "📍 Voir sur Google Maps : "
         texte += "\n\n" + prefixe + lien_google_maps
@@ -360,7 +364,7 @@ def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=No
             return
 
         texte = formater_sms_itineraire(
-            resultat["etapes"], resultat.get("duree_totale_min"),
+            resultat["etapes"], resultat.get("duree_totale_min"), nom,
             resultat.get("lien_google_maps"), resultat.get("destination"),
         )
         succes, erreur = _envoyer_requete_twilio(telephone, texte)
