@@ -1,5 +1,50 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — bug de désambiguïsation trouvé via un test réel, corrigé
+
+Test téléphonique réel après la reconciliation du prompt (même trajet
+que la veille, Émile Ripert à Velaux → clinique de Marignane) :
+l'arrêt de départ, trouvable, n'a pas été trouvé.
+
+**Cause identifiée** (analyse des deux webhooks post-appel) : l'agent a
+appelé `rechercher_arret(texte="Émile Ripert", commune="Vitrolles")` —
+une commune que l'appelante n'a jamais prononcée (elle a dit "Velaux"),
+en violation directe de notre propre règle de prompt. Le paramètre
+`commune` filtrant strictement les résultats, le vrai arrêt ("Emil
+Ripèr", commune Velaux, confirmé trouvé sans filtre dans un second
+appel juste après) est resté hors de portée.
+
+**Hypothèse retenue sur l'origine du mot "Vitrolles"** : l'exemple de
+phrase pour la confiance moyenne, dans "Identifier un arrêt", citait
+mot pour mot « ... à Vitrolles, ou celui de Marignane ? » — exactement
+les deux communes du test réel de l'utilisateur. Fuite probable de
+l'exemple du prompt vers le raisonnement du modèle plutôt qu'un vrai
+ancrage sur la conversation. Corrigé : les noms de communes réels de
+l'exemple remplacés par des espaces réservés génériques
+(`[commune A]`/`[commune B]`), pour supprimer la tentation.
+
+**Observation complémentaire, pas corrigée** : pour la destination
+("clinique de Marignane"), le premier appel a abandonné après un
+`rechercher_repere` vide sans essayer le repli `rechercher_arret`
+pourtant explicitement prévu par le prompt ("n'abandonne pas tout de
+suite") — alors qu'un second appel, dans la même configuration, a bien
+suivi cette règle. Variance du modèle sur une règle déjà écrite, pas
+un bug de code identifiable ; à surveiller plutôt qu'à corriger pour
+l'instant.
+
+**Non expliqué, hors de portée du code** : l'utilisateur affirme
+n'avoir jamais dit "La Réunion" (apparu dans la transcription comme
+première tentative de nom d'arrêt) ni "Vélo" (elle dit avoir prononcé
+"Velaux" à deux reprises, justement pour éviter la confusion). Pas
+d'accès à l'audio depuis cette session pour vérifier — hallucination
+possible de la reconnaissance vocale (Scribe v2 Realtime), notée sans
+pouvoir trancher.
+
+**Important, pas encore fait** : ce correctif doit être collé dans le
+champ "Invite système" côté ElevenLabs pour prendre effet — seule la
+phrase d'exemple a changé, l'utilisateur peut éditer directement cette
+ligne dans le dashboard plutôt que de tout recoller.
+
 ## ✅ Fait le 13/10/2026 — URL du site public réglable depuis le back-office
 
 Point n°1 d'une réflexion plus large de l'utilisateur sur l'alimentation
