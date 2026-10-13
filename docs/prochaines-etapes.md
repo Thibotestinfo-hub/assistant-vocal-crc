@@ -1,5 +1,43 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — vraie cause du silence de 32s, et correction côté prompt
+
+Retour sur le point 2 des REX ci-dessous ("pas de correction possible de
+notre côté"). L'utilisateur n'était pas satisfaite de l'explication
+fournie par le bot support ElevenLabs et a demandé une seconde analyse,
+en partageant la réponse complète du bot ainsi que la liste des modèles
+LLM disponibles sur son compte.
+
+La réponse du bot était techniquement exacte mais incomplète : la
+"cascade LLM" (bascule vers un modèle de secours) ne surveille que le
+délai avant le début de la génération — or le modèle générait vite à
+chaque fois, donc la cascade ne s'est jamais déclenchée, ce qui est
+cohérent. Le vrai problème, identifié en relisant le scénario : le modèle
+traitait "dire la phrase d'attente" et "appeler l'outil" comme deux tours
+de conversation séparés, et n'enchaînait qu'après une relance de silence
+de la plateforme (`user_turn_timeout`) — pas un problème de latence de
+génération, un problème de structure de réponse.
+
+Correction appliquée dans `docs/spec-assistant-vocal-v0-revisee.md` :
+renforcement explicite "même réponse, jamais deux tours" sur les deux
+paragraphes spécifiques de la section "Itinéraire" qui demandent une
+phrase d'annonce avant un appel d'outil (l'annonce avant
+`calculer_itineraire_complexe`, et la revérification avec préférence) —
+la règle générale "Style oral" avait déjà reçu ce renforcement plus tôt
+dans la session, mais l'expérience de ce projet montre que les règles
+générales seules ne suffisent pas toujours, les paragraphes spécifiques
+doivent le répéter.
+
+Décision de ne pas changer de modèle LLM pour l'instant : correction de
+prompt plus directe, moins risquée et sans impact coût/fiabilité à
+arbitrer. La question du modèle (Gemini 3.1 Flash Lite vs. une montée en
+gamme) reste ouverte et sera tranchée séparément si cette correction ne
+suffit pas.
+
+À republier manuellement dans le champ "Invite système" d'ElevenLabs
+(pas d'automatisation entre ce dépôt et la plateforme) : les deux
+paragraphes modifiés de la section "Itinéraire".
+
 ## ✅ Fait le 13/10/2026 — formule d'accueil du SMS réintégrée
 
 Correction immédiate après le chantier précédent : la formule d'accueil
