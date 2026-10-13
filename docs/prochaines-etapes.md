@@ -1,5 +1,58 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — latence de ~10s sur rechercher_information, trouvée et corrigée
+
+Suite directe du test téléphonique réel : un webhook montrait
+`tool_latency_secs: 10.000244387891144` sur un appel à
+`rechercher_information`, très loin du budget de 300 ms de CLAUDE.md,
+en pleine conversation. Coïncide avec l'échec récurrent du même outil
+dans `verifier_api.py` tout au long de cette session, toujours écarté
+comme "souci réseau du bac à sable" sans être creusé — à tort.
+
+**Cause racine, en deux temps** :
+1. `_charger_modele()`/`_charger_index()` (`assistant/outils/
+   rechercher_information.py`) sont des caches paresseux (globals
+   chargés au premier appel). Rien ne les préchargeait au démarrage de
+   l'application : c'est le premier appelant réel après un déploiement
+   ou un redémarrage qui payait ce coût, en pleine conversation.
+2. Plus profond : même avec le modèle déjà en cache sur disque
+   (`data/etat/modeles/`), `fastembed` contacte Hugging Face par défaut
+   pour vérifier la révision du dépôt avant d'utiliser ce cache — un
+   appel réseau, pas juste une lecture disque. Le correctif du
+   02/09/2026 (mise en cache pour éviter de retélécharger le modèle)
+   n'empêchait pas cette vérification en ligne à chaque démarrage, un
+   coût distinct resté non corrigé jusqu'ici.
+
+**Implémenté** :
+- `TextEmbedding(..., local_files_only=True)` en premier essai
+  (`_charger_modele`), avec repli sur l'ancien comportement (accès
+  réseau) uniquement si le cache est encore vide (tout premier
+  démarrage sur un environnement neuf). Règle au passage un risque de
+  reproductibilité déjà identifié dans ce fichier (une révision de
+  modèle qui changerait silencieusement entre le calcul de l'index et
+  une requête en direct) : on utilise désormais toujours la version
+  déjà en cache, jamais une plus récente récupérée à la volée.
+- `prechauffer()`, nouvelle fonction publique qui charge modèle + index.
+  Appelée en tâche de fond au démarrage de l'application
+  (`assistant/api/main.py`, `_cycle_de_vie`), dans un thread séparé
+  (`asyncio.to_thread`) pour ne jamais bloquer la boucle d'événements —
+  en particulier `/sante`, qui doit rester rapide pour ne jamais risquer
+  de dépasser le délai du health-check Clever Cloud (CLAUDE.md, piège
+  connu, déjà vécu une fois pour une raison voisine).
+
+Vérifié en local : `/sante` répond en ~30ms immédiatement après le
+démarrage, préchauffe en tâche de fond confirmée sans le bloquer. Le
+chemin `local_files_only=True` échoue correctement vite (cache vide
+dans ce bac à sable, qui n'a de toute façon pas accès à Hugging Face) :
+0,3s au lieu de rester bloqué, avant repli sur l'ancien comportement —
+pas de régression, échec sandbox nettement plus rapide qu'avant (345ms
+contre 700-1800ms habituellement). **Le vrai gain (cache effectif) ne
+peut être vérifié qu'en production**, où le modèle est déjà en cache
+depuis les déploiements précédents — à confirmer par l'utilisateur lors
+du prochain test réel après déploiement.
+`verifier_api.py` (7/8, même échec sandbox connu mais plus rapide) et
+`verifier_backoffice.py` (12/12) sans régression.
+
 ## ✅ Fait le 13/10/2026 — bug de désambiguïsation trouvé via un test réel, corrigé
 
 Test téléphonique réel après la reconciliation du prompt (même trajet

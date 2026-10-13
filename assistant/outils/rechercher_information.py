@@ -105,8 +105,39 @@ def _charger_modele():
         # En local, data/etat/ n'existe pas forcément encore (sur Clever
         # Cloud, c'est le point de montage du FS Bucket, déjà présent).
         CACHE_MODELE.mkdir(parents=True, exist_ok=True)
-        _modele = TextEmbedding(MODELE, cache_dir=str(CACHE_MODELE))
+        try:
+            # local_files_only : par défaut, fastembed interroge Hugging
+            # Face pour vérifier la révision du dépôt MÊME quand le
+            # modèle est déjà en cache localement — un appel réseau qui,
+            # en conditions réelles, a pris environ 10 secondes en plein
+            # appel téléphonique (constaté le 13/10/2026, voir docs/
+            # prochaines-etapes.md), bien au-delà du budget de latence de
+            # CLAUDE.md. En plus de supprimer ce coût une fois le modèle
+            # en cache, ça règle au passage un risque de reproductibilité
+            # déjà identifié : on utilise toujours la version déjà
+            # calculée pour l'index, jamais une révision plus récente
+            # récupérée en direct sans qu'on le sache.
+            _modele = TextEmbedding(MODELE, cache_dir=str(CACHE_MODELE), local_files_only=True)
+        except Exception:
+            # Premier démarrage sur un environnement neuf (cache encore
+            # vide) : un seul vrai téléchargement nécessaire, les
+            # suivants emprunteront le chemin local_files_only ci-dessus.
+            _modele = TextEmbedding(MODELE, cache_dir=str(CACHE_MODELE))
     return _modele
+
+
+def prechauffer():
+    """Charge le modèle d'embeddings et l'index en mémoire — à appeler
+    une fois au démarrage de l'application (voir assistant/api/main.py,
+    _cycle_de_vie), pour que ce coût soit payé au déploiement plutôt que
+    par le premier appelant en pleine conversation. Le cache sur disque
+    (CACHE_MODELE) évite de retélécharger le modèle depuis Hugging Face
+    à chaque redémarrage, mais pas le temps de le charger en mémoire la
+    première fois — ~10 secondes constatées en conditions réelles le
+    13/10/2026, bien au-delà du budget de 300 ms de CLAUDE.md, en plein
+    milieu d'un appel téléphonique."""
+    _charger_modele()
+    _charger_index()
 
 
 def _normaliser(texte):
