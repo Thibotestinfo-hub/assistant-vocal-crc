@@ -22,11 +22,13 @@ Correction appliquée dans `docs/spec-assistant-vocal-v0-revisee.md` :
 renforcement explicite "même réponse, jamais deux tours" sur les deux
 paragraphes spécifiques de la section "Itinéraire" qui demandent une
 phrase d'annonce avant un appel d'outil (l'annonce avant
-`calculer_itineraire_complexe`, et la revérification avec préférence) —
-la règle générale "Style oral" avait déjà reçu ce renforcement plus tôt
-dans la session, mais l'expérience de ce projet montre que les règles
-générales seules ne suffisent pas toujours, les paragraphes spécifiques
-doivent le répéter.
+`calculer_itineraire_complexe`, et la revérification avec préférence).
+Une version généralisée de ce renforcement avait aussi été ajoutée au
+paragraphe "Style oral" ("dans ces deux cas comme dans tous les
+autres") lors d'une édition antérieure du fichier, mais — erreur
+découverte seulement lors de la vérification suivante — elle n'avait
+jamais été effectivement collée dans le prompt ElevenLabs, donc jamais
+réellement testée en appel.
 
 Décision de ne pas changer de modèle LLM pour l'instant : correction de
 prompt plus directe, moins risquée et sans impact coût/fiabilité à
@@ -37,6 +39,46 @@ suffit pas.
 À republier manuellement dans le champ "Invite système" d'ElevenLabs
 (pas d'automatisation entre ce dépôt et la plateforme) : les deux
 paragraphes modifiés de la section "Itinéraire".
+
+## ✅ Fait le 13/10/2026 — satisfaction enregistrée sans réponse (récidive), et une erreur de diagnostic corrigée
+
+Après republication des deux paragraphes ci-dessus, nouveau test réel :
+l'itinéraire alternatif "moins de marche" fonctionne bien (enchaînement
+annonce/outil correct, confirmé sur le webhook), mais l'utilisatrice a de
+nouveau un doute sur la satisfaction. Vérifié sur le webhook : à t=135s
+l'agent pose la question de satisfaction, à t=138s il appelle
+enregistrer_satisfaction(satisfait=true) — aucun tour de parole de
+l'utilisatrice entre les deux (même source_event_id sur la question et
+l'appel d'outil, donc même génération). Récidive confirmée du bug déjà
+vu et corrigé une première fois le 28/09/2026.
+
+**Premier diagnostic erroné, corrigé après coup** : j'ai d'abord accusé
+la phrase généralisée ajoutée au paragraphe "Style oral" ("dans ces deux
+cas comme dans tous les autres") d'avoir fait percuter la règle
+satisfaction (qui impose la règle inverse). Deux allers-retours plus
+tard, l'utilisatrice n'a pas pu retrouver cette phrase dans son prompt
+ElevenLabs — parce qu'elle n'y avait en réalité jamais été collée (voir
+l'entrée ci-dessus). Le diagnostic est donc faux : cette généralisation
+n'était pas live pendant le test incriminé, elle ne peut pas être la
+cause.
+
+**Correction apportée** : retrait de "comme dans tous les autres" dans
+le paragraphe Style oral (la phrase redevient scopée aux deux cas
+explicitement nommés, sans généralisation jamais testée et
+potentiellement risquée), et retrait des ajouts de clarification
+croisée qui n'avaient de sens que par rapport à cette généralisation
+(dans Style oral et dans la règle enregistrer_satisfaction).
+
+**Conclusion sur le bug lui-même** : la règle enregistrer_satisfaction
+était déjà, mot pour mot, aussi explicite que possible ("n'appelle
+jamais l'outil dans la même réponse que la question") — c'est
+exactement ce qui s'est produit, donc le modèle n'a pas suivi sa propre
+consigne plutôt que la consigne étant mal écrite. Pas de nouvelle
+correction de prompt tentée : probable variabilité du modèle
+(Gemini 3.1 Flash Lite), dans la même veine que les autres
+irrégularités déjà observées cette session. À surveiller sur les
+prochains appels ; si la récidive persiste, ce sera un argument de plus
+pour la question (déjà ouverte) du changement de modèle.
 
 ## ✅ Fait le 13/10/2026 — formule d'accueil du SMS réintégrée
 
