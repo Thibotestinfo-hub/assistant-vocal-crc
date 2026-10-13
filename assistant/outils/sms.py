@@ -292,3 +292,39 @@ def envoyer_sms_itineraire(telephone, arret_depart_id, arret_arrivee_id, date=No
         _consigner(telephone, nom, texte, succes, erreur, conversation_id)
     except Exception as exc:
         _consigner(telephone, nom, None, False, f"erreur imprévue : {exc!r}", conversation_id)
+
+
+def _compte_segments(texte):
+    """Nombre de SMS effectivement facturés par Twilio pour un texte
+    donné — calculé nous-mêmes à partir du texte réellement envoyé
+    (déjà conservé dans sms_envoyes), plutôt que via un appel à l'API
+    Twilio : aussi exact, sans dépendance réseau supplémentaire pour une
+    simple page de suivi. Règle GSM-7 / UCS-2 (voir docstring du
+    module) : un seul caractère hors GSM-7 (tout emoji, par exemple)
+    force tout le message en UCS-2, qui tient 4x moins de caractères
+    par segment. Nos deux formats ne mélangent jamais les deux dans un
+    même SMS (le format texte est garanti 100% ASCII), donc "tout
+    ASCII" suffit ici à distinguer les deux cas sans construire la
+    table complète de l'alphabet GSM-7 étendu."""
+    if not texte:
+        return 0
+    gsm7 = all(ord(c) < 128 for c in texte)
+    taille_unique, taille_multi = (160, 153) if gsm7 else (70, 67)
+    n = len(texte)
+    return 1 if n <= taille_unique else -(-n // taille_multi)
+
+
+def resumer_sms():
+    """Agrège les SMS réellement envoyés (succès uniquement — un échec
+    n'est jamais facturé) : nombre de SMS "logiques" et nombre réel de
+    segments facturés par Twilio, pour l'indicateur back-office (voir
+    assistant/backoffice/page.py, tuile qui a remplacé l'ancien
+    "Horaire moyen des appels", devenu redondant avec l'histogramme
+    horaire)."""
+    conn = connexion_app()
+    lignes = conn.execute("SELECT texte FROM sms_envoyes WHERE succes = 1").fetchall()
+    conn.close()
+    return {
+        "nb_sms_envoyes": len(lignes),
+        "nb_segments": sum(_compte_segments(l["texte"]) for l in lignes),
+    }

@@ -1,5 +1,45 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — décompte des SMS envoyés au back-office
+
+Finalise le chantier SMS (voir entrée juste au-dessous) avant de passer
+à la priorité n°3. Tâche qui avait été mise de côté le temps de
+stabiliser le format : repurposer la tuile "Horaire moyen des appels"
+(devenue redondante avec l'histogramme horaire du 13/10 au matin) en
+compteur de SMS envoyés.
+
+Choix fait entre les deux options évoquées le 12/10 (API Twilio vs
+estimation par un facteur de coût) : **ni l'un ni l'autre tel
+qu'envisagé** — calcul exact fait nous-mêmes à partir du texte déjà
+conservé dans `sms_envoyes.texte`, sans appel réseau supplémentaire ni
+estimation approximative. Le nombre de segments facturés dépend de
+l'encodage (GSM-7 ou UCS-2) et de la longueur exacte du texte envoyé,
+qu'on a déjà — pas besoin d'interroger Twilio pour ça, et plus fiable
+qu'un facteur multiplicateur générique (CLAUDE.md, exactitude).
+
+**Implémenté** :
+- `_compte_segments(texte)` (`assistant/outils/sms.py`) : applique les
+  règles GSM-7 (160 car. en 1 segment, 153/segment ensuite) ou UCS-2
+  (70 puis 67) selon que le texte est entièrement ASCII ou pas — nos
+  deux formats ne mélangent jamais les deux, donc cette distinction
+  simple suffit (pas besoin de la table complète de l'alphabet GSM-7
+  étendu).
+- `resumer_sms()` : agrège les SMS **réussis uniquement** (un échec
+  n'est jamais facturé) — nombre de SMS et nombre réel de segments.
+- Tuile "Horaire moyen des appels" remplacée par "SMS d'itinéraire
+  envoyés" (nombre + segments facturés en sous-libellé) dans
+  `assistant/backoffice/page.py`. Le calcul `horaire_moyen` lui-même a
+  été retiré de `resumer_tracabilite()` (`assistant/backoffice/appels.py`)
+  — devenu mort depuis qu'il n'est plus affiché nulle part.
+
+Vérifié en local : segments comptés testés sur plusieurs longueurs
+(160/161/306/307 caractères ASCII, 70/71 caractères emoji) — tous
+corrects. `resumer_sms()` testé avec 2 SMS réussis (3 + 1 segments) et
+1 échec inséré en base, confirmé que l'échec n'est pas compté. Rendu de
+la tuile vérifié dans la page (état "à venir" tant qu'aucun SMS réel
+n'a été envoyé). `verifier_api.py` (7/8, échec réseau sandbox connu) et
+`verifier_backoffice.py` (12/12) relancées sans régression.
+
 ## ✅ Fait le 13/10/2026 — format du SMS d'itinéraire configurable (emoji / texte)
 
 2e des 5 priorités notées le 12/10. Point de départ : l'utilisateur a

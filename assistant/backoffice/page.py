@@ -114,7 +114,7 @@ _ICONES_COMPTEURS = {
     "appels": "📞",
     "satisfaction": "👍",
     "duree": "⏱",
-    "horaire": "🕒",
+    "sms": "✉️",
     "cout": "💶",
 }
 
@@ -1156,7 +1156,8 @@ def _carte_dictionnaire_prononciation(regles):
 def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_client, tracabilite,
                      demandes_rappel, en_cours, regles_prononciation, rappels_en_attente=0,
                      repartition_horaire=None, erreur_voix=False, detail_voix="", erreur_prononciation=False,
-                     format_sms="emoji"):
+                     format_sms="emoji", resume_sms=None):
+    resume_sms = resume_sms or {"nb_sms_envoyes": 0, "nb_segments": 0}
     repartition_horaire = repartition_horaire or [0] * 24
     bonnes, total_eval = satisfaction
     if total_eval:
@@ -1175,7 +1176,6 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
         libelle_client = "aucune réponse pour l'instant"
 
     duree_valeur = _formater_duree(tracabilite["duree_moyenne_secs"])
-    horaire_valeur = tracabilite["horaire_moyen"] or "à venir"
     cout_valeur = (
         f"{tracabilite['cout_total_usd'] * TAUX_USD_VERS_EUR:.3f} €"
         if tracabilite["cout_total_usd"] is not None else "à venir"
@@ -1274,12 +1274,12 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
             <div class="sous-libelle">{suffixe_trace.lstrip(' —') or "à venir"}</div>
           </div>
         </div>
-        <div class="compteur{' a-venir' if not tracabilite['horaire_moyen'] else ''}" style="--accent:{BLEU}">
-          <div class="icone-compteur">{_ICONES_COMPTEURS['horaire']}</div>
+        <div class="compteur{' a-venir' if not resume_sms['nb_sms_envoyes'] else ''}" style="--accent:{BLEU}">
+          <div class="icone-compteur">{_ICONES_COMPTEURS['sms']}</div>
           <div class="compteur-corps">
-            <div class="valeur">{horaire_valeur}</div>
-            <div class="libelle">Horaire moyen des appels</div>
-            <div class="sous-libelle">{suffixe_trace.lstrip(' —') or "à venir"}</div>
+            <div class="valeur">{resume_sms['nb_sms_envoyes'] or 'à venir'}</div>
+            <div class="libelle">SMS d'itinéraire envoyés</div>
+            <div class="sous-libelle">{f"{resume_sms['nb_segments']} segment(s) facturé(s)" if resume_sms['nb_sms_envoyes'] else "à venir"}</div>
           </div>
         </div>
         <div class="compteur{' a-venir' if tracabilite['cout_total_usd'] is None else ''}" style="--accent:{ROSE}">
