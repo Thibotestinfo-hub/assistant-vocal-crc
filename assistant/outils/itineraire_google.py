@@ -215,4 +215,8 @@ def calculer_itineraire_complexe(arret_depart_id, arret_arrivee_id, date=None, h
         "etapes": etapes,
         "duree_totale_min": _duree_min(routes[0].get("duration")),
         "lien_google_maps": _lien_google_maps(arret_depart, arret_arrivee),
+        # Nom d'arrêt vérifié (celui de notre propre GTFS, pas celui que
+        # Google aurait pu reformuler) — utilisé par le SMS pour annoncer
+        # "Arrivée à X" sans dépendre de la dernière étape de arrets.
+        "destination": arret_arrivee.get("stop_name"),
     }

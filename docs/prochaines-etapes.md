@@ -1,5 +1,53 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — format du SMS d'itinéraire configurable (emoji / texte)
+
+2e des 5 priorités notées le 12/10. Point de départ : l'utilisateur a
+partagé une maquette de SMS travaillée en parallèle sur un autre projet
+("B2 Pictogrammes complets" — en-tête récapitulatif, temps d'attente
+par correspondance, chiffres encerclés, arrivée finale mise en valeur).
+4 consignes explicites : garder la version emoji pour les démos mais
+remplacer les chiffres encerclés par du texte simple ; prévoir (plus
+tard, tâche mise de côté) un comptage de SMS envoyés au back-office ;
+**garder aussi** une version 100% texte (sans emoji) ; rendre le choix
+entre les deux réglable depuis "Paramétrage".
+
+Raison de garder les deux formats : n'importe quel emoji force tout le
+SMS en encodage UCS-2 (70 car./segment au lieu de 160 en GSM-7) — notre
+version emoji déjà en prod coûtait 8 segments pour un trajet à 3
+étapes, une version texte équivalente n'en coûte que 3.
+
+**Implémenté** :
+- Table `parametres` (clé/valeur, `assistant/outils/db.py`) pour les
+  petits réglages du back-office — clé/valeur plutôt qu'une colonne
+  dédiée, un 2e cas d'usage (source du comptage SMS) est déjà identifié.
+  `obtenir_parametre`/`definir_parametre` par-dessus.
+- `assistant/outils/sms.py` réécrit : un calcul partagé
+  (`_preparer_contexte_sms`) déduit le temps d'attente avant chaque bus
+  et l'heure d'arrivée finale réelle à partir des horaires déjà connus
+  (jamais inventé — None et simplement pas affiché si une donnée
+  manque), puis deux formateurs (`_formater_sms_emoji`,
+  `_formater_sms_texte`, numérotation "1.", "2." en texte simple)
+  construisent le texte à partir du même résultat. `formater_sms_itineraire`
+  choisit le format via le paramètre `format_sms` (défaut "emoji").
+- `calculer_itineraire_complexe` renvoie maintenant `destination` (le
+  nom d'arrêt vérifié de notre propre GTFS), pour que le SMS annonce
+  "Arrivée à X" sans dépendre d'une reformulation de Google.
+- Carte "Format du SMS d'itinéraire" dans l'onglet Paramétrage
+  (`_carte_format_sms`, `assistant/backoffice/page.py`) + route
+  `POST /backoffice/parametres/format_sms`.
+
+Vérifié en local : calcul des temps d'attente et de l'heure d'arrivée
+testé sur un trajet à 2 correspondances (résultats corrects) ; version
+texte vérifiée 100% ASCII par un test explicite. Bascule emoji/texte
+testée via la carte du back-office (persistance confirmée en relisant
+le paramètre). `verifier_api.py` (7/8, échec réseau sandbox connu) et
+`verifier_backoffice.py` (12/12) relancées sans régression.
+
+**Reste à faire** : le comptage des SMS envoyés dans le back-office
+(tuile "Horaire moyen" à repurposer), explicitement mis de côté par
+l'utilisateur jusqu'à la fin de ce chantier-ci.
+
 ## ✅ Fait le 13/10/2026 — graphique "Appels par heure de la journée"
 
 Première des 5 priorités notées hier soir. Choix fait avec l'utilisateur :

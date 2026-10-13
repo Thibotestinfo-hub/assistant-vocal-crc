@@ -249,6 +249,7 @@ class ItineraireComplexeReponse(BaseModel):
     etapes: Optional[list[EtapeItineraireComplexe]] = None
     duree_totale_min: Optional[int] = None
     lien_google_maps: Optional[str] = None
+    destination: Optional[str] = None
     erreur: Optional[str] = None
 
 
