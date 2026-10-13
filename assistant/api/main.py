@@ -57,7 +57,7 @@ from assistant.outils.sms import envoyer_sms_itineraire, resumer_sms
 from assistant.outils.objets_perdus import enregistrer_objet_perdu
 from assistant.outils.rappels import demander_rappel
 from assistant.outils.rechercher_arret import rechercher_arret
-from assistant.outils.rechercher_information import rechercher_information
+from assistant.outils.rechercher_information import prechauffer, rechercher_information
 from assistant.outils.reperes import rechercher_repere
 from assistant.outils.satisfaction import enregistrer_satisfaction
 from assistant.outils.transfert import transferer_agent
@@ -77,6 +77,14 @@ async def _cycle_de_vie(app: FastAPI):
             purger_transcripts_expires()
 
     tache = asyncio.create_task(_purge_quotidienne())
+    # Préchauffe le modèle d'embeddings (rechercher_information) en tâche
+    # de fond, dans un thread séparé pour ne jamais bloquer la boucle
+    # d'événements — en particulier /sante, qui doit répondre vite pour
+    # ne jamais risquer de dépasser le délai du health-check Clever
+    # Cloud (voir CLAUDE.md, piège connu). Sans ça, c'est le premier
+    # appelant en pleine conversation qui paie ce coût (~10s constatés
+    # en conditions réelles le 13/10/2026), pas l'application au démarrage.
+    asyncio.create_task(asyncio.to_thread(prechauffer))
     yield
     tache.cancel()
 
