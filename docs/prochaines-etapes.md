@@ -1,5 +1,95 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — URL du site public réglable depuis le back-office
+
+Point n°1 d'une réflexion plus large de l'utilisateur sur l'alimentation
+du corpus documentaire (site web scrapé aujourd'hui, PDF annexes
+envisagés pour plus tard, question des conflits entre sources — voir
+l'entrée ci-dessous pour le reste, mis de côté).
+
+Investigation d'abord (agent Explore dédié) pour comprendre l'existant
+avant de coder — plusieurs découvertes utiles au passage :
+- `data/connaissances.md` ("base de connaissance écrite à la main",
+  mentionnée dans CLAUDE.md) **n'existe pas et n'a jamais existé** dans
+  le dépôt. En réalité, le corpus vient entièrement du site public,
+  scrapé automatiquement (`assistant/ingestion/extraire_corpus.py` +
+  `extraire_tarifs.py`) vers `data/corpus/*.md` (non versionné, recalculé
+  à la demande), puis chunké et vectorisé par `indexer_corpus.py` vers
+  `data/corpus_index.json` (lui, versionné — seul fichier de `data/`
+  excepté de `.gitignore`). CLAUDE.md est resté sur une intention jamais
+  concrétisée — à corriger à l'occasion, pas fait dans cette session.
+- `data/config.yaml` a déjà un champ `site_web`, avec un commentaire
+  disant qu'il sert de source au scraper — mais **rien ne le lisait
+  réellement** : l'URL était écrite en dur dans `extraire_corpus.py`
+  (`BASE_URL`) et `extraire_tarifs.py` (`URL_BASE`). Incohérence
+  préexistante, pas une fonctionnalité construite depuis zéro.
+
+**Implémenté** : `site_web()` (nouvelle fonction dans
+`assistant/ingestion/extraire_corpus.py`) lit un réglage back-office
+(table `parametres`, même mécanisme que `format_sms`) avec la valeur de
+`config.yaml` comme repli si rien n'a encore été réglé — un réseau
+dupliqué peut donc changer son site sans toucher au code ni redéployer,
+contrairement à `config.yaml` qui est versionné dans Git. 
+`extraire_tarifs.py` réutilise cette même fonction (son `URL_BASE`
+combinait déjà domaine + chemin spécifique à la page tarifs, désormais
+séparés : `site_web()` + `CHEMIN_TARIFS`). Nouvelle carte "Site public
+du réseau" dans l'onglet Paramétrage (`assistant/backoffice/page.py`),
+route `POST /backoffice/parametres/site_web` (`assistant/api/main.py`)
+qui rejette une valeur ne commençant pas par `http://`/`https://` sans
+toucher au réglage existant.
+
+**Important, à retenir** : ce réglage ne prend effet qu'au **prochain**
+`assistant.corpus --refresh` — il ne change rien rétroactivement au
+corpus déjà indexé et versionné. Mentionné dans la carte back-office
+elle-même pour que ça ne surprenne personne.
+
+Vérifié en local : repli vers `config.yaml` confirmé quand rien n'est
+réglé, réglage effectif après `definir_parametre`, retour au repli après
+suppression du réglage. Route testée : valeur valide acceptée et
+persistée, valeur invalide (sans `http`) rejetée avec message d'erreur
+affiché, ancienne valeur conservée. `verifier_api.py` (7/8, échec réseau
+sandbox connu) et `verifier_backoffice.py` (12/12) sans régression.
+
+## 🔶 Mis de côté le 13/10/2026 — documents annexes (PDF) et conflits entre sources
+
+Suite de la réflexion ci-dessus, explicitement non développée à la
+demande de l'utilisateur : elle voulait d'abord "y voir plus clair"
+avant tout code. Deux questions posées, deux réponses de principe,
+rien d'implémenté :
+
+**Ajouter des PDF (ex. formulaire papier d'abonnement scanné) au
+corpus** : techniquement faisable en réutilisant le même pipeline
+(texte → chunks → embeddings → même recherche), mais deux vraies
+complications structurelles :
+- **Stockage** : le contenu scrapé du site n'a jamais besoin d'être
+  conservé (re-scrapable à volonté) ; un PDF uploadé par l'équipe n'a
+  pas de "source" à re-télécharger — il faudrait vivre dans `data/etat/`
+  (seul dossier qui survit aux déploiements Clever Cloud), pas dans
+  `data/` comme le reste du corpus aujourd'hui.
+- **Déclenchement de l'ingestion** : aujourd'hui, mettre à jour l'index
+  est une suite manuelle (CLI, vérification, commit Git) précisément
+  pour éviter de recalculer les embeddings à chaque déploiement (voir
+  CLAUDE.md, piège connu). Un vrai espace de dépôt autonome demanderait
+  un bouton "réindexer" en back-office qui calcule en tâche de fond et
+  écrit dans `data/etat/` — ce qui découple `corpus_index.json` de sa
+  nature actuelle de fichier versionné dans Git, un changement de fond.
+
+**Conflits entre sources (ex. 1,20 € sur le site vs 1 € sur un PDF)** :
+le système actuel n'a aucune notion de conflit — `rechercher_information`
+renvoie le chunk le mieux classé sans savoir qu'un autre chunk dit autre
+chose. Résolution automatique écartée (risque réel d'usine à gaz, et
+pas fiable avec notre seul pipeline à base d'embeddings). Direction
+retenue, reprenant l'intuition de l'utilisateur (comparatif rouge/vert
+vu lors de la publication du prompt ElevenLabs) : à chaque ajout de
+document, repérer les paires de chunks de la même catégorie
+sémantiquement très proches mais contenant des valeurs numériques
+différentes, et les signaler côte à côte à l'admin pour arbitrage manuel
+avant mise en ligne — jamais d'arbitrage automatique par le système
+lui-même.
+
+**Pas de suite prévue avant la validation de l'expérimentation en
+cours**, comme l'utilisateur l'a proposé elle-même.
+
 ## ✅ Fait le 13/10/2026 — fichier de référence du prompt réconcilié avec le réel
 
 En publiant les changements de latence (voir entrée ci-dessous),

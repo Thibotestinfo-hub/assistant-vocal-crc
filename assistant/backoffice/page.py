@@ -901,6 +901,30 @@ def _carte_format_sms(format_sms):
 </div>"""
 
 
+def _carte_site_web(site_web_actuel, erreur_site_web=False):
+    """URL du site public scrapé pour le corpus documentaire (voir
+    assistant/ingestion/extraire_corpus.py) — réglable ici pour qu'un
+    changement de domaine (ou la duplication de l'agent sur un autre
+    réseau) ne nécessite pas de toucher au code, voir docs/
+    prochaines-etapes.md, 13/10/2026. Prend effet au prochain
+    `assistant.corpus --refresh`, pas rétroactivement sur le corpus déjà
+    indexé."""
+    erreur_html = (
+        '<p class="erreur-voix">L\'adresse doit commencer par http:// ou https://.</p>'
+        if erreur_site_web else ""
+    )
+    return f"""<div class="carte carte-site-web">
+  <h2>Site public du réseau</h2>
+  <p class="sous-libelle" style="margin-bottom:0.6rem">Source du corpus documentaire — ne prend effet qu'au prochain rafraîchissement du corpus, pas immédiatement.</p>
+  <form method="post" action="/backoffice/parametres/site_web">
+    <input type="text" name="valeur" value="{html.escape(site_web_actuel)}"
+           style="width:100%;padding:0.55rem 0.8rem;border-radius:7px;border:1px solid var(--bordure);margin-bottom:0.8rem">
+    <button type="submit" class="bouton accent">Appliquer</button>
+  </form>
+  {erreur_html}
+</div>"""
+
+
 def _bandeau_rappels_attente(n):
     """Notification en haut de l'onglet Suivi : le but est qu'un agent qui
     prend son poste (par ex. à 9h, alors que la plateforme tourne depuis
@@ -1188,7 +1212,7 @@ def _carte_dictionnaire_prononciation(regles):
 def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_client, tracabilite,
                      demandes_rappel, en_cours, regles_prononciation, rappels_en_attente=0,
                      repartition_horaire=None, erreur_voix=False, detail_voix="", erreur_prononciation=False,
-                     format_sms="emoji", resume_sms=None):
+                     format_sms="emoji", resume_sms=None, site_web_actuel="", erreur_site_web=False):
     resume_sms = resume_sms or {"nb_sms_envoyes": 0, "nb_segments": 0}
     repartition_horaire = repartition_horaire or [0] * 96
     bonnes, total_eval = satisfaction
@@ -1269,6 +1293,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
       {_carte_power(activations)}
       {_carte_voix(erreur_voix, detail_voix)}
       {_carte_format_sms(format_sms)}
+      {_carte_site_web(site_web_actuel, erreur_site_web)}
       {_carte_appels_en_cours(en_cours)}
       <div class="carte carte-outils">
         <h2>Outils actifs</h2>
