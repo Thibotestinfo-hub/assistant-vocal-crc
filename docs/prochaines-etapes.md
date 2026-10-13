@@ -1,5 +1,63 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — 4 améliorations du back-office (priorité n°4 + opportunité)
+
+Priorité n°4 (satisfaction démesurée dans le graphe des motifs) traitée
+en même temps que 3 autres améliorations du back-office identifiées
+par l'utilisateur au même moment, toutes dans la même zone de l'écran
+Suivi.
+
+**1. Satisfaction sortie du graphe des motifs d'appels** —
+`enregistrer_satisfaction` est maintenant filtré de `repartition_outils`
+(`assistant/backoffice/appels.py`), même logique que `rechercher_arret`
+déjà exclu (posé en fin de presque tout appel, ce n'est pas un motif
+d'appel en soi). En contrepartie, la tuile "Satisfaction client" affiche
+maintenant une deuxième ligne : le taux de réponse à la sollicitation
+elle-même (SMS d'appels captés ayant une réponse enregistrée), pour
+donner une idée de la fiabilité du taux de satisfaction affiché
+au-dessus — une poignée de réponses sur beaucoup d'appels pèse moins
+qu'un fort taux de réponse.
+
+**2. Histogramme horaire affiné à la tranche de 15 minutes** —
+`repartition_appels_par_heure()` renommée `repartition_appels_par_quart_heure()`
+(96 compteurs au lieu de 24, `assistant/backoffice/appels.py`), SVG
+redessiné pour 96 barres plus fines (`_svg_repartition_horaire`,
+`assistant/backoffice/page.py`) avec le nombre ET le pourcentage par
+rapport au total dans l'info-bulle de chaque barre (ex. "9h00 : 3
+appels (12%)").
+
+**3. Tableau des appels limité à 10 lignes + chevron pour tout dérouler**
+— au-delà des 10 appels les plus récents (déjà triés du plus récent au
+plus ancien), les lignes sont repliées directement dans le HTML
+(`style="display:none"` posé côté serveur, jamais par un JS tardif qui
+ferait clignoter la liste complète à l'ouverture). Un bouton
+"▼ Voir les N appels précédents" en bas à droite du tableau les
+affiche tous (bascule, peut se replier à nouveau). Le filtre par jour
+continue de fonctionner sur l'ensemble des appels, pas seulement les
+10 visibles : sélectionner un jour montre toutes les lignes de ce jour
+même repliées par défaut.
+
+**4. Bouton "copier" sur la charge brute du webhook** — un petit bouton
+📋 apparaît une fois le détail ouvert (à l'intérieur du `<details>`,
+donc après avoir cliqué sur le chevron), copie tout le texte via
+`navigator.clipboard.writeText`, confirmation visuelle "✅ Copié"
+pendant 1,5s. Répond à un problème concret rencontré en session :
+sélectionner à la main une charge JSON complète pour me la copier-coller
+était long et source d'erreur.
+
+Vérifié en local : comptage par tranche de 15 min testé explicitement
+(3 appels à 9h12-9h14 → tranche "9h00", 2 à 9h47-9h48 → tranche "9h45",
+1 à 18h03 → tranche "18h00", tous comptés dans le bon panier). Rendu de
+la tuile satisfaction, du graphe 96 barres, et du chevron (12 appels de
+test insérés, "26 appels précédents" affiché et cohérent avec le total
+réel en base, vérifié avant nettoyage) confirmés directement dans le
+HTML rendu. `verifier_api.py` (7/8, échec réseau sandbox connu) et
+`verifier_backoffice.py` (12/12) relancées sans régression.
+
+**Reste à faire** : rien d'identifié côté code. Le point "paramétrage
+alimenté par des documents annexes" évoqué par l'utilisateur est
+explicitement reporté à une session suivante, pas commencé.
+
 ## ✅ Fait le 13/10/2026 — choix entre trajets ("moins de marche" / "moins de correspondances")
 
 3e des 5 priorités du 12/10. Investigation menée en deux volets avant

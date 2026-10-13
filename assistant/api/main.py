@@ -38,7 +38,7 @@ from assistant.backoffice.activation import (
 from assistant.backoffice.appels import (
     compter_appels, compter_rappels_en_attente, enregistrer_appel, enregistrer_evaluation,
     lister_appels_avec_details, marquer_rappel_traite, purger_transcripts_expires,
-    repartition_appels_par_heure,
+    repartition_appels_par_quart_heure,
     resumer_evaluations, resumer_satisfaction_client, resumer_tracabilite, retraiter_tracabilite,
 )
 from assistant.backoffice.exports import (
@@ -291,7 +291,7 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = 
         resumer_evaluations(), resumer_satisfaction_client(), resumer_tracabilite(),
         lister_demandes_rappel(), en_cours, lister_toutes_regles(),
         compter_rappels_en_attente(),
-        repartition_horaire=repartition_appels_par_heure(),
+        repartition_horaire=repartition_appels_par_quart_heure(),
         erreur_voix=erreur_voix, detail_voix=detail_voix, erreur_prononciation=erreur_prononciation,
         format_sms=obtenir_parametre("format_sms", "emoji"),
         resume_sms=resumer_sms(),

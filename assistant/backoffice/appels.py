@@ -329,7 +329,11 @@ def resumer_tracabilite():
             # assistant/backoffice/activation.py) : il ressort dans presque
             # tous les appels horaires, ce qui pollue la répartition avec une
             # part "Identifier un arrêt" qui ne veut rien dire seule.
-            if outil == "rechercher_arret":
+            # enregistrer_satisfaction, même logique (13/10/2026) : posé en
+            # fin de presque tout appel, ce n'est pas un motif d'appel, la
+            # question est déjà suivie par sa propre tuile (voir
+            # resumer_satisfaction_client et la carte dédiée).
+            if outil in ("rechercher_arret", "enregistrer_satisfaction"):
                 continue
             repartition[outil] = repartition.get(outil, 0) + 1
 
@@ -341,27 +345,28 @@ def resumer_tracabilite():
     }
 
 
-def repartition_appels_par_heure():
-    """24 compteurs (0h à 23h), pour repérer les heures pleines/creuses —
-    demandé par l'utilisateur le 12/10/2026, a remplacé l'ancienne
-    tuile "Horaire moyen des appels" (une seule moyenne, qui masquait un
-    éventuel motif à deux pics, ex. matin + fin de journée). Même filtre
-    que resumer_tracabilite (duree_secs IS NOT NULL) : ignore les appels
-    sans traçabilité ou incomplets, pour ne pas fausser la lecture avec
-    des lignes "à venir"."""
+def repartition_appels_par_quart_heure():
+    """96 compteurs (24h x 4 tranches de 15 min), pour repérer les
+    heures pleines/creuses — demandé par l'utilisateur le 12/10/2026
+    (granularité affinée le 13/10/2026 à sa demande), a remplacé
+    l'ancienne tuile "Horaire moyen des appels" (une seule moyenne, qui
+    masquait un éventuel motif à deux pics, ex. matin + fin de
+    journée). Même filtre que resumer_tracabilite (duree_secs IS NOT
+    NULL) : ignore les appels sans traçabilité ou incomplets, pour ne
+    pas fausser la lecture avec des lignes "à venir"."""
     conn = connexion_app()
     lignes = conn.execute(
         "SELECT cree_le FROM appels WHERE duree_secs IS NOT NULL"
     ).fetchall()
     conn.close()
 
-    compteurs = [0] * 24
+    compteurs = [0] * 96
     for l in lignes:
         try:
-            heure = int(l["cree_le"][11:13])
+            heure, minute = int(l["cree_le"][11:13]), int(l["cree_le"][14:16])
         except (ValueError, IndexError):
             continue
-        compteurs[heure] += 1
+        compteurs[heure * 4 + minute // 15] += 1
     return compteurs
 
 
