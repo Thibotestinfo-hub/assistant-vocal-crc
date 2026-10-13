@@ -558,6 +558,16 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
   padding: 0.2rem 0.4rem;
 }}
 .bouton-voir.actif {{ background: {BLEU}44; border-radius: 6px; }}
+.pied-tableau-appels {{ display: flex; justify-content: flex-end; margin-top: 0.6rem; }}
+.bouton-chevron {{
+  font-size: 0.8rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 7px;
+  border: 1px solid var(--bordure);
+  background: #eef1f3;
+  cursor: pointer;
+}}
+.bouton-chevron:hover {{ background: {BLEU}22; }}
 .carte-detail-appel {{ margin-bottom: 1.5rem; position: relative; }}
 .bouton-fermer-detail {{
   position: absolute;
@@ -615,6 +625,16 @@ button[name="qualite"][value="mauvaise"] {{ background: {ROUGE}22; border-color:
   padding: 0.3rem 0;
 }}
 .detail-brut summary:hover {{ color: var(--texte); }}
+.bouton-copier {{
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--bordure);
+  background: #eef1f3;
+  cursor: pointer;
+  margin: 0.3rem 0 0.5rem;
+}}
+.bouton-copier:hover {{ background: {BLEU}22; }}
 .detail-appel-contenu textarea {{
   width: 100%;
   height: 3.2rem;
@@ -718,9 +738,14 @@ def _badge_rappel_attente(rappel_id):
     </form>"""
 
 
-def _ligne_tableau_appel(a, numero):
+def _ligne_tableau_appel(a, numero, cachee=False):
     date, _, heure = (a["cree_le"] or "").partition("T")
-    return f"""<tr data-date="{html.escape(date)}">
+    # Lignes au-delà des 10 plus récentes : masquées par défaut (voir
+    # _carte_tableau_appels/basculerListeAppels) — repliées directement
+    # dans le HTML plutôt que par un JS tardif, pour ne jamais faire
+    # clignoter la liste complète à l'ouverture de la page.
+    attrs = ' class="ligne-appel-cachee" style="display:none"' if cachee else ""
+    return f"""<tr data-date="{html.escape(date)}"{attrs}>
   <td>{numero}</td>
   <td>{html.escape(_voix_appel(a.get('voix_utilisees')))}</td>
   <td>{html.escape(date)}</td>
@@ -809,7 +834,8 @@ def _detail_appel(a):
   {bloc_evaluations}
   <details class="detail-brut">
     <summary>Charge brute reçue du webhook</summary>
-    <pre>{html.escape(donnees_brutes)}</pre>
+    <button type="button" class="bouton-copier" onclick="copierChargeBrute(this, {a['id']})" title="Copier tout le contenu">📋 Copier</button>
+    <pre id="brut-{a['id']}">{html.escape(donnees_brutes)}</pre>
   </details>
 </div>"""
 
@@ -1026,42 +1052,48 @@ def _legende_repartition(repartition):
 
 
 def _svg_repartition_horaire(compteurs):
-    """Histogramme en barres (0h-23h), dessiné à la main en SVG — même
-    logique "pas de librairie de graphiques" que _svg_repartition. Une
-    graduation toutes les 3h pour rester lisible sans surcharger l'axe."""
-    largeur, hauteur = 420, 140
+    """Histogramme en barres par tranche de 15 min (96 barres, 0h-23h45),
+    dessiné à la main en SVG — même logique "pas de librairie de
+    graphiques" que _svg_repartition. Une graduation toutes les 3h pour
+    rester lisible sans surcharger l'axe (affinée le 13/10/2026 à la
+    demande de l'utilisateur, qui voulait plus de granularité que
+    l'heure pleine)."""
+    largeur, hauteur = 960, 150
     marge_bas = 20
     hauteur_graphique = hauteur - marge_bas
     maximum = max(compteurs) if any(compteurs) else 1
-    largeur_barre = largeur / 24
+    total = sum(compteurs)
+    largeur_barre = largeur / len(compteurs)
 
     barres = []
     etiquettes = []
-    for h, n in enumerate(compteurs):
+    for i, n in enumerate(compteurs):
         h_barre = (n / maximum) * (hauteur_graphique - 8) if n else 0
-        x = h * largeur_barre
+        x = i * largeur_barre
         couleur = BLEU_FONCE if n else "#e6ebee"
+        heure, minute = i // 4, (i % 4) * 15
+        pct = f" ({round(100 * n / total)}%)" if total and n else ""
         barres.append(
             f'<rect x="{x + 1:.1f}" y="{hauteur_graphique - h_barre:.1f}" '
-            f'width="{largeur_barre - 2:.1f}" height="{h_barre:.1f}" rx="2" fill="{couleur}">'
-            f'<title>{h}h : {n} appel{"s" if n > 1 else ""}</title></rect>'
+            f'width="{largeur_barre - 2:.1f}" height="{h_barre:.1f}" rx="1.5" fill="{couleur}">'
+            f'<title>{heure}h{minute:02d} : {n} appel{"s" if n > 1 else ""}{pct}</title></rect>'
         )
-        if h % 3 == 0:
+        if i % 12 == 0:
             etiquettes.append(
                 f'<text x="{x + largeur_barre / 2:.1f}" y="{hauteur - 4}" '
-                f'text-anchor="middle" font-size="10" fill="#6b7a82">{h}h</text>'
+                f'text-anchor="middle" font-size="10" fill="#6b7a82">{heure}h</text>'
             )
     return (
         f'<svg viewBox="0 0 {largeur} {hauteur}" width="100%" height="{hauteur}" '
-        f'role="img" aria-label="Répartition des appels par heure">'
+        f'role="img" aria-label="Répartition des appels par tranche de 15 minutes">'
         f'{"".join(barres)}{"".join(etiquettes)}</svg>'
     )
 
 
 def _carte_repartition_horaire(compteurs, suffixe_trace):
     return f"""<div class="carte" style="margin-bottom:1.5rem">
-  <h2>Appels par heure de la journée</h2>
-  <div class="sous-libelle" style="margin-bottom:0.8rem">{suffixe_trace.lstrip(' —') or 'à venir'}</div>
+  <h2>Appels par tranche de 15 minutes</h2>
+  <div class="sous-libelle" style="margin-bottom:0.8rem">{suffixe_trace.lstrip(' —') or 'à venir'} — survolez une barre pour le détail</div>
   {_svg_repartition_horaire(compteurs)}
 </div>"""
 
@@ -1158,7 +1190,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
                      repartition_horaire=None, erreur_voix=False, detail_voix="", erreur_prononciation=False,
                      format_sms="emoji", resume_sms=None):
     resume_sms = resume_sms or {"nb_sms_envoyes": 0, "nb_segments": 0}
-    repartition_horaire = repartition_horaire or [0] * 24
+    repartition_horaire = repartition_horaire or [0] * 96
     bonnes, total_eval = satisfaction
     if total_eval:
         pct = f"{round(100 * bonnes / total_eval)}%"
@@ -1174,6 +1206,16 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     else:
         pct_client = "—"
         libelle_client = "aucune réponse pour l'instant"
+    # Taux de réponse à la sollicitation elle-même (distinct du taux de
+    # satisfaction ci-dessus) : sur l'ensemble des appels captés, combien
+    # ont une réponse enregistrée — donne une idée de la fiabilité du
+    # taux de satisfaction (une poignée de réponses sur beaucoup d'appels
+    # pèse moins qu'un fort taux de réponse), voir docs/prochaines-etapes.md
+    # 13/10/2026.
+    taux_reponse_libelle = (
+        f"{round(100 * total_client / nb_appels)}% des appels captés ont une réponse"
+        if nb_appels else ""
+    )
 
     duree_valeur = _formater_duree(tracabilite["duree_moyenne_secs"])
     cout_valeur = (
@@ -1183,8 +1225,9 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     n_trace = tracabilite["nb_avec_tracabilite"]
     suffixe_trace = f" — sur {n_trace} appel{'s' if n_trace > 1 else ''}" if n_trace else ""
 
+    n_appels_caches = max(0, len(appels) - 10)
     lignes_tableau = (
-        "\n".join(_ligne_tableau_appel(a, i) for i, a in enumerate(appels, 1))
+        "\n".join(_ligne_tableau_appel(a, i, cachee=(i > 10)) for i, a in enumerate(appels, 1))
         if appels else '<tr><td colspan="8">Aucun appel pour l\'instant.</td></tr>'
     )
     details_appels = "\n".join(_detail_appel(a) for a in appels)
@@ -1256,6 +1299,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
             <div class="valeur">{pct_client}</div>
             <div class="libelle">Satisfaction client</div>
             <div class="sous-libelle">{libelle_client}</div>
+            <div class="sous-libelle">{taux_reponse_libelle}</div>
           </div>
         </div>
         <div class="compteur" style="--accent:{SAUGE}">
@@ -1335,6 +1379,11 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
           {lignes_tableau}
         </tbody>
       </table>
+      {f'''<div class="pied-tableau-appels" id="pied-tableau-appels">
+        <button type="button" class="bouton-chevron" id="bouton-chevron-appels" data-nombre-caches="{n_appels_caches}" onclick="basculerListeAppels()">
+          <span id="texte-chevron-appels">&#9660; Voir les {n_appels_caches} appels précédents</span>
+        </button>
+      </div>''' if n_appels_caches else ''}
     </div>
 
     <div class="carte carte-detail-appel" id="panneau-detail" style="display:none">
@@ -1415,10 +1464,40 @@ function ecouterPrononciation(graphemeUrl) {{
       alert('Impossible de lire cette prononciation pour le moment — détail : ' + erreur.message);
     }});
 }}
-function filtrerAppelsParDate(date) {{
+var appelsDeveloppes = false;
+function appliquerAffichageAppels() {{
+  var date = document.getElementById('filtre-date-appels').value;
   document.querySelectorAll('#corps-tableau-appels tr[data-date]').forEach(function(tr) {{
-    tr.style.display = (!date || tr.dataset.date === date) ? '' : 'none';
+    var correspond = !date || tr.dataset.date === date;
+    // Un filtre sur un jour précis montre toutes les lignes de ce jour,
+    // même au-delà des 10 plus récentes repliées par défaut — sinon un
+    // appel plus ancien resterait invisible malgré le filtre.
+    var dansLimite = !tr.classList.contains('ligne-appel-cachee') || date || appelsDeveloppes;
+    tr.style.display = (correspond && dansLimite) ? '' : 'none';
   }});
+  var pied = document.getElementById('pied-tableau-appels');
+  if (pied) {{ pied.style.display = date ? 'none' : ''; }}
+}}
+function filtrerAppelsParDate(date) {{
+  appliquerAffichageAppels();
+}}
+function copierChargeBrute(bouton, id) {{
+  var texte = document.getElementById('brut-' + id).textContent;
+  navigator.clipboard.writeText(texte).then(function() {{
+    var texteOriginal = bouton.textContent;
+    bouton.textContent = '✅ Copié';
+    setTimeout(function() {{ bouton.textContent = texteOriginal; }}, 1500);
+  }}).catch(function(erreur) {{
+    alert('Impossible de copier automatiquement — détail : ' + erreur.message);
+  }});
+}}
+function basculerListeAppels() {{
+  appelsDeveloppes = !appelsDeveloppes;
+  var bouton = document.getElementById('bouton-chevron-appels');
+  var n = bouton.dataset.nombreCaches;
+  document.getElementById('texte-chevron-appels').innerHTML =
+    appelsDeveloppes ? '&#9650; Réduire la liste' : ('&#9660; Voir les ' + n + ' appels précédents');
+  appliquerAffichageAppels();
 }}
 function afficherOnglet(nom) {{
   document.querySelectorAll('.contenu-onglet').forEach(function(el) {{
