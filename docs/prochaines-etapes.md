@@ -1,6 +1,53 @@
 # Prochaines étapes — état au 25/09/2026
 
-## 🔶 En cours le 13/10/2026 — latence perçue (priorité n°5), partie prompt faite
+## ✅ Fait le 13/10/2026 — fichier de référence du prompt réconcilié avec le réel
+
+En publiant les changements de latence (voir entrée ci-dessous),
+l'utilisateur a repéré via le comparatif ElevenLabs que le prompt
+réellement en ligne contenait des instructions absentes de notre
+fichier `docs/spec-assistant-vocal-v0-revisee.md` — du contenu ajouté
+directement dans le dashboard à un moment, jamais reporté dans le
+dépôt. CLAUDE.md dit que ce fichier "fait autorité" ; ce n'était plus
+vrai dans les faits. Bon réflexe de l'utilisateur de vérifier le
+comparatif avant de publier plutôt qu'après.
+
+**Récupéré depuis le live (absent du fichier, maintenant réintégré)** :
+- la formulation exacte de la question de satisfaction en fin d'appel
+- les balises audio `[avec empathie]` / `[avec patience]`
+- la gestion d'un outil en panne (explique l'indisponibilité, propose
+  transfert ou rappel) — **deux versions quasi dupliquées de cette
+  règle coexistaient en live** (une version rigide "systématiquement",
+  une version "si la situation s'y prête") ; la seconde a été gardée,
+  la première supprimée, avec l'accord de l'utilisateur
+- la réponse sur le site internet du réseau
+- la formule de clôture chaleureuse avec `{{formule_cloture}}`
+- absence de section "## Ouverture" dans le prompt système : le
+  message d'accueil est géré par le champ séparé "Premier message"
+  côté ElevenLabs, pas dupliqué dans le prompt — le fichier de
+  référence la contenait encore à tort, retirée
+
+**Autre anomalie trouvée et corrigée en même temps** : un paragraphe
+sur les conditions d'éligibilité de `rechercher_information` s'était
+retrouvé collé en plein milieu de la section "Objets perdus" côté
+live (hors sujet à cet endroit) — jamais présent dans notre fichier,
+qui l'avait toujours au bon endroit ("Répondre sur le commercial et le
+pratique"). Un deuxième point d'interrogation en trop dans "Sorties"
+("un numéro ? ?") a aussi été corrigé au passage, côté live uniquement.
+
+**Ajouté au passage** : la partie "préférence de trajet" (moins de
+marche / moins de correspondances, priorité n°3, codée il y a 2 jours)
+n'avait jamais été collée dans le prompt live — le code existait mais
+l'agent ne savait pas que la fonctionnalité existait. Ajoutée en même
+temps que la réconciliation.
+
+Le fichier `docs/spec-assistant-vocal-v0-revisee.md` §5 correspond
+maintenant exactement au prompt publié côté ElevenLabs (vérifié ligne
+à ligne). **Pour la suite** : signaler explicitement à chaque fois
+qu'un changement de prompt doit être collé côté ElevenLabs — ça ne
+prend jamais effet automatiquement, un oubli de collage était
+justement à l'origine de l'écart "préférence" ci-dessus.
+
+## ✅ Fait le 13/10/2026 — latence perçue (priorité n°5)
 
 Investigation menée avant tout code : recherche sur les mécanismes
 natifs ElevenLabs pour la latence perçue (indépendants de notre propre
@@ -45,9 +92,10 @@ conversation pour collage manuel dans le champ "Invite système" côté
 ElevenLabs (jamais automatique — à refaire à chaque modification de
 cette section).
 
-**Reste à faire** : l'utilisateur doit coller le prompt mis à jour
-dans ElevenLabs et publier. Revisiter le soft timeout si la
-fonctionnalité apparaît un jour dans le dashboard.
+**Publié par l'utilisateur** (voir aussi l'entrée "fichier de référence
+du prompt réconcilié" juste au-dessus, trouvée en cours de publication).
+Soft timeout à revisiter si la fonctionnalité apparaît un jour dans le
+dashboard — les 7 formules restent prêtes.
 
 ## ✅ Fait le 13/10/2026 — 4 améliorations du back-office (priorité n°4 + opportunité)
 
