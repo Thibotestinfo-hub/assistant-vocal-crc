@@ -17,11 +17,28 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+import yaml
 from bs4 import BeautifulSoup
 from markdownify import markdownify
 
-BASE_URL = "https://www.salonetangcotebleue.fr"
-CORPUS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "corpus"
+from assistant.outils.db import obtenir_parametre
+
+RACINE = Path(__file__).resolve().parent.parent.parent
+CONFIG_PATH = RACINE / "data" / "config.yaml"
+CORPUS_DIR = RACINE / "data" / "corpus"
+
+
+def site_web():
+    """URL de base du site public scrapé pour le corpus — réglable
+    depuis le back-office (table parametres, voir assistant/outils/db.py
+    et docs/prochaines-etapes.md, 13/10/2026), avec data/config.yaml
+    comme valeur de départ/repli : un réseau dupliqué doit pouvoir
+    changer son site sans toucher au code (voir CLAUDE.md, paramétrage).
+    Sans slash final, pour composer proprement avec un chemin qui
+    commence déjà par "/"."""
+    config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+    defaut = config["site_web"].rstrip("/")
+    return obtenir_parametre("site_web", defaut).rstrip("/")
 
 # (chemin, nom de fichier, catégorie). Le nom de fichier est choisi à la
 # main pour rester lisible ; le chemin vient du "Plan du site" du réseau.
@@ -72,7 +89,7 @@ SELECTEURS_BRUIT = [
 
 
 def _telecharger(chemin):
-    requete = Request(BASE_URL + chemin, headers={"User-Agent": "Mozilla/5.0"})
+    requete = Request(site_web() + chemin, headers={"User-Agent": "Mozilla/5.0"})
     with urlopen(requete, timeout=30) as reponse:
         return reponse.read().decode("utf-8", errors="replace")
 
@@ -126,7 +143,7 @@ def ecrire_page(chemin, nom_fichier, categorie):
     titre, contenu_md = resultat
     entete = (
         f"# {titre}\n\n"
-        f"Source : {BASE_URL}{chemin}\n"
+        f"Source : {site_web()}{chemin}\n"
         f"Catégorie : {categorie}\n"
         f"Date d'extraction : {date.today().isoformat()}\n\n"
     )

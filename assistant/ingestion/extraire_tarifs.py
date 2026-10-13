@@ -18,7 +18,12 @@ from datetime import date
 from pathlib import Path
 from urllib.request import urlopen
 
-URL_BASE = "https://www.salonetangcotebleue.fr/fr/les-tarifs/7/Fare"
+from assistant.ingestion.extraire_corpus import site_web
+
+# Chemin propre à la structure de ce site (page des tarifs) — distinct
+# de site_web(), qui lui est réglable depuis le back-office (voir
+# assistant/ingestion/extraire_corpus.py).
+CHEMIN_TARIFS = "/fr/les-tarifs/7/Fare"
 FREQUENCES = {"THM_FARE_2": "Occasionnellement", "THM_FARE_3": "Régulièrement"}
 CORPUS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "corpus"
 
@@ -63,7 +68,7 @@ def _synonyme(titre):
 def extraire_grille():
     lignes = []
     for code_frequence, nom_frequence in FREQUENCES.items():
-        url = f"{URL_BASE}?Profile=All&Frequency={code_frequence}"
+        url = f"{site_web()}{CHEMIN_TARIFS}?Profile=All&Frequency={code_frequence}"
         with urlopen(url, timeout=30) as reponse:
             contenu = reponse.read().decode("utf-8")
         for m in MOTIF_LIGNE.finditer(contenu):
@@ -81,7 +86,7 @@ def ecrire_corpus(lignes):
     md = [
         "# Les tarifs",
         "",
-        f"Source : {URL_BASE}",
+        f"Source : {site_web()}{CHEMIN_TARIFS}",
         "Catégorie : tarifs",
         f"Date d'extraction : {date.today().isoformat()}",
         "",

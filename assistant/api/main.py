@@ -47,6 +47,7 @@ from assistant.backoffice.exports import (
 from assistant.backoffice.page import page_backoffice
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
 from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix, synthetiser_texte
+from assistant.ingestion.extraire_corpus import site_web
 from assistant.ingestion.prononciation import nom_prononcable
 from assistant.outils.db import _FUSEAU, definir_parametre, obtenir_parametre
 from assistant.outils.horaires_theoriques import horaires_theoriques
@@ -279,7 +280,7 @@ def route_webhook_personnalisation():
 
 @app.get("/backoffice/appels", response_class=HTMLResponse,
          dependencies=[Depends(verifier_acces_backoffice)])
-def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = "", erreur_prononciation: bool = False):
+def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = "", erreur_prononciation: bool = False, erreur_site_web: bool = False):
     try:
         en_cours = appels_en_cours()
     except Exception:
@@ -295,6 +296,7 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = 
         erreur_voix=erreur_voix, detail_voix=detail_voix, erreur_prononciation=erreur_prononciation,
         format_sms=obtenir_parametre("format_sms", "emoji"),
         resume_sms=resumer_sms(),
+        site_web_actuel=site_web(), erreur_site_web=erreur_site_web,
     )
 
 
@@ -341,7 +343,19 @@ def route_backoffice_changer_format_sms(valeur: Literal["emoji", "texte"] = Form
     13/10/2026), "texte" sans emoji ni accent pour rester en GSM-7."""
     definir_parametre("format_sms", valeur)
     return RedirectResponse("/backoffice/appels#live", status_code=303)
-    return RedirectResponse("/backoffice/appels", status_code=303)
+
+
+@app.post("/backoffice/parametres/site_web",
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_changer_site_web(valeur: str = Form(...)):
+    """URL du site public scrapé pour le corpus documentaire (voir
+    assistant/ingestion/extraire_corpus.py) — ne prend effet qu'au
+    prochain `assistant.corpus --refresh`, pas rétroactivement sur le
+    corpus déjà indexé."""
+    if not valeur.strip().startswith(("http://", "https://")):
+        return RedirectResponse("/backoffice/appels?erreur_site_web=1#live", status_code=303)
+    definir_parametre("site_web", valeur.strip())
+    return RedirectResponse("/backoffice/appels#live", status_code=303)
 
 
 @app.get("/backoffice/voix/{voice_id}/apercu",
