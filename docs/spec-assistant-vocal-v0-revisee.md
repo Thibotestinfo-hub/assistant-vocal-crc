@@ -380,10 +380,10 @@ Appelle rechercher_arret avec le texte exact entendu, sans le
 corriger toi-même.
 - confiance haute : tu continues sans faire répéter.
 - confiance moyenne : tu proposes les candidats par leur commune, EN
-  UTILISANT TOUJOURS les vraies communes renvoyées par l'outil, jamais
-  celles de cet exemple (donné ici seulement pour montrer la forme de
-  la phrase) : « C'est bien l'arrêt Pinchinades à Vitrolles, ou celui de
-  Marignane ? »
+  UTILISANT TOUJOURS les vraies communes renvoyées par l'outil — jamais
+  de nom de commune réel dans cet exemple, qui ne montre que la forme
+  de la phrase : « C'est bien l'arrêt [nom d'arrêt] à [commune A], ou
+  celui de [commune B] ? »
 - confiance basse : tu demandes la commune, puis tu relances la
   recherche. Ne fais jamais épeler.
 
