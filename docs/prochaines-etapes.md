@@ -1,5 +1,24 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 13/10/2026 — formule d'accueil du SMS réintégrée
+
+Correction immédiate après le chantier précédent : la formule d'accueil
+personnalisée ("Bonjour {nom}, voici votre itinéraire sur le réseau
+TABM") avait été retirée en calquant trop littéralement la maquette
+(qui ne la montrait pas dans la capture partagée — probablement un
+rognage de l'aperçu, pas une absence voulue). L'utilisateur confirme la
+vouloir : "c'est important de tisser un lien avec le voyageur". Remise
+en place dans `_formater_sms_emoji`/`_formater_sms_texte`
+(`assistant/outils/sms.py`), en première ligne avant l'en-tête
+"Arrivée à...". Repli générique ("Voici votre itinéraire...") si
+l'appelant n'a pas donné son prénom/nom. Le lien Google Maps n'avait
+lui jamais été touché, vérifié au passage qu'il reste bien présent.
+
+Vérifié en local : rendu avec et sans nom, version texte confirmée
+100% ASCII (nom passé dans `_sans_accents` comme le reste des données
+dynamiques). `verifier_api.py` (7/8, échec sandbox connu) et
+`verifier_backoffice.py` (12/12) sans régression.
+
 ## ✅ Fait le 13/10/2026 — format du SMS refait à partir de la vraie maquette
 
 Suite du point 5 des REX ci-dessous : l'utilisateur a repartagé l'image
