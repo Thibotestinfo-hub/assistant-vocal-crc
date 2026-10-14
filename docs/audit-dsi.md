@@ -6,6 +6,8 @@ Chaque affirmation de ce document vient d'un fichier réel du dépôt, du code l
 
 Statut : parties 1 à 7 rédigées. Annexes à venir.
 
+Mis à jour le 14/10/2026 pour couvrir les évolutions intervenues depuis la rédaction initiale (29/09/2026) : calculateur d'itinéraire complexe (Google Routes, repli expérimental), envoi du détail par SMS (Twilio), préférence de trajet réactive, et plusieurs correctifs trouvés en appel réel. Repéré par « *(ajout du 14/10/2026)* » partout où c'est pertinent.
+
 ---
 
 ## Partie 1 — Intention et genèse
@@ -40,7 +42,7 @@ L'assistant répond aujourd'hui sur six familles de sujets, chacune correspondan
 2. **Informations commerciales et pratiques** — tarifs, abonnements, vélo en libre-service, transport à la demande, amendes, à partir d'une base de connaissance indexée depuis le site public du réseau.
 3. **Objets perdus** — déclaration complète (nature, description, ligne, date, lieu, coordonnées).
 4. **Demande de rappel** — vers un conseiller humain, pour tout sujet hors périmètre automatisable.
-5. **Itinéraire** — trajet théorique direct ou avec une correspondance, **fonctionnalité expérimentale désactivée par défaut**.
+5. **Itinéraire** — trajet théorique direct ou avec une correspondance via le moteur propre du projet ; en repli, quand celui-ci ne trouve rien, un trajet plus complexe calculé par un service externe (Google Routes API, *ajout du 14/10/2026*), avec une préférence optionnelle (moins de marche ou moins de correspondances) si l'appelant l'exprime ; envoi du détail par SMS (Twilio) à la demande de l'appelant (*ajout du 14/10/2026*). **Chacun de ces trois éléments est une fonctionnalité expérimentale désactivée par défaut**, avec son propre interrupteur back-office (Partie 3, Partie 7.2).
 6. **Sortie vers un humain** — transfert ou rappel systématique dès que l'assistant ne sait pas répondre, jamais d'invention.
 
 Aucun horaire ou tarif temps réel : tout est présenté comme prévu, jamais comme garanti — choix assumé dans le prompt de l'agent, cohérent avec l'absence de connexion à un système métier (1.1).
@@ -100,7 +102,8 @@ Choix motivé par deux critères explicites du projet, non négociables dès la 
 | Fournisseur | Rôle | Données transmises | Localisation | Statut de vérification |
 |---|---|---|---|---|
 | **ElevenLabs** | Reconnaissance vocale (ASR), orchestration du modèle de langage, synthèse vocale (TTS), stockage des enregistrements et transcriptions d'appel | Voix de l'appelant, contenu de la conversation (donc tout nom, téléphone, objet perdu énoncé à l'oral), numéro appelant transmis par Twilio | **[À vérifier — DSI/DPO]** | Société non française — localisation précise des serveurs de traitement et de stockage à confirmer via leurs conditions contractuelles avant tout traitement de données réelles. Réglages de rétention actuellement non configurés, voir Partie 6.4. |
-| **Twilio** | Opérateur téléphonique : réception de l'appel entrant, mise en relation avec ElevenLabs | Numéro de l'appelant, métadonnées d'appel (durée, horodatage) | **[À vérifier — DSI/DPO]** | Société américaine. |
+| **Twilio** | Opérateur téléphonique : réception de l'appel entrant, mise en relation avec ElevenLabs. *Depuis le 12/10/2026, également envoi du SMS récapitulatif d'itinéraire à la demande de l'appelant.* | Numéro de l'appelant, métadonnées d'appel (durée, horodatage). *Pour le SMS : numéro destinataire, et le texte du SMS lui-même, qui peut contenir le prénom/nom de l'appelant et le détail de son itinéraire.* | **[À vérifier — DSI/DPO]** | Société américaine. |
+| **Google Routes API** *(ajout du 14/10/2026)* | Calcul d'un itinéraire complexe (plusieurs correspondances) en repli, quand le moteur GTFS propre du projet ne trouve rien ; prend en compte une préférence optionnelle (moins de marche / moins de correspondances) | Coordonnées géographiques des deux arrêts, horaire souhaité — aucune donnée identifiant l'appelant | **[À vérifier — DSI/DPO]** | Société américaine. Appel réseau direct depuis notre API (`assistant/outils/itineraire_google.py`), pas via ElevenLabs. |
 | **Fournisseur du modèle de langage** (Google — Gemini ; testé aussi avec OpenAI — GPT) | Compréhension et génération du dialogue, décision des outils à appeler | Contenu intégral de la conversation, transmis par ElevenLabs (pas d'appel direct depuis notre API) | **[À vérifier — DSI/DPO]** | Sociétés américaines. Le choix du modèle est un paramètre ElevenLabs, pas une intégration directe de notre côté — voir `docs/prochaines-etapes.md` pour la méthode de sélection et les critères de fiabilité appliqués (comparaison de plusieurs modèles sur des cas réels avant tout changement en production). |
 | **Mecatran** (via la Métropole Mobilité) | Fournit le flux GTFS statique (horaires, arrêts, lignes) | Aucune donnée personnelle — requête avec clé API en lecture seule | Donnée ouverte (Licence Ouverte 2.0), voir `docs/sources.md` | Clé API actuellement exposée dans le dépôt, voir Partie 5.3. |
 | **API Adresse** (data.gouv.fr, gouvernement français) | Géocodage des points de repère (mairies) lors de la préparation des données | Aucune donnée personnelle — adresses publiques des mairies | France, service public | — |
@@ -119,6 +122,8 @@ Chaque outil est une route HTTP de notre API (`assistant/api/main.py`), appelée
 | `rechercher_information` | Répondre sur les tarifs, le vélo en libre-service, le transport à la demande, les amendes, à partir d'une base de connaissance indexée | Non | Non | Actif par catégorie (commercial / VLS / TAD / amendes activables séparément) |
 | `rechercher_repere` | Résoudre un lieu dit en clair (« la mairie ») vers l'arrêt le plus proche | Non | Non | Actif, expérimental |
 | `calculer_itineraire` | Calculer un trajet théorique (direct ou une correspondance) entre deux arrêts | Non | Non | **Désactivé par défaut** — activable depuis le back-office, expérimental |
+| `calculer_itineraire_complexe` *(ajout du 08/10/2026)* | Calculer un trajet plus complexe via Google Routes API, en repli uniquement quand `calculer_itineraire` ne trouve rien ; accepte une préférence optionnelle (moins de marche / moins de correspondances) | Non | Non | **Désactivé par défaut**, interrupteur séparé de `calculer_itineraire` — expérimental, dépend d'un appel réseau externe facturé |
+| `envoyer_sms_itineraire` *(ajout du 12/10/2026)* | Envoyer par SMS (Twilio) le détail d'un itinéraire déjà présenté à l'oral, à la demande explicite de l'appelant ; recalcule l'itinéraire côté serveur au moment de l'envoi (jamais composé par le modèle de langage, voir Partie 4.4) | **Oui** — prénom/nom (optionnel), numéro de téléphone (obligatoire, confirmé par l'appelant avant envoi) | Non (accusé d'envoi) | **Désactivé par défaut**, interrupteur séparé de `calculer_itineraire_complexe` — dépend d'un envoi réel à un numéro réel, facturé |
 | `enregistrer_objet_perdu` | Enregistrer une déclaration d'objet perdu | **Oui** — prénom, nom, numéro de téléphone, email optionnel | Non (accusé d'enregistrement uniquement) | Actif |
 | `demander_rappel` | Transmettre une demande de rappel à un conseiller (amende, réclamation, abonnement...) | **Oui** — prénom, nom, numéro de téléphone, email optionnel | Non | Actif (sans interrupteur dédié — porte de sortie systématiquement disponible) |
 | `transferer_agent` | Signaler qu'un transfert vers un conseiller humain est nécessaire | Non directement (le contexte de la demande peut en contenir) | Non | Actif (sans interrupteur dédié) |
@@ -186,6 +191,8 @@ Conformément à la règle de méthode « chaque fonction s'accompagne d'un scri
 
 Ces scripts sont relancés systématiquement avant chaque changement de code touchant l'API ou le back-office — utilisés à plusieurs reprises pendant la préparation de ce document même (Parties 5 et 6, correctifs de sécurité et de rétention).
 
+**Point de vigilance identifié en préparant cette mise à jour** *(ajout du 14/10/2026)* : `verifier_api.py` ne couvre à ce jour que 6 des outils exposés à l'agent (`rechercher_arret`, `horaires_theoriques`, `rechercher_information`, `enregistrer_objet_perdu`, `demander_rappel`, `transferer_agent`). Les deux outils ajoutés cette période (`calculer_itineraire_complexe`, `envoyer_sms_itineraire`), ainsi que `calculer_itineraire`, `rechercher_repere` et `enregistrer_satisfaction`, n'ont pas d'entrée dédiée dans ce script — leur vérification s'est faite jusqu'ici par test en appel réel (Partie 4.4, 7.3) plutôt que par ce script automatisé. Écart avec la règle de méthode énoncée en 1.2 (« chaque fonction s'accompagne d'un script de vérification »), à combler avant le pilote.
+
 ### 4.4 Historique des anomalies trouvées et corrigées
 
 Extrait sélectif du journal complet (`docs/prochaines-etapes.md`), pour donner à l'audit une idée concrète de la discipline de vérification appliquée tout au long du projet — pas une liste exhaustive, qui resterait dans le journal lui-même :
@@ -199,6 +206,10 @@ Extrait sélectif du journal complet (`docs/prochaines-etapes.md`), pour donner 
 | 28/09/2026 | Deux candidats LLM testés (Gemini 3.5 Flash-Lite, Qwen3.5-397B-A17B) ont fabriqué des données (nom/téléphone inventés) ou halluciné une contrainte système, en appel réel | Analyse de charges de webhook brutes après appels de test | Aucun des deux déployé ; migration reportée le temps de tester d'autres candidats |
 | 28-29/09/2026 | Gemini 3.1 Flash Lite, retenu ensuite, a montré 5 anomalies distinctes en test réel (dont une fabrication de coordonnées similaire) avant d'être jugé fiable | Même méthode, un appel réel à la fois, un correctif à la fois | Chaque anomalie corrigée et revérifiée le jour même avant de passer à la suivante — voir 4.4 pour le détail complet dans le journal |
 | 29/09/2026 | Clé API exposée en clair dans des échanges de travail ; base de données propre sans politique de rétention | Relecture volontaire en préparant ce document | Jeton renouvelé et vérifié ; purge automatique à 90 jours implémentée et vérifiée le jour même (Parties 5 et 6) |
+| 13/10/2026 *(ajout du 14/10/2026)* | `rechercher_information` répondait en ~10 secondes en production (budget : 300 ms) | Webhook d'un appel réel, latence anormale repérée dans les métriques du tool call | Cause trouvée (modèle d'embeddings chargé à la première requête, plus une vérification réseau superflue de la bibliothèque sous-jacente même avec le modèle déjà en cache) et corrigée le jour même : chargement à vide au démarrage du serveur, hors du chemin critique |
+| 13/10/2026 *(ajout du 14/10/2026)* | Le prompt citait un exemple avec les deux communes réelles d'un scénario de test, répété littéralement par le modèle au lieu de la vraie commune dite par l'appelant | Lecture d'un vrai transcript d'appel, après signalement de l'appelant lui-même | Noms de communes de l'exemple remplacés par des valeurs génériques, même principe que l'anomalie du 28/09/2026 sur ce point |
+| 13/10/2026 *(ajout du 14/10/2026)* | SMS envoyé sans confirmation effective du numéro ; question de satisfaction validée sans réponse de l'appelant (récidive d'une anomalie déjà vue le 28/09/2026) | Analyse du webhook de deux appels réels successifs | Règles de prompt renforcées pour imposer deux tours de parole distincts (question, puis réponse de l'appelant, puis action) ; la récidive de la question de satisfaction reste partiellement non résolue, probable variabilité du modèle plutôt qu'un défaut de formulation — voir `docs/prochaines-etapes.md`, 13/10/2026 |
+| 13/10/2026 *(ajout du 14/10/2026)* | Diagnostic initial erroné : une généralisation de prompt accusée d'avoir causé la récidive ci-dessus | Contradiction relevée par l'utilisatrice, qui ne retrouvait pas le texte en cause dans son prompt ElevenLabs | Vérifié : cette généralisation n'avait en réalité jamais été publiée, donc ne pouvait pas être la cause ; retirée du document de référence, diagnostic corrigé le jour même — gardé ici comme preuve que les diagnostics de ce projet sont systématiquement revérifiés, pas seulement affirmés |
 
 Le point commun de ces épisodes : aucune anomalie n'a été découverte par un appelant réel en dehors des tests. Toutes ont été trouvées soit par une vérification automatisée, soit par une relecture attentive d'un appel de test avant toute exposition publique plus large.
 
@@ -216,7 +227,7 @@ Le point commun de ces épisodes : aucune anomalie n'a été découverte par un 
 
 ### 5.2 Surface exposée
 
-Voir Partie 3 pour le détail. En résumé : 9 routes d'outils + 2 routes de webhook accessibles publiquement (protégées par jeton), routes `/backoffice/*` accessibles publiquement mais protégées par mot de passe (jamais appelées par l'agent). Aucune base de données n'est exposée directement — les fichiers SQLite ne sont accessibles que depuis le code serveur.
+Voir Partie 3 pour le détail. En résumé : 11 routes d'outils *(9 jusqu'au 08/10/2026, ajout du 14/10/2026)* + 2 routes de webhook accessibles publiquement (protégées par jeton), routes `/backoffice/*` accessibles publiquement mais protégées par mot de passe (jamais appelées par l'agent). Aucune base de données n'est exposée directement — les fichiers SQLite ne sont accessibles que depuis le code serveur.
 
 **[À vérifier — DSI]** Points non contrôlés dans le cadre de ce document :
 - Aucune limitation de débit (*rate limiting*) constatée dans le code : un client qui connaîtrait le jeton pourrait appeler les routes sans restriction de fréquence. Risque faible tant que le jeton reste confidentiel, mais absent comme deuxième ligne de défense.
@@ -226,13 +237,15 @@ Voir Partie 3 pour le détail. En résumé : 9 routes d'outils + 2 routes de web
 
 Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 
-- **Secrets délivrés par un fournisseur** (`ELEVENLABS_API_KEY`, la clé Mecatran du flux GTFS) : générés et reconnus par le système du fournisseur, à renouveler depuis leur propre interface.
-- **`API_TOKEN`** : un secret inventé par le projet lui-même, comparé tel quel par notre propre code (`assistant/api/auth.py`). Sert de mot de passe pour les 9 outils et de jeton d'URL pour le webhook de fin d'appel — deux usages qui l'exposent par nature à des endroits semi-publics (en-têtes de configuration ElevenLabs, URL visible dans des captures d'écran).
+- **Secrets délivrés par un fournisseur** (`ELEVENLABS_API_KEY`, la clé Mecatran du flux GTFS, et depuis le 08-12/10/2026 `GOOGLE_ROUTES_API_KEY` ainsi que `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`) : générés et reconnus par le système du fournisseur, à renouveler depuis leur propre interface.
+- **`API_TOKEN`** : un secret inventé par le projet lui-même, comparé tel quel par notre propre code (`assistant/api/auth.py`). Sert de mot de passe pour les 11 outils *(9 jusqu'au 08/10/2026)* et de jeton d'URL pour le webhook de fin d'appel — deux usages qui l'exposent par nature à des endroits semi-publics (en-têtes de configuration ElevenLabs, URL visible dans des captures d'écran).
 - **`BACKOFFICE_MOT_DE_PASSE`** : corrigé le 29/09/2026, un secret séparé pour l'accès au back-office (identifiant/mot de passe HTTP Basic), choisi librement par l'utilisateur et indépendant d'`API_TOKEN`. Avant cette date, le même jeton servait aux deux usages — compromettre `API_TOKEN` (plus exposé par construction) aurait donné accès aux journaux d'appels du back-office, dont jusqu'à 90 jours de transcripts (Partie 6.4).
 
 `.env` (qui contient ces deux secrets en local) est bien exclu du dépôt (`.gitignore`), vérifié.
 
 **Incident et correction du 28/09/2026** : `API_TOKEN` a circulé en clair dans plusieurs charges de webhook collées dans des échanges de travail. Rotation effectuée aux quatre endroits qui en dépendent (variable d'environnement Clever Cloud, en-tête des 9 outils ElevenLabs, URL du webhook de fin d'appel, en-tête du webhook de personnalisation), vérifiée sur un appel réel, anciennes entrées supprimées côté ElevenLabs. Journal complet dans `docs/prochaines-etapes.md`.
+
+**Récidives du même geste, du 08 au 12/10/2026** *(ajout du 14/10/2026)* : trois nouvelles expositions en clair pendant la mise en place du calculateur d'itinéraire et de l'envoi SMS — la clé `GOOGLE_ROUTES_API_KEY` (08/10, collée dans une commande de test), puis `API_TOKEN` à deux reprises (09/10, commande `curl` collée par inadvertance ; 12/10, charge de webhook complète partagée pour diagnostic, contenant le jeton dans l'en-tête `Authorization` de chaque appel d'outil). Chaque fois : jeton considéré compromis par principe, rotation complète par la même procédure qu'au 28/09, vérifiée par un appel réel avant de considérer l'incident clos. **Aucun de ces secrets n'est exposé à ce jour** — tous ont été régénérés et le code/historique de travail nettoyé après coup. Le geste identifié comme cause récurrente : coller une commande ou une charge complète sans la nettoyer au préalable, plutôt qu'un défaut du mécanisme de secret lui-même — une consigne systématique (saisie du secret via `read -s`, jamais en clair dans une commande affichée) a été proposée en cours de route, pas encore actée formellement. Détail complet dans `docs/prochaines-etapes.md`, entrées du 08, 09 et 12/10/2026.
 
 **Point encore ouvert** : `data/config.yaml` est versionné par git (absent du `.gitignore`, malgré ce qu'affirme `CLAUDE.md`) et contient la clé API Mecatran du flux GTFS en clair, présente dans l'historique depuis plusieurs commits. Risque faible (accès en lecture à un flux de données ouvertes), mais à régénérer par hygiène avant l'audit, et la documentation du projet (`CLAUDE.md`) à corriger sur ce point.
 
@@ -241,7 +254,7 @@ Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 ### 5.4 Limites connues
 
 - **Séparation des secrets par usage : corrigée le 29/09/2026.** Un seul secret (`API_TOKEN`) servait auparavant à la fois aux outils, au webhook, et au mot de passe back-office — compromettre le plus exposé des trois (`API_TOKEN`) donnait accès aux journaux d'appels. `BACKOFFICE_MOT_DE_PASSE` est désormais indépendant (5.3).
-- **Rotation entièrement manuelle**, répartie sur deux plateformes externes (Clever Cloud, ElevenLabs) sans mécanisme de transition — la rotation du 28/09 a provoqué une courte interruption de service (un webhook modifié mais non publié côté ElevenLabs), révélatrice de cette fragilité opérationnelle.
+- **Rotation entièrement manuelle**, répartie sur deux plateformes externes (Clever Cloud, ElevenLabs) sans mécanisme de transition — la rotation du 28/09 a provoqué une courte interruption de service (un webhook modifié mais non publié côté ElevenLabs), révélatrice de cette fragilité opérationnelle. *(ajout du 14/10/2026)* Trois expositions supplémentaires du même type entre le 08 et le 12/10/2026 (Partie 5.3) confirment que ce n'est pas un risque isolé : la cause (coller une commande ou une charge de diagnostic sans la nettoyer) se répète facilement tant qu'aucune consigne systématique n'est actée.
 - **Pas de vérification de signature HMAC** sur le webhook de fin d'appel — la sécurité repose entièrement sur le secret dans l'URL, alors qu'ElevenLabs propose HMAC nativement (secret déjà généré côté ElevenLabs, non exploité côté code).
 - **Politique de rétention sur notre propre base de données : partiellement corrigée.** `appels.donnees_brutes` est purgé automatiquement après 90 jours depuis le 29/09/2026 (Partie 6.4). `objets_perdus`/`demandes_rappel` restent, eux, sans politique de rétention — décision produit encore à trancher, pas seulement technique.
 
@@ -251,6 +264,8 @@ Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 2. Régénérer la clé Mecatran et corriger `.gitignore`/`CLAUDE.md`.
 3. Trancher et implémenter une durée de rétention pour `objets_perdus`/`demandes_rappel` (Partie 6.4) — `appels` déjà fait.
 4. Envisager une limitation de débit basique si le périmètre d'appel s'élargit.
+5. *(ajout du 14/10/2026)* Acter formellement une consigne de manipulation des secrets en ligne de commande (saisie via `read -s` systématique, jamais en clair dans une commande affichée ni dans une charge de diagnostic partagée sans l'avoir expurgée) — trois incidents du même type en une semaine (5.3) suggèrent que ça ne se résoudra pas seul.
+6. *(ajout du 14/10/2026)* Compléter `verifier_api.py` pour couvrir `calculer_itineraire`, `calculer_itineraire_complexe`, `envoyer_sms_itineraire`, `rechercher_repere` et `enregistrer_satisfaction` (Partie 4.3) — aujourd'hui vérifiés seulement par test en appel réel, pas par le script automatisé de référence.
 
 *(Séparation du mot de passe back-office : faite le 29/09/2026, retirée de cette liste.)*
 
@@ -265,11 +280,13 @@ Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 | Déclaration d'objet perdu | Prénom, nom, téléphone, email (optionnel) | `objets_perdus` (base `data/etat/assistant.db`) |
 | Demande de rappel | Téléphone, prénom/nom (optionnel), email (optionnel), motif, résumé de la demande | `demandes_rappel` (même base) |
 | **Chaque appel, sans exception** | **Transcript intégral de la conversation (donc tout nom, téléphone, description d'objet énoncé à l'oral, même sans déclaration formelle), numéro de l'appelant, identifiants d'appel** | `appels.donnees_brutes` (même base) — charge JSON complète reçue d'ElevenLabs, stockée telle quelle |
+| Envoi du SMS d'itinéraire *(ajout du 12/10/2026)* | Numéro de téléphone (obligatoire), prénom/nom (optionnel) — repris dans le texte du SMS effectivement envoyé, conservé tel quel pour pouvoir vérifier après coup ce que l'appelant a reçu | `sms_envoyes` (même base) |
 | Côté ElevenLabs (hors de notre infrastructure) | Audio de l'appel, transcript, mêmes métadonnées | Infrastructure ElevenLabs — rétention désormais réglée à 365 jours avec suppression automatique (28/09/2026) |
 
 ### 6.2 Finalités
 
 - `objets_perdus` / `demandes_rappel` : traiter la demande concrète de l'appelant (retrouver un objet, être rappelé par un conseiller).
+- `sms_envoyes` *(ajout du 12/10/2026)* : transmettre à l'appelant, par un canal qu'il a choisi lui-même, le détail d'un itinéraire déjà annoncé à l'oral — pas de finalité au-delà de ce service ponctuel.
 - `appels.donnees_brutes` : traçabilité économique et environnementale du projet (coût, tokens, minutes voix — exigence explicite de `CLAUDE.md`), suivi qualité, débogage.
 
 **Point de vigilance (minimisation des données)** : la finalité de traçabilité ne nécessite que des métriques (coût, durée, modèle utilisé) — déjà extraites dans des colonnes dédiées de la table `appels`. Le fait de conserver *en plus* la charge JSON brute intégrale, transcript inclus, va au-delà de cette finalité. C'est un choix de conception compréhensible (déboguer un comportement d'agent nécessite de revoir la conversation complète, comme on l'a fait à de nombreuses reprises pendant ce projet), mais qui doit être assumé explicitement et borné dans le temps plutôt que subi par défaut.
@@ -286,6 +303,7 @@ Hypothèses de travail, à valider formellement :
 - **ElevenLabs : corrigé le 28/09/2026.** Rétention 365 jours, suppression automatique de la transcription/PII et de l'audio après ce délai, appliquée aux conversations existantes. Vérifié sur un appel réel (`deletion_time_unix_secs` renseigné, `delete_transcript_and_pii: true`, `delete_audio: true`).
 - **`appels.donnees_brutes` : corrigé le 29/09/2026.** Purge automatique (transcript intégral, numéro de l'appelant) après 90 jours, sans supprimer la ligne ni les métriques déjà extraites (`duree_secs`, `cout_usd`, `minutes_asr`/`tts`, `modeles_llm`, `tokens_llm`...), qui restent disponibles indéfiniment comme l'exige `CLAUDE.md`. Purge exécutée au démarrage de l'application puis une fois par jour tant qu'elle tourne (`assistant/backoffice/appels.py`, `purger_transcripts_expires`). Vérifié en local : un appel de 100 jours voit son contenu vidé, un appel récent reste intact, et un recalcul des métriques après purge (`retraiter_tracabilite`) ne les écrase pas — garde-fou ajouté à cette occasion. Durée de 90 jours choisie comme compromis entre le besoin de suivi qualité de l'équipe (relecture d'un appel récent) et la minimisation des données.
 - **`objets_perdus` / `demandes_rappel` : encore ouvert.** Une fonction de suppression existe (`supprimer_objet_perdu`) mais reste un geste manuel, prévue à l'origine pour nettoyer des données de test, pas comme mécanisme de conformité systématique. Contrairement au transcript d'appel, ces données restent activement utiles tant que la demande n'est pas résolue (objet retrouvé, rappel effectué) — la durée de rétention appropriée dépend donc d'une décision produit (combien de temps une recherche d'objet perdu reste active ?) plutôt que d'un choix purement technique. **Reste à trancher avec l'utilisateur avant l'audit.**
+- **`sms_envoyes` : encore ouvert, pas encore traité** *(ajout du 14/10/2026)*. Aucune fonction de suppression ni de purge automatique n'existe à ce jour pour cette table, ajoutée le 12/10/2026 — même situation que `objets_perdus`/`demandes_rappel` ci-dessus, à trancher avec la même décision produit (le texte conservé contient potentiellement nom et numéro de l'appelant).
 
 ### 6.5 Sous-traitants et transferts hors UE
 
@@ -302,9 +320,9 @@ Voir Partie 5 pour le détail complet (authentification, validation des entrées
 ### 6.8 Éléments pour l'analyse d'impact (AIPD)
 
 Ce document fournit la matière première ; l'analyse elle-même reste à mener par le DPO. Points qu'elle devra couvrir en priorité, par ordre d'importance selon ce qui a été trouvé en préparant ce dossier :
-1. Valider la durée de rétention retenue pour `appels.donnees_brutes` (90 jours, corrigé le 29/09/2026 — Partie 6.4) et trancher celle de `objets_perdus`/`demandes_rappel`, encore ouverte.
+1. Valider la durée de rétention retenue pour `appels.donnees_brutes` (90 jours, corrigé le 29/09/2026 — Partie 6.4) et trancher celle de `objets_perdus`/`demandes_rappel` et de `sms_envoyes` (*ajout du 12/10/2026*), toutes deux encore ouvertes.
 2. La qualification de la base légale pour chaque table (6.3).
-3. Les transferts hors UE vers ElevenLabs, Twilio et le fournisseur de modèle de langage (6.5).
+3. Les transferts hors UE vers ElevenLabs, Twilio et le fournisseur de modèle de langage (6.5) — Twilio traite désormais aussi le contenu du SMS d'itinéraire, pas seulement les métadonnées d'appel (*ajout du 14/10/2026*, Partie 2.4).
 4. La formalisation des droits des personnes (6.6).
 
 ---
@@ -321,7 +339,7 @@ Concrètement, huit colonnes dédiées sur la table `appels` (`assistant/backoff
 
 Une fonction de secours, `retraiter_tracabilite`, permet de recalculer ces colonnes depuis `donnees_brutes` si la logique d'extraction est corrigée après coup (par exemple si un nouveau type d'appel a un format légèrement différent, déjà arrivé une fois). Elle ne fonctionne que sur les appels dont `donnees_brutes` n'a pas encore été purgé — une fenêtre de 90 jours pour corriger une erreur d'extraction, au-delà les métriques déjà calculées restent figées.
 
-`resumer_tracabilite` agrège ces données pour le tableau de bord du back-office (durée moyenne, coût total, répartition des outils utilisés, horaire moyen des appels) — l'outil de pilotage économique du projet au jour le jour.
+`resumer_tracabilite` agrège ces données pour le tableau de bord du back-office (durée moyenne, coût total, répartition des outils utilisés) — l'outil de pilotage économique du projet au jour le jour. *(ajout du 14/10/2026)* La répartition horaire des appels a été affinée le 13/10/2026 (tranches de 15 minutes plutôt qu'heure pleine) et un décompte des SMS envoyés (`sms_envoyes`, succès/échec) a remplacé l'ancien indicateur d'horaire moyen, jugé moins utile au pilotage.
 
 **Deux mécanismes de retour distincts, à ne pas confondre :**
 - **Satisfaction déclarée par l'appelant** (`satisfaction_appels`, outil `enregistrer_satisfaction`) : une réponse oui/non par conversation, posée une seule fois en fin d'appel, jamais avant que l'appelant ait explicitement répondu (correction du 28/09/2026, Partie 4.4).
@@ -331,7 +349,7 @@ Une fonction de secours, `retraiter_tracabilite`, permet de recalculer ces colon
 
 Chaque outil (Partie 3) peut être coupé indépendamment depuis le back-office, plus un interrupteur général (`activation_outils`, clé `"tous"`) qui coupe tout d'un coup si nécessaire. Trois raffinements notables :
 
-- **`calculer_itineraire`/`rechercher_repere` démarrent désactivés par défaut** (`_OUTILS_INACTIFS_PAR_DEFAUT`, `assistant/outils/db.py`) — la fonctionnalité expérimentale d'itinéraire ne s'active jamais automatiquement à un nouveau déploiement, elle doit être explicitement rallumée.
+- **`calculer_itineraire`/`rechercher_repere` démarrent désactivés par défaut** (`_OUTILS_INACTIFS_PAR_DEFAUT`, `assistant/outils/db.py`) — la fonctionnalité expérimentale d'itinéraire ne s'active jamais automatiquement à un nouveau déploiement, elle doit être explicitement rallumée. *(ajout du 14/10/2026)* Même principe pour `calculer_itineraire_complexe` (08/10/2026) et `envoyer_sms_itineraire` (12/10/2026), chacun avec son propre interrupteur, volontairement indépendant des autres : dépendent tous deux d'un appel réseau externe facturé (Google Routes, Twilio), un niveau de confiance encore distinct du reste des outils.
 - **`rechercher_information` s'active par catégorie** (commercial, vélo en libre-service, transport à la demande, amendes) plutôt que d'un bloc — aligné sur la grille de classification réelle utilisée par l'équipe CRC, pas sur un découpage technique arbitraire. Un réseau peut par exemple couper le vélo en libre-service sans couper les tarifs.
 - **Un outil désactivé renvoie une erreur HTTP 503**, pas une réponse habillée en « rien trouvé ». Choix délibéré, vérifié en conditions réelles avant d'être retenu : à chaque fois qu'un outil a échoué techniquement en test (404, 422...), l'agent vocal a basculé proprement vers la sortie (transfert ou rappel) sans jamais inventer de réponse — plutôt que de fabriquer une réponse « vide » différente pour chacun des contrats de sortie possibles, au risque de s'y contredire, le projet réutilise ce comportement déjà éprouvé.
 
