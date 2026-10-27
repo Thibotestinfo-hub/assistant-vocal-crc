@@ -20,9 +20,11 @@ load_dotenv()
 
 URL_BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:9000"
 TOKEN = os.environ["API_TOKEN"]
+MOT_DE_PASSE_BACKOFFICE = os.environ["BACKOFFICE_MOT_DE_PASSE"]
 BUDGET_MS = 300
 
 en_tete = {"Authorization": f"Bearer {TOKEN}"}
+auth_backoffice = ("crc", MOT_DE_PASSE_BACKOFFICE)
 
 
 def appeler(methode, chemin, **kwargs):
@@ -30,6 +32,15 @@ def appeler(methode, chemin, **kwargs):
     reponse = httpx.request(methode, f"{URL_BASE}{chemin}", timeout=10, follow_redirects=True, **kwargs)
     duree_ms = (time.perf_counter() - debut) * 1000
     return reponse, duree_ms
+
+
+def verifier_statut(nom, reponse, duree_ms, statut_attendu=200):
+    """Variante de verifier() pour les routes qui ne renvoient pas de JSON
+    à vérifier (ex. bascule d'activation, simple redirection)."""
+    ok = reponse.status_code == statut_attendu
+    marque = "OK " if ok else "FAIL"
+    print(f"[{marque}] {nom:30} {duree_ms:6.1f} ms  (statut {reponse.status_code})")
+    return ok
 
 
 def verifier(nom, reponse, duree_ms, cles_attendues):
@@ -95,6 +106,76 @@ def main():
         "motif": "test", "resume": "Test automatique",
     })
     resultats.append(verifier("POST /outils/transferer_agent", r, d, ["succes", "transfert_id"]))
+
+    r, d = appeler("POST", "/outils/enregistrer_satisfaction", headers=en_tete, json={
+        "conversation_id": "test-script", "satisfait": True,
+    })
+    resultats.append(verifier("POST /outils/enregistrer_satisfaction", r, d, ["succes"]))
+
+    # calculer_itineraire et rechercher_repere sont désactivés par défaut
+    # (même interrupteur, voir CLAUDE.md et assistant/outils/db.py) : on
+    # les active le temps du test, puis on restaure l'état par défaut
+    # dans tous les cas, pour ne jamais laisser l'assistant en production
+    # avec une fonctionnalité expérimentale allumée par erreur.
+    try:
+        r, d = appeler("POST", "/backoffice/activation/calculer_itineraire/basculer", auth=auth_backoffice)
+        resultats.append(verifier_statut("POST bascule calculer_itineraire (active)", r, d))
+
+        r, d = appeler("POST", "/outils/rechercher_repere", headers=en_tete,
+                        json={"texte": "mairie"})
+        resultats.append(verifier("POST /outils/rechercher_repere", r, d, ["candidats"]))
+
+        r, d = appeler("POST", "/outils/calculer_itineraire", headers=en_tete,
+                        json={"arret_depart_id": arret_id, "arret_arrivee_id": arret_id})
+        resultats.append(verifier("POST /outils/calculer_itineraire", r, d, ["trouve"]))
+    finally:
+        r, d = appeler("POST", "/backoffice/activation/calculer_itineraire/basculer", auth=auth_backoffice)
+        reactive = verifier_statut("POST bascule calculer_itineraire (restaure désactivé)", r, d)
+        resultats.append(reactive)
+        if not reactive:
+            print("       ⚠️  ATTENTION : calculer_itineraire/rechercher_repere pourraient être restés actifs, à vérifier à la main sur /backoffice/appels")
+
+    # calculer_itineraire_complexe : désactivé par défaut, dépend de
+    # GOOGLE_ROUTES_API_KEY (absente dans cet environnement de test —
+    # échec sandbox connu, voir docs/prochaines-etapes.md). On vérifie la
+    # forme de la réponse (trouve=false avec une erreur explicite), pas
+    # un vrai calcul Google Routes.
+    try:
+        r, d = appeler("POST", "/backoffice/activation/calculer_itineraire_complexe/basculer", auth=auth_backoffice)
+        resultats.append(verifier_statut("POST bascule calculer_itineraire_complexe (active)", r, d))
+
+        r, d = appeler("POST", "/outils/calculer_itineraire_complexe", headers=en_tete,
+                        json={"arret_depart_id": arret_id, "arret_arrivee_id": arret_id})
+        resultats.append(verifier("POST /outils/calculer_itineraire_complexe", r, d, ["trouve"]))
+    finally:
+        r, d = appeler("POST", "/backoffice/activation/calculer_itineraire_complexe/basculer", auth=auth_backoffice)
+        reactive = verifier_statut("POST bascule calculer_itineraire_complexe (restaure désactivé)", r, d)
+        resultats.append(reactive)
+        if not reactive:
+            print("       ⚠️  ATTENTION : calculer_itineraire_complexe pourrait être resté actif, à vérifier à la main sur /backoffice/appels")
+
+    # envoyer_sms_itineraire : désactivé par défaut. La route répond tout
+    # de suite (accepte=true) avant même de tenter l'envoi réel, qui se
+    # fait en tâche de fond (voir assistant/api/main.py) — donc ce test
+    # vérifie que la route accepte la demande et respecte le budget de
+    # latence, pas que le SMS part réellement. TWILIO_ACCOUNT_SID/
+    # TWILIO_AUTH_TOKEN sont absents dans cet environnement de test
+    # (échec sandbox connu) : la tâche de fond échouera silencieusement,
+    # visible seulement dans sms_envoyes, pas dans cette réponse.
+    try:
+        r, d = appeler("POST", "/backoffice/activation/envoyer_sms_itineraire/basculer", auth=auth_backoffice)
+        resultats.append(verifier_statut("POST bascule envoyer_sms_itineraire (active)", r, d))
+
+        r, d = appeler("POST", "/outils/envoyer_sms_itineraire", headers=en_tete, json={
+            "telephone": "0600000000", "arret_depart_id": arret_id, "arret_arrivee_id": arret_id,
+        })
+        resultats.append(verifier("POST /outils/envoyer_sms_itineraire", r, d, ["accepte"]))
+    finally:
+        r, d = appeler("POST", "/backoffice/activation/envoyer_sms_itineraire/basculer", auth=auth_backoffice)
+        reactive = verifier_statut("POST bascule envoyer_sms_itineraire (restaure désactivé)", r, d)
+        resultats.append(reactive)
+        if not reactive:
+            print("       ⚠️  ATTENTION : envoyer_sms_itineraire pourrait être resté actif, à vérifier à la main sur /backoffice/appels")
 
     print()
     n_ok = sum(resultats)

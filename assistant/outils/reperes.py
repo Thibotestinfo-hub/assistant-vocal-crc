@@ -62,10 +62,13 @@ def _distance_km(lat1, lon1, lat2, lon2):
     return 2 * RAYON_TERRE_KM * math.asin(math.sqrt(a))
 
 
-def arret_le_plus_proche(lat, lon, conn=None):
+def arret_le_plus_proche(lat, lon, arrets):
     """L'arrêt logique (voir assistant.outils.arrets) le plus proche
-    d'une coordonnée donnée, à vol d'oiseau, avec sa distance en km."""
-    arrets = charger_arrets_logiques(conn)
+    d'une coordonnée donnée, à vol d'oiseau, avec sa distance en km.
+    `arrets` : résultat déjà chargé de charger_arrets_logiques(), à
+    charger une seule fois par appel à rechercher_repere plutôt qu'une
+    fois par repère candidat (requête agrégée coûteuse, ~150 ms —
+    même piège que celui déjà corrigé dans itineraire.py)."""
     if not arrets:
         return None, None
     meilleur = min(arrets, key=lambda a: _distance_km(lat, lon, a["lat"], a["lon"]))
@@ -79,9 +82,10 @@ def rechercher_repere(texte, commune=None, conn=None):
     un seul résultat imposé) : sans commune précisée, plusieurs communes
     peuvent matcher — à l'agent de lever l'ambiguïté, même logique que
     rechercher_arret avec les arrêts homonymes."""
+    arrets = charger_arrets_logiques(conn)
     candidats = []
     for repere in trouver_reperes(texte, commune):
-        arret, distance = arret_le_plus_proche(repere["lat"], repere["lon"], conn)
+        arret, distance = arret_le_plus_proche(repere["lat"], repere["lon"], arrets)
         if arret is None:
             continue
         candidats.append({
