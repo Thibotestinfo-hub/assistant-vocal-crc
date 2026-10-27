@@ -1,5 +1,48 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 27/10/2026 — article manquant sur 3 communes, trouvé via appel réel
+
+Après la remise en service du numéro Twilio (dossier de conformité tombé
+« non conforme », régénéré dans l'urgence juste avant une présentation),
+premier vrai test : l'appelant demande les horaires de retour depuis
+« Les Pennes-Mirabeau » — `rechercher_arret` renvoie 0 candidat (pas
+juste basse confiance) à chaque tentative, y compris en répétant deux
+fois exactement la même requête sans s'adapter aux nouvelles précisions
+données par l'appelant (ligne, destination). L'appelant finit par
+abandonner, frustré (score de frustration jusqu'à 0,4).
+
+**Cause trouvée** : la commune calculée par géo-jointure
+(`assistant/ingestion/enrichir_commune.py`, source `france-geojson`)
+stocke certains noms sans article (« Pennes-Mirabeau », « Rove », « Fare-
+les-Oliviers »), alors qu'un appelant les prononce naturellement avec
+(« Les Pennes-Mirabeau », « Le Rove », « La Fare-les-Oliviers »). Le
+filtre par commune de `rechercher_arret` compare alors deux chaînes
+différentes et élimine tous les arrêts. Le désaccord était déjà détecté
+à l'ingestion (comparaison avec `commune_gtfs`, référence Mecatran avec
+article correct) mais seulement rapporté en diagnostic, jamais corrigé —
+classé par erreur comme une différence « cosmétique ».
+
+**Corrigé** : `enrichir_commune.py` restaure l'article à partir de
+`commune_gtfs` quand les deux sources désignent la même commune (article
+mis à part) — 290 arrêts sur 1307 corrigés, sur 3 communes. Les 10 vrais
+désaccords de commune (arrêts en bordure, communes réellement
+différentes selon chaque source) restent inchangés. `data/gtfs.db` n'est
+pas versionné, régénéré à chaque nouveau serveur (`run.py`) — le correctif
+prend effet au prochain déploiement sans action manuelle. Vérifié en
+local : la requête qui échouait pendant l'appel renvoie maintenant de
+vrais candidats.
+
+`verifier_api.py` (17/19, échecs sandbox connus), `verifier_backoffice.py`
+(12/12) et `verifier_horaires.py` relancés sans régression.
+
+**Reste à faire** : l'UX de résolution d'arrêt en retour de trajet reste
+perfectible même après ce correctif — l'appelant ne connaît pas le nom
+précis de l'arrêt (seulement la commune et la ligne), et `rechercher_arret`
+reste structurellement une recherche par texte libre sur le nom d'arrêt,
+pas par ligne+commune seuls. À voir si une consigne de prompt (utiliser
+systématiquement le filtre `ligne` connu plutôt que de redemander le nom
+exact de l'arrêt) suffit, ou si ça nécessite une évolution de l'outil.
+
 ## ✅ Fait le 13/10/2026 — vraie cause du silence de 32s, et correction côté prompt
 
 Retour sur le point 2 des REX ci-dessous ("pas de correction possible de
