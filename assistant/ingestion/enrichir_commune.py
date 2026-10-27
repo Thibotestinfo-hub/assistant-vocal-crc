@@ -76,10 +76,20 @@ def enrichir():
         print("  Arrêts non résolus (hors des polygones du département 13) :",
               non_trouves[:10])
 
-    # --- Vérification croisée avec commune_gtfs, notre seule référence connue ---
-    # france-geojson stocke les noms de commune SANS article ("Pennes-Mirabeau"),
-    # alors que commune_gtfs les a AVEC ("Les Pennes-Mirabeau") : on l'ignore
-    # pour isoler les vrais désaccords des différences purement cosmétiques.
+    # --- Vérification croisée avec commune_gtfs, notre seule référence connue,
+    # et correction de l'article manquant ---
+    # france-geojson stocke les noms de commune SANS article ("Pennes-Mirabeau",
+    # "Rove", "Fare-les-Oliviers"), alors que commune_gtfs (city_name, extension
+    # Mecatran) les a AVEC ("Les Pennes-Mirabeau", "Le Rove", "La Fare-les-
+    # Oliviers") — la seule forme grammaticalement correcte à l'oral, et la
+    # seule qu'un appelant prononce naturellement. Trouvé en analysant un
+    # appel réel où rechercher_arret ne trouvait aucun arrêt à "Les
+    # Pennes-Mirabeau" (0 résultat, pas juste basse confiance) : le filtre par
+    # commune comparait une chaîne avec article à une chaîne sans, donc aucune
+    # correspondance, jamais aucun arrêt. Corrigé ci-dessous en préférant
+    # commune_gtfs dès qu'il ne désigne que la même commune que le calcul
+    # géographique (différence d'article seulement) — jamais si les deux
+    # sources désignent des communes réellement différentes.
     def sans_article(nom):
         for article in ("Les ", "Le ", "La ", "L'"):
             if nom.startswith(article):
@@ -95,12 +105,20 @@ def enrichir():
     ).fetchone()[0]
 
     vrais_desaccords = [d for d in desaccords if sans_article(d["commune_gtfs"]) != d["commune"]]
-    n_cosmetiques = len(desaccords) - len(vrais_desaccords)
+    a_corriger = [d for d in desaccords if sans_article(d["commune_gtfs"]) == d["commune"]]
+
+    for d in a_corriger:
+        conn.execute(
+            "UPDATE stops SET commune = ? WHERE stop_id = ?",
+            (d["commune_gtfs"], d["stop_id"]),
+        )
+    conn.commit()
 
     print(f"\nComparaison avec commune_gtfs (référence fournie par le réseau) : "
           f"{n_avec_reference - len(desaccords)}/{n_avec_reference} identiques, "
-          f"{n_cosmetiques} différences d'article seulement (« Les Pennes-Mirabeau » "
-          f"vs « Pennes-Mirabeau »), {len(vrais_desaccords)} vrais désaccords.")
+          f"{len(a_corriger)} corrigés pour restaurer l'article manquant "
+          f"(« Pennes-Mirabeau » → « Les Pennes-Mirabeau », etc.), "
+          f"{len(vrais_desaccords)} vrais désaccords.")
     if vrais_desaccords:
         print("Vrais désaccords (commune différente, pas juste l'article) :")
         for d in vrais_desaccords:
