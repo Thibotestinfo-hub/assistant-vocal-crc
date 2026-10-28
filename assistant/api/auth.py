@@ -41,7 +41,7 @@ if not BACKOFFICE_MOT_DE_PASSE:
 
 def verifier_jeton(authorization: str = Header(default=None)):
     attendu = f"Bearer {API_TOKEN}"
-    if authorization != attendu:
+    if not authorization or not secrets.compare_digest(authorization, attendu):
         raise HTTPException(status_code=401, detail="Jeton d'authentification invalide ou absent")
 
 
