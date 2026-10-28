@@ -1,5 +1,65 @@
 # Prochaines étapes — état au 25/09/2026
 
+## 📌 Décision le 28/10/2026 — satisfaction enregistrée sans attendre (3e récidive), pas de changement de modèle pour l'instant
+
+Nouveau webhook réel (test itinéraire Vitrolles mairie → Jean Monnet,
+SMS envoyé correctement) : même bug déjà vu le 28/09 puis le 13/10.
+`source_event_id` 650 partagé entre la question de satisfaction,
+l'appel `enregistrer_satisfaction(satisfait=true)` et le message
+d'au revoir — aucun tour de parole de l'appelant entre les deux,
+réutilisation d'une phrase antérieure ("c'est parfait, merci
+beaucoup", qui répondait en réalité à "avez-vous besoin d'autre
+chose ?"). Explique aussi la coupure de parole en toute fin d'appel
+remarquée après la démo du 27/10 : la phrase d'au revoir démarre dans
+le même bloc que la question, sans laisser de place pour une réponse,
+et chevauche ce que l'appelant commence à dire.
+
+Conforme à ce qui avait été anticipé le 13/10 : la règle de prompt est
+déjà, mot pour mot, aussi explicite que possible — une récidive serait
+« un argument de plus pour la question du changement de modèle ».
+C'est le cas. Décision explicite de l'utilisatrice : **pas de
+changement de modèle maintenant**, l'équilibre coût/qualité actuel
+(Gemini 3.1 Flash Lite) est jugé trop important pour le sacrifier à ce
+seul irritant. Pas de 4e tentative de reformulation de prompt non plus
+(la conclusion du 13/10 s'applique toujours : le modèle ne suit pas sa
+propre consigne, ce n'est pas un problème de formulation). Sujet gardé
+en tête, à rouvrir si d'autres signaux s'accumulent (ou lors d'une
+remise à plat du modèle pour d'autres raisons).
+
+## ✅ Fait le 28/10/2026 — clé Mecatran sortie du dépôt versionné
+
+En préparant l'annexe B du dossier d'audit (références officielles),
+découverte que l'apiKey Mecatran de production était versionnée en
+clair à deux endroits : `data/config.yaml` (`gtfs_url`) et
+`docs/sources.md` (5 apiKey au total, dont celles de réseaux voisins
+hors périmètre). Recommandation déjà notée en Partie 5.5 de l'audit,
+traitée maintenant.
+
+**Corrigé** : `data/config.yaml` ne garde que `gtfs_url_base` (non
+secrète) ; l'apiKey vit dans `MECATRAN_API_KEY` (`.env` en local,
+variable d'environnement Clever Cloud en production), composée par
+`assistant/ingestion/provisionner.py` au moment du téléchargement —
+même principe que `ELEVENLABS_API_KEY`/`TWILIO_AUTH_TOKEN`. Les 5
+apiKey de `docs/sources.md` redactées.
+
+Point de vigilance traité avant de pousser : `data/gtfs.db` n'est
+jamais persistant (reconstruit à froid à chaque déploiement Clever
+Cloud), donc `provisionner()` a besoin de `MECATRAN_API_KEY` dès le
+premier démarrage suivant le déploiement — variable ajoutée côté
+Clever Cloud par l'utilisatrice avant le push, pour éviter de
+reproduire l'incident du numéro Twilio (service coupé faute de
+préparer la bascule).
+
+Vérifié en local avant de pousser : `verifier_api.py` (17/19) et
+`verifier_backoffice.py` (12/12), échecs sandbox connus uniquement.
+Mergé sur `main`, poussé.
+
+**Reste à faire, à l'initiative de l'utilisatrice** : régénérer la
+valeur de la clé elle-même sur le portail Mecatran (l'ancienne reste à
+jamais dans l'historique git même après ce correctif), puis mettre à
+jour uniquement la variable Clever Cloud — aucun nouveau déploiement
+de code nécessaire pour cette rotation.
+
 ## 💡 Idée notée le 28/10/2026 — accès simplifié par QR code pour public vulnérable
 
 Suite à un retour reçu en démonstration (sentiment que le registre de
