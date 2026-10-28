@@ -2,6 +2,11 @@
 
 Vérifié le 06/08/2026 sur transport.data.gouv.fr.
 
+Les apiKey ci-dessous sont redactées (28/10/2026) — elles avaient été
+versionnées en clair. La valeur réelle du réseau exploité vit dans
+MECATRAN_API_KEY (.env, jamais ici), voir data/config.yaml et
+docs/audit-dsi.md partie 5.3.
+
 ---
 
 ## GTFS statique — priorité 1
@@ -9,7 +14,7 @@ Vérifié le 06/08/2026 sur transport.data.gouv.fr.
 ### Les bus de l'étang (périmètre exact du POC)
 
 ```
-https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=2b7a3b3b084c750566663c2e09726b19171f275c
+https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=***REDACTÉ***
 ```
 
 Dessert Berre-l'Étang, Gignac-la-Nerthe, Les Pennes-Mirabeau, Marignane, Rognac, Saint-Victoret, Velaux, Vitrolles.
@@ -23,7 +28,7 @@ Dessert Berre-l'Étang, Gignac-la-Nerthe, Les Pennes-Mirabeau, Marignane, Rognac
 ### Référentiel complet (tous les réseaux métropolitains)
 
 ```
-https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp?apiKey=60327e505a214c77303f52206f11483069257343
+https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp?apiKey=***REDACTÉ***
 ```
 
 - Validité déclarée : **05/08/2026 → 22/02/2027**
@@ -36,9 +41,9 @@ Alternative plus durable, à filtrer par agence pour ne garder que le périmètr
 
 | Réseau | URL |
 |---|---|
-| Côte Bleue | `https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-ctb?apiKey=686525656f2c3228054e6a7c3e38330037076207` |
-| CG13 Cartreize (lecar, navettes aéroport) | `https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-c13?apiKey=3675433c4f196f4d3c6b62316e130536196f0336` |
-| Libébus (zone Salon, hors périmètre) | `https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-lib?apiKey=14276f6a093c2c53370b48001f75646f2b2c3969` |
+| Côte Bleue | `https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-ctb?apiKey=***REDACTÉ***` |
+| CG13 Cartreize (lecar, navettes aéroport) | `https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-c13?apiKey=***REDACTÉ***` |
+| Libébus (zone Salon, hors périmètre) | `https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-lib?apiKey=***REDACTÉ***` |
 
 ---
 

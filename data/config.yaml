@@ -2,7 +2,9 @@
 # Voir CLAUDE.md : dupliquer l'agent sur un autre réseau doit être une
 # opération de paramétrage, pas de développement.
 
-gtfs_url: "https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=2b7a3b3b084c750566663c2e09726b19171f275c"
+# L'apiKey Mecatran est un secret : elle vit dans MECATRAN_API_KEY (.env,
+# jamais ici), comme ELEVENLABS_API_KEY ou TWILIO_AUTH_TOKEN ci-dessous.
+gtfs_url_base: "https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde"
 
 # Site public du réseau — c'est aussi la source scrapée par
 # assistant/ingestion/extraire_corpus.py (BASE_URL) pour la base de
