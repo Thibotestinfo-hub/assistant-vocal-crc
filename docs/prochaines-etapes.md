@@ -1,5 +1,33 @@
 # Prochaines étapes — état au 25/09/2026
 
+## 💡 Idée notée le 28/10/2026 — accès simplifié par QR code pour public vulnérable
+
+Suite à un retour reçu en démonstration (sentiment que le registre de
+langue du bot est un peu « soutenu » pour un public vulnérable — ajustable
+dans le prompt ElevenLabs mais volontairement non modifié pour l'instant,
+pour ne pas tout bousculer avant une démo) : idée d'un QR code à un arrêt
+physique, menant à un appel ou un SMS pré-rempli, pour une demande
+d'itinéraire ultra-simple (« je suis ici, je vais là »).
+
+Analysé avant de coder quoi que ce soit (sur demande explicite de
+l'utilisateur, « ne cherchons pas à modifier » une brique qui marche) :
+- **Canal appel** : la brique existe déjà entièrement (dire son point de
+  départ et son arrivée au téléphone fonctionne aujourd'hui). Un QR code
+  en `tel:` vers le numéro existant ne demande aucun développement, mais
+  l'appelant tombe sur l'accueil généraliste (tous les sujets), pas une
+  entrée directe "itinéraire". Un accueil différencié par arrêt scanné
+  (sauter la question du point de départ) serait un vrai développement,
+  pas fait à ce jour.
+- **Canal SMS entrant** : n'existe pas du tout, contrairement à l'intuition
+  initiale — seul l'envoi de SMS existe (déclenché depuis un appel). Un
+  SMS entrant demanderait une brique neuve (webhook Twilio entrant,
+  compréhension de texte libre sans dialogue multi-tours pour lever une
+  ambiguïté). Lié au gap déjà documenté dans l'audit DSI (Partie 6.5) :
+  une réponse SMS part aujourd'hui dans le vide côté Twilio.
+
+Décision : rien d'engagé pour l'instant, idée notée pour une réflexion
+ultérieure plutôt qu'un développement dans l'urgence d'une démo.
+
 ## ✅ Fait le 27/10/2026 — article manquant sur 3 communes, trouvé via appel réel
 
 Après la remise en service du numéro Twilio (dossier de conformité tombé
