@@ -164,6 +164,38 @@ def obtenir_details(cles):
     return details
 
 
+def supprimer_elements(cles):
+    """Droit à l'effacement sur les éléments cochés (cle = 'table:id').
+
+    objets_perdus/demandes_rappel/sms_envoyes : la ligne entière est
+    supprimée — c'est la donnée personnelle elle-même, même principe
+    que supprimer_objet_perdu() dans exports.py.
+
+    appels : jamais supprimée. La ligne est anonymisée exactement comme
+    purger_transcripts_expires() (donnees_brutes et telephone vidés) —
+    les colonnes de traçabilité (durée, coût, tokens...) n'ont rien de
+    personnel et doivent survivre indéfiniment (CLAUDE.md : "non
+    reconstituable après coup"). Supprimer la ligne perdrait ces
+    métriques pour de bon, pas seulement la donnée personnelle visée.
+
+    Renvoie le nombre d'éléments traités."""
+    conn = connexion_app()
+    n = 0
+    for cle in cles:
+        table, _, id_brut = cle.partition(":")
+        if table not in _TABLES_DETAIL or not id_brut.isdigit():
+            continue
+        id_ = int(id_brut)
+        if table == "appels":
+            conn.execute("UPDATE appels SET donnees_brutes = '{}', telephone = NULL WHERE id = ?", (id_,))
+        else:
+            conn.execute(f"DELETE FROM {table} WHERE id = ?", (id_,))
+        n += 1
+    conn.commit()
+    conn.close()
+    return n
+
+
 def exporter_details_csv(details):
     tampon = io.StringIO()
     ecrivain = csv.writer(tampon, delimiter=";")

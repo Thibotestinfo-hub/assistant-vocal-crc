@@ -45,7 +45,7 @@ from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, exporter_sms_envoyes, lister_demandes_rappel, supprimer_objet_perdu,
 )
 from assistant.backoffice.page import page_backoffice, page_imprimable_rgpd
-from assistant.backoffice.rgpd import exporter_details_csv, obtenir_details, rechercher_dossier
+from assistant.backoffice.rgpd import exporter_details_csv, obtenir_details, rechercher_dossier, supprimer_elements
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
 from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix, synthetiser_texte
 from assistant.ingestion.extraire_corpus import site_web
@@ -324,6 +324,12 @@ def route_backoffice_rgpd_exporter_csv(elements: List[str] = Form(default=[])):
           dependencies=[Depends(verifier_acces_backoffice)])
 def route_backoffice_rgpd_imprimer(telephone_rgpd: str = Form(...), elements: List[str] = Form(default=[])):
     return page_imprimable_rgpd(telephone_rgpd, obtenir_details(elements))
+
+
+@app.post("/backoffice/rgpd/supprimer", dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_rgpd_supprimer(telephone_rgpd: str = Form(...), elements: List[str] = Form(default=[])):
+    supprimer_elements(elements)
+    return RedirectResponse(f"/backoffice/appels?telephone_rgpd={quote(telephone_rgpd)}#rgpd", status_code=303)
 
 
 @app.post("/backoffice/appels/retraiter-tracabilite",

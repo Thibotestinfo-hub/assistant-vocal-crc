@@ -1,5 +1,29 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 29/10/2026 — suppression groupée (droit à l'effacement) sur l'onglet RGPD
+
+Suite immédiate de l'entrée ci-dessous, demandée le jour même. Même
+sélection par case à cocher que l'export, troisième bouton.
+
+**Point de conception à retenir** : le comportement n'est pas le même
+pour toutes les tables, volontairement. `objets_perdus`,
+`demandes_rappel`, `sms_envoyes` sont supprimées entièrement — c'est
+la donnée personnelle elle-même. `appels` n'est jamais supprimée :
+seules les colonnes personnelles (transcript, téléphone) sont vidées,
+exactement comme le fait déjà `purger_transcripts_expires()` à 90
+jours — les colonnes de traçabilité (durée, coût, tokens) doivent
+survivre indéfiniment (CLAUDE.md : "non reconstituable après coup") et
+n'ont rien de personnel. Les supprimer aurait perdu ces métriques pour
+de bon en réponse à une simple demande d'effacement.
+
+Confirmation navigateur avant l'action (irréversible), bouton rouge
+distinct des deux autres.
+
+Vérifié en local : suppression testée sur les 3 cas (objet perdu et
+demande de rappel disparus de la base, appel anonymisé avec durée/coût
+intacts, recherche vide ensuite). `verifier_api.py` et
+`verifier_backoffice.py` (12/12) sans régression.
+
 ## ✅ Fait le 29/10/2026 — onglet RGPD au back-office (recherche, export CSV, version imprimable)
 
 Premier des trois chantiers techniques évoqués le 28/10 (RGPD, échange
