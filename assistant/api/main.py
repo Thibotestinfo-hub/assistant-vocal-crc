@@ -8,7 +8,7 @@ Lancer en local : uv run uvicorn assistant.api.main:app --reload
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Literal
+from typing import List, Literal
 from urllib.parse import quote
 
 from pathlib import Path
@@ -44,7 +44,8 @@ from assistant.backoffice.appels import (
 from assistant.backoffice.exports import (
     exporter_demandes_rappel, exporter_objets_perdus, exporter_sms_envoyes, lister_demandes_rappel, supprimer_objet_perdu,
 )
-from assistant.backoffice.page import page_backoffice
+from assistant.backoffice.page import page_backoffice, page_imprimable_rgpd
+from assistant.backoffice.rgpd import exporter_details_csv, obtenir_details, rechercher_dossier
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
 from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix, synthetiser_texte
 from assistant.ingestion.extraire_corpus import site_web
@@ -288,13 +289,18 @@ def route_webhook_personnalisation():
 
 @app.get("/backoffice/appels", response_class=HTMLResponse,
          dependencies=[Depends(verifier_acces_backoffice)])
-def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = "", erreur_prononciation: bool = False, erreur_site_web: bool = False):
+def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = "", erreur_prononciation: bool = False,
+                                   erreur_site_web: bool = False, telephone_rgpd: str = ""):
     try:
         en_cours = appels_en_cours()
     except Exception:
         # None : on ne sait pas (ElevenLabs indisponible/lent), à distinguer
         # d'une liste vide (on sait qu'il n'y a personne en ligne).
         en_cours = None
+
+    dossier_rgpd = rechercher_dossier(telephone_rgpd) if telephone_rgpd else None
+    erreur_rgpd = bool(telephone_rgpd) and dossier_rgpd is None
+
     return page_backoffice(
         lister_appels_avec_details(), lister_activations(), compter_appels(),
         resumer_evaluations(), resumer_satisfaction_client(), resumer_tracabilite(),
@@ -305,7 +311,19 @@ def route_backoffice_liste_appels(erreur_voix: bool = False, detail_voix: str = 
         format_sms=obtenir_parametre("format_sms", "emoji"),
         resume_sms=resumer_sms(),
         site_web_actuel=site_web(), erreur_site_web=erreur_site_web,
+        telephone_rgpd=telephone_rgpd, dossier_rgpd=dossier_rgpd, erreur_rgpd=erreur_rgpd,
     )
+
+
+@app.post("/backoffice/rgpd/exporter.csv", dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_rgpd_exporter_csv(elements: List[str] = Form(default=[])):
+    return _reponse_csv(exporter_details_csv(obtenir_details(elements)), "dossier_rgpd.csv")
+
+
+@app.post("/backoffice/rgpd/imprimer", response_class=HTMLResponse,
+          dependencies=[Depends(verifier_acces_backoffice)])
+def route_backoffice_rgpd_imprimer(telephone_rgpd: str = Form(...), elements: List[str] = Form(default=[])):
+    return page_imprimable_rgpd(telephone_rgpd, obtenir_details(elements))
 
 
 @app.post("/backoffice/appels/retraiter-tracabilite",

@@ -12,7 +12,7 @@ que widget, par exemple) aurait une structure différente.
 import json
 from datetime import datetime, timedelta
 
-from assistant.outils.db import _FUSEAU, connexion_app, horodatage
+from assistant.outils.db import _FUSEAU, connexion_app, horodatage, normaliser_telephone
 
 # Durée de conservation du contenu complet d'un appel (transcript,
 # numéro de l'appelant) avant purge automatique — décidée avec
@@ -77,6 +77,17 @@ _TRACABILITE_VIDE = {
 }
 
 
+def _extraire_telephone(donnees):
+    """Numéro de l'appelant, pour le dossier RGPD (assistant/backoffice/
+    rgpd.py) — vérifié sur un vrai payload le 28/10/2026 :
+    metadata.phone_call.external_number, en E.164. Converti vers le
+    même format local que les autres tables (voir normaliser_telephone).
+    None si absent ou mal formé, jamais une exception."""
+    metadata = donnees.get("metadata") or {}
+    numero = (metadata.get("phone_call") or {}).get("external_number")
+    return normaliser_telephone(numero) if numero else None
+
+
 def enregistrer_appel(charge_brute: dict):
     """Insère (ou met à jour si déjà vu) un appel à partir de la charge
     du webhook ElevenLabs. Ne lève jamais d'exception sur un format
@@ -99,6 +110,7 @@ def enregistrer_appel(charge_brute: dict):
         tracabilite = _extraire_tracabilite(donnees)
     except Exception:
         tracabilite = _TRACABILITE_VIDE
+    telephone = _extraire_telephone(donnees)
 
     conn = connexion_app()
     conn.execute(
@@ -106,9 +118,9 @@ def enregistrer_appel(charge_brute: dict):
         INSERT INTO appels (
             cree_le, conversation_id, agent_id, statut, donnees_brutes,
             duree_secs, cout_usd, minutes_asr, minutes_tts, modeles_llm,
-            tokens_llm, outils_utilises, voix_utilisees
+            tokens_llm, outils_utilises, voix_utilisees, telephone
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(conversation_id) DO UPDATE SET
             statut = excluded.statut,
             donnees_brutes = excluded.donnees_brutes,
@@ -119,7 +131,8 @@ def enregistrer_appel(charge_brute: dict):
             modeles_llm = excluded.modeles_llm,
             tokens_llm = excluded.tokens_llm,
             outils_utilises = excluded.outils_utilises,
-            voix_utilisees = excluded.voix_utilisees
+            voix_utilisees = excluded.voix_utilisees,
+            telephone = excluded.telephone
         """,
         (
             horodatage(),
@@ -129,6 +142,7 @@ def enregistrer_appel(charge_brute: dict):
             tracabilite["minutes_asr"], tracabilite["minutes_tts"],
             tracabilite["modeles_llm"], tracabilite["tokens_llm"],
             tracabilite["outils_utilises"], tracabilite["voix_utilisees"],
+            telephone,
         ),
     )
     conn.commit()
@@ -137,16 +151,19 @@ def enregistrer_appel(charge_brute: dict):
 
 def purger_transcripts_expires():
     """Vide donnees_brutes (transcript intégral, numéro de l'appelant...)
-    des appels plus vieux que DUREE_RETENTION_DONNEES_BRUTES_JOURS.
-    Ne touche ni la ligne elle-même ni les colonnes de métriques déjà
-    extraites. Idempotent : les lignes déjà vidées ('{}') ne sont pas
-    réécrites inutilement."""
+    des appels plus vieux que DUREE_RETENTION_DONNEES_BRUTES_JOURS. Vide
+    aussi telephone (ajouté le 29/10/2026 pour le dossier RGPD) : c'est
+    la même donnée personnelle, elle ne doit pas survivre à la purge du
+    transcript qui la contenait. Ne touche ni la ligne elle-même ni les
+    colonnes de métriques déjà extraites. Idempotent : les lignes déjà
+    vidées ('{}') ne sont pas réécrites inutilement."""
     seuil = (
         datetime.now(_FUSEAU).replace(tzinfo=None) - timedelta(days=DUREE_RETENTION_DONNEES_BRUTES_JOURS)
     ).isoformat(timespec="seconds")
     conn = connexion_app()
     conn.execute(
-        "UPDATE appels SET donnees_brutes = '{}' WHERE cree_le < ? AND donnees_brutes != '{}'",
+        "UPDATE appels SET donnees_brutes = '{}', telephone = NULL "
+        "WHERE cree_le < ? AND donnees_brutes != '{}'",
         (seuil,),
     )
     conn.commit()
@@ -159,7 +176,9 @@ def retraiter_tracabilite():
     nouveau webhook. Utile après avoir déployé _extraire_tracabilite
     (ou une amélioration future) : les appels reçus avant ce
     déploiement ont leur JSON brut, mais pas encore les colonnes
-    dérivées. Renvoie le nombre d'appels mis à jour."""
+    dérivées. Retraite aussi telephone (ajouté le 29/10/2026, voir
+    _extraire_telephone) pour les mêmes appels. Renvoie le nombre
+    d'appels mis à jour."""
     conn = connexion_app()
     appels = conn.execute("SELECT id, donnees_brutes FROM appels").fetchall()
     n = 0
@@ -175,17 +194,19 @@ def retraiter_tracabilite():
             continue
         donnees = charge_brute.get("data", charge_brute) if isinstance(charge_brute, dict) else {}
         t = _extraire_tracabilite(donnees)
+        telephone = _extraire_telephone(donnees)
         conn.execute(
             """
             UPDATE appels SET
                 duree_secs = ?, cout_usd = ?, minutes_asr = ?, minutes_tts = ?,
-                modeles_llm = ?, tokens_llm = ?, outils_utilises = ?, voix_utilisees = ?
+                modeles_llm = ?, tokens_llm = ?, outils_utilises = ?, voix_utilisees = ?,
+                telephone = ?
             WHERE id = ?
             """,
             (
                 t["duree_secs"], t["cout_usd"], t["minutes_asr"], t["minutes_tts"],
                 t["modeles_llm"], t["tokens_llm"], t["outils_utilises"], t["voix_utilisees"],
-                a["id"],
+                telephone, a["id"],
             ),
         )
         n += 1
