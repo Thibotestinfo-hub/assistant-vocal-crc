@@ -1280,7 +1280,13 @@ def page_imprimable_rgpd(telephone, details):
     imprimée en PDF par le navigateur (Ctrl+P) pour joindre à une
     réponse à une demande d'accès RGPD — voir assistant/backoffice/
     rgpd.py et docs/audit-dsi.md, partie 6.6. Pas de dépendance PDF
-    ajoutée au projet : le navigateur suffit."""
+    ajoutée au projet : le navigateur suffit.
+
+    Ouverte dans un nouvel onglet (formtarget="_blank" sur le bouton
+    qui mène ici) mais sans chrome ni historique de navigation propre
+    (atteinte par POST) : un lien de retour explicite évite d'être
+    coincé sur cette page (voir docs/prochaines-etapes.md, 29/10/2026).
+    Masqué à l'impression (@media print) pour ne pas polluer le PDF."""
     blocs = "\n".join(
         f"""<section>
   <h2>{html.escape(d['type'])} — {html.escape((d['date'] or '')[:16].replace('T', ' '))}</h2>
@@ -1288,6 +1294,7 @@ def page_imprimable_rgpd(telephone, details):
 </section>"""
         for d in details
     )
+    retour = f"/backoffice/appels?telephone_rgpd={quote(telephone)}#rgpd"
     return f"""<!doctype html>
 <html lang="fr">
 <head>
@@ -1300,9 +1307,12 @@ def page_imprimable_rgpd(telephone, details):
   h2 {{ font-size: 1rem; }}
   pre {{ white-space: pre-wrap; font-family: inherit; font-size: 0.92rem; }}
   .meta {{ color: #555; font-size: 0.85rem; }}
+  .retour {{ display: inline-block; margin-bottom: 1.2rem; font-family: sans-serif; font-size: 0.85rem; }}
+  @media print {{ .retour {{ display: none; }} }}
 </style>
 </head>
 <body>
+<a class="retour" href="{retour}">← Retour au dossier RGPD</a>
 <h1>Dossier des données détenues — {html.escape(telephone)}</h1>
 <p class="meta">Généré le {horodatage()} — réseau Salon Étang Côte Bleue, assistant vocal CRC (expérimentation 2026).</p>
 <p class="meta">{len(details)} élément(s) sélectionné(s) ci-dessous.</p>
@@ -1473,7 +1483,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.9rem">
         <h2 style="margin:0">Exports</h2>
         <form method="post" action="/backoffice/appels/retraiter-tracabilite" style="margin:0">
-          <button type="submit" class="bouton" style="font-size:0.78rem;padding:0.4rem 0.8rem" title="Recalcule durée/coût/modèles pour les appels déjà reçus mais enregistrés avant ce chantier">↻ Recalculer la traçabilité</button>
+          <button type="submit" class="bouton" style="font-size:0.78rem;padding:0.4rem 0.8rem" title="Recalcule durée/coût/modèles/téléphone pour les appels déjà reçus mais enregistrés avant ce chantier (ou avant l'ajout du téléphone, 29/10/2026)">↻ Recalculer la traçabilité</button>
         </form>
       </div>
       <div class="exports-boutons">

@@ -1,5 +1,46 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 29/10/2026 — retour terrain sur l'onglet RGPD (3 points)
+
+Premier vrai test de l'onglet RGPD par l'utilisatrice, trois retours :
+
+**1. Un appel réel manquant de la recherche — pas un bug, un effet de
+bord de la migration.** Elle cherche un numéro qu'elle sait avoir
+appelé (conversation complète), seul le SMS ressort. Cause : ce
+numéro-là correspond à un appel reçu *avant* le déploiement de la
+colonne `appels.telephone` (29/10/2026) — `retraiter_tracabilite()`
+backfille bien ce champ pour les appels déjà en base, mais c'est une
+action manuelle (bouton "↻ Recalculer la traçabilité", onglet Suivi),
+pas automatique au déploiement. Reproduit et vérifié en local
+(simulation d'un appel "pré-chantier", absent puis présent après le
+clic). **Action ponctuelle nécessaire côté utilisatrice** : cliquer une
+fois sur ce bouton pour rattraper tous les appels historiques
+(dans la limite des 90 jours de rétention — un appel déjà purgé reste
+introuvable, normal). Tooltip du bouton mis à jour pour le dire.
+
+**2. Question ouverte, non résolue — collecte passive d'identifiants.**
+L'utilisatrice demande si un appelant qui ne donne jamais son nom
+pourrait quand même transmettre une donnée personnelle malgré lui
+(parallèle avec une adresse IP/MAC collectée sans formulaire rempli).
+Vérifié ce que contient réellement le webhook ElevenLabs
+(`metadata.phone_call` : `external_number`, `agent_number`,
+`direction`, `call_result`, `type`, `stream_sid`, `call_sid` — aucun
+champ nom/CNAM) : le seul identifiant passif présent dans ce que nous
+recevons est le numéro appelant, déjà couvert depuis le 29/10/2026.
+**Mais ceci ne couvre que ce qu'ElevenLabs choisit de nous transmettre**
+— pas une vérification de ce que Twilio/ElevenLabs peuvent retenir ou
+déduire de leur côté (ex. un lookup CNAM qui ne nous serait jamais
+transmis). **[À vérifier — DSI/DPO]**, dans la continuité de la Partie
+6.5 de l'audit (sous-traitants hors UE non vérifiés contractuellement) :
+à poser aux deux fournisseurs directement plutôt qu'à deviner depuis le
+code reçu.
+
+**3. Page imprimable sans moyen de retour — corrigé.** Atteinte par
+POST (pas d'historique de navigation propre), la page imprimable
+n'offrait aucun lien retour. Ajout d'un lien "← Retour au dossier
+RGPD", masqué à l'impression (`@media print`) pour ne pas polluer le
+PDF généré.
+
 ## ✅ Fait le 29/10/2026 — suppression groupée (droit à l'effacement) sur l'onglet RGPD
 
 Suite immédiate de l'entrée ci-dessous, demandée le jour même. Même
