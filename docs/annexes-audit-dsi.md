@@ -57,7 +57,7 @@ Document complémentaire à `docs/audit-dsi.md`, référencé par sa dernière l
 
 ### Sources de données
 
-- Flux GTFS du réseau (Mecatran, via la Métropole Mobilité) : `https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=***REDACTÉ***` — **point de vigilance signalé ici en préparant cette annexe** : la clé figure en clair dans `docs/sources.md`, versionné, en plus de `data/config.yaml` déjà signalé Partie 5.3 du dossier principal — même correctif à appliquer aux deux fichiers.
+- Flux GTFS du réseau (Mecatran, via la Métropole Mobilité) : `https://app.mecatran.com/utw/ws/gtfsfeed/static/mamp-bde?apiKey=***REDACTÉ***` — l'apiKey, trouvée en clair dans `docs/sources.md` et `data/config.yaml` en préparant cette annexe (signalé Partie 5.3 du dossier principal), a été sortie des deux fichiers le 29/10/2026 : elle vit désormais dans `MECATRAN_API_KEY` (variable d'environnement), jamais versionnée.
 - Page de détail du jeu de données : [transport.data.gouv.fr/resources/39597](https://transport.data.gouv.fr/resources/39597)
 - Contours communaux (déduction de la commune d'un arrêt) : [github.com/gregoiredavid/france-geojson](https://github.com/gregoiredavid/france-geojson)
 - Licence Ouverte 2.0 (Etalab) : [www.etalab.gouv.fr/licence-ouverte-open-licence](https://www.etalab.gouv.fr/licence-ouverte-open-licence-agreement/)
@@ -205,9 +205,26 @@ class ObjetPerduRequete(BaseModel):
 
 ### C.3 — Schéma des données personnelles (`assistant/outils/db.py`, extrait)
 
-Référencé en Partie 6.1 (« Données personnelles collectées »). Les tables de `data/etat/assistant.db`, dans leur définition SQL exacte :
+Référencé en Partie 6.1 (« Données personnelles collectées ») et Partie 6.6 (dossier RGPD, Annexe C.6). Les tables de `data/etat/assistant.db`, dans leur définition SQL exacte, et la fonction de normalisation du téléphone utilisée pour la recherche RGPD :
 
 ```python
+_RE_TELEPHONE_LOCAL = re.compile(r"0[1-9]\d{8}$")
+
+
+def normaliser_telephone(valeur):
+    """Convertit un numéro reçu sous n'importe quelle forme courante
+    (local, E.164 "+33...", "0033...") vers le même format local sans
+    séparateur utilisé partout ailleurs dans le projet."""
+    if not valeur:
+        return None
+    nettoye = re.sub(r"[ .\-]", "", valeur)
+    if nettoye.startswith("+33"):
+        nettoye = "0" + nettoye[3:]
+    elif nettoye.startswith("0033"):
+        nettoye = "0" + nettoye[4:]
+    return nettoye if _RE_TELEPHONE_LOCAL.fullmatch(nettoye) else None
+
+
 _SCHEMA_APP = """
 CREATE TABLE IF NOT EXISTS objets_perdus (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -247,13 +264,19 @@ CREATE TABLE IF NOT EXISTS transferts (
 -- Étape 6 : historique des appels, alimenté par le webhook de fin
 -- d'appel envoyé par ElevenLabs. donnees_brutes conserve la charge
 -- complète telle que reçue (voir assistant/backoffice/appels.py).
+-- telephone (29/10/2026) : extrait de donnees_brutes au moment du
+-- webhook pour permettre la recherche RGPD (Annexe C.6) sans reparser
+-- le JSON à chaque recherche. Traité comme une donnée personnelle, pas
+-- comme les colonnes de traçabilité ci-dessous : purgé en même temps
+-- que donnees_brutes, jamais conservé indéfiniment.
 CREATE TABLE IF NOT EXISTS appels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cree_le TEXT NOT NULL,
     conversation_id TEXT UNIQUE,
     agent_id TEXT,
     statut TEXT,
-    donnees_brutes TEXT NOT NULL
+    donnees_brutes TEXT NOT NULL,
+    telephone TEXT
 );
 
 CREATE TABLE IF NOT EXISTS activation_outils (
@@ -310,16 +333,19 @@ Référencé en Partie 6.4 (« Durées de conservation »). La fonction appelée
 ```python
 def purger_transcripts_expires():
     """Vide donnees_brutes (transcript intégral, numéro de l'appelant...)
-    des appels plus vieux que DUREE_RETENTION_DONNEES_BRUTES_JOURS.
-    Ne touche ni la ligne elle-même ni les colonnes de métriques déjà
-    extraites. Idempotent : les lignes déjà vidées ('{}') ne sont pas
-    réécrites inutilement."""
+    des appels plus vieux que DUREE_RETENTION_DONNEES_BRUTES_JOURS. Vide
+    aussi telephone (ajouté le 29/10/2026 pour le dossier RGPD) : c'est
+    la même donnée personnelle, elle ne doit pas survivre à la purge du
+    transcript qui la contenait. Ne touche ni la ligne elle-même ni les
+    colonnes de métriques déjà extraites. Idempotent : les lignes déjà
+    vidées ('{}') ne sont pas réécrites inutilement."""
     seuil = (
         datetime.now(_FUSEAU).replace(tzinfo=None) - timedelta(days=DUREE_RETENTION_DONNEES_BRUTES_JOURS)
     ).isoformat(timespec="seconds")
     conn = connexion_app()
     conn.execute(
-        "UPDATE appels SET donnees_brutes = '{}' WHERE cree_le < ? AND donnees_brutes != '{}'",
+        "UPDATE appels SET donnees_brutes = '{}', telephone = NULL "
+        "WHERE cree_le < ? AND donnees_brutes != '{}'",
         (seuil,),
     )
     conn.commit()
@@ -385,6 +411,221 @@ def verifier_outil_actif(nom_outil):
     return dependance
 ```
 
+### C.6 — Dossier RGPD : recherche, export, droit à l'effacement (`assistant/backoffice/rgpd.py`)
+
+Référencé en Partie 6.6 (« Droits des personnes »), ajouté le 29/10/2026. Fichier complet — le seul point d'entrée de la recherche, de l'export et de la suppression décrites dans cette partie :
+
+```python
+"""
+Dossier RGPD — droits des personnes (docs/audit-dsi.md, partie 6.6) :
+recherche de tout ce qui est lié à un appelant, pour répondre à une
+demande d'accès ou d'effacement.
+
+Recherche par téléphone, jamais par nom : c'est le seul identifiant
+présent dans les quatre tables qui peuvent porter une donnée
+personnelle (appels, objets_perdus, demandes_rappel, sms_envoyes) —
+"appels" n'a pas de colonne nom fiable, seulement le texte libre du
+transcript (voir docs/prochaines-etapes.md, 28/10/2026).
+"""
+
+import csv
+import io
+import json
+
+from assistant.outils.db import connexion_app, normaliser_telephone
+
+
+def _resume_appel(donnees_brutes):
+    """Titre court pour afficher un appel dans la liste, à partir du
+    résumé déjà calculé par ElevenLabs (analysis.call_summary_title) —
+    jamais recalculé ou deviné ici."""
+    if not donnees_brutes or donnees_brutes == "{}":
+        return "Transcript déjà supprimé (purge à 90 jours, partie 6.4 de l'audit)"
+    try:
+        charge = json.loads(donnees_brutes)
+    except json.JSONDecodeError:
+        return "Résumé indisponible"
+    donnees = charge.get("data", charge) if isinstance(charge, dict) else {}
+    analyse = donnees.get("analysis") or {}
+    return analyse.get("call_summary_title") or "Appel (pas de résumé disponible)"
+
+
+def _transcript_lisible(donnees_brutes):
+    """Transcription complète en texte lisible (un tour par ligne),
+    pour l'export RGPD — jamais le JSON brut tel quel."""
+    if not donnees_brutes or donnees_brutes == "{}":
+        return "(transcript déjà supprimé — purge à 90 jours)"
+    try:
+        charge = json.loads(donnees_brutes)
+    except json.JSONDecodeError:
+        return "(transcript illisible)"
+    donnees = charge.get("data", charge) if isinstance(charge, dict) else {}
+    lignes = [
+        f"{tour.get('role', '?')} : {tour['message']}"
+        for tour in (donnees.get("transcript") or [])
+        if tour.get("message")
+    ]
+    return "\n".join(lignes) if lignes else "(aucun message dans le transcript)"
+
+
+def rechercher_dossier(telephone):
+    """Tout ce qui est lié à ce numéro, toutes tables confondues, trié
+    par date décroissante. None si le numéro saisi n'est pas un numéro
+    français valide (erreur de saisie de l'agent à corriger, pas une
+    recherche vide)."""
+    telephone = normaliser_telephone(telephone)
+    if not telephone:
+        return None
+
+    conn = connexion_app()
+    elements = []
+
+    for l in conn.execute(
+        "SELECT id, cree_le, donnees_brutes FROM appels WHERE telephone = ?", (telephone,)
+    ):
+        elements.append({
+            "cle": f"appels:{l['id']}", "type": "Appel", "date": l["cree_le"],
+            "resume": _resume_appel(l["donnees_brutes"]), "opt_in_marketing": None,
+        })
+
+    for l in conn.execute(
+        "SELECT id, cree_le, nature, description, opt_in_marketing FROM objets_perdus "
+        "WHERE telephone = ?", (telephone,)
+    ):
+        elements.append({
+            "cle": f"objets_perdus:{l['id']}", "type": "Objet perdu", "date": l["cree_le"],
+            "resume": f"{l['nature']} — {l['description']}",
+            "opt_in_marketing": bool(l["opt_in_marketing"]),
+        })
+
+    for l in conn.execute(
+        "SELECT id, cree_le, motif, resume, opt_in_marketing FROM demandes_rappel "
+        "WHERE telephone = ?", (telephone,)
+    ):
+        elements.append({
+            "cle": f"demandes_rappel:{l['id']}", "type": "Demande de rappel", "date": l["cree_le"],
+            "resume": f"{l['motif']} — {l['resume']}",
+            "opt_in_marketing": bool(l["opt_in_marketing"]),
+        })
+
+    for l in conn.execute(
+        "SELECT id, cree_le, succes FROM sms_envoyes WHERE telephone = ?", (telephone,)
+    ):
+        elements.append({
+            "cle": f"sms_envoyes:{l['id']}", "type": "SMS envoyé", "date": l["cree_le"],
+            "resume": "Envoyé" if l["succes"] else "Échec d'envoi", "opt_in_marketing": None,
+        })
+
+    conn.close()
+    elements.sort(key=lambda e: e["date"] or "", reverse=True)
+    return {"telephone": telephone, "elements": elements}
+
+
+def _detail_objet_perdu(l):
+    return (
+        f"Nature : {l['nature']}\nDescription : {l['description']}\n"
+        f"Ligne : {l['ligne'] or '—'}  Sens : {l['sens'] or '—'}\n"
+        f"Perdu le {l['date_perte']} ({l['creneau_horaire']}) à {l['lieu']}\n"
+        f"Déclarant : {l['nom']}  Email : {l['email'] or '—'}\n"
+        f"Consentement marketing : {'oui' if l['opt_in_marketing'] else 'non'}"
+    )
+
+
+def _detail_demande_rappel(l):
+    return (
+        f"Motif : {l['motif']}\nRésumé : {l['resume']}\n"
+        f"Nom : {l['nom'] or '—'}  Email : {l['email'] or '—'}\n"
+        f"Consentement marketing : {'oui' if l['opt_in_marketing'] else 'non'}"
+    )
+
+
+def _detail_sms(l):
+    statut = "envoyé" if l["succes"] else f"échec — {l['erreur'] or 'cause inconnue'}"
+    return f"Destinataire : {l['nom'] or '—'}\nStatut : {statut}\nTexte :\n{l['texte'] or '(non conservé)'}"
+
+
+# table -> (colonnes à lire, libellé affiché, formateur de contenu)
+_TABLES_DETAIL = {
+    "appels": (
+        "id, cree_le, conversation_id, telephone, donnees_brutes", "Appel",
+        lambda l: _transcript_lisible(l["donnees_brutes"]),
+    ),
+    "objets_perdus": ("*", "Objet perdu", _detail_objet_perdu),
+    "demandes_rappel": ("*", "Demande de rappel", _detail_demande_rappel),
+    "sms_envoyes": ("*", "SMS envoyé", _detail_sms),
+}
+
+
+def obtenir_details(cles):
+    """Détail complet de chaque élément coché (cle = 'table:id'), pour
+    l'export CSV et la version imprimable — ignore une clé malformée ou
+    inconnue plutôt que de faire échouer tout l'export pour une case
+    cochée invalide."""
+    conn = connexion_app()
+    details = []
+    for cle in cles:
+        table, _, id_brut = cle.partition(":")
+        if table not in _TABLES_DETAIL or not id_brut.isdigit():
+            continue
+        colonnes, libelle, formater = _TABLES_DETAIL[table]
+        l = conn.execute(f"SELECT {colonnes} FROM {table} WHERE id = ?", (int(id_brut),)).fetchone()
+        if not l:
+            continue
+        details.append({
+            "type": libelle, "id": l["id"], "date": l["cree_le"],
+            "telephone": l["telephone"] if "telephone" in l.keys() else None,
+            "conversation_id": l["conversation_id"] if "conversation_id" in l.keys() else None,
+            "contenu": formater(l),
+        })
+    conn.close()
+    details.sort(key=lambda d: d["date"] or "", reverse=True)
+    return details
+
+
+def supprimer_elements(cles):
+    """Droit à l'effacement sur les éléments cochés (cle = 'table:id').
+
+    objets_perdus/demandes_rappel/sms_envoyes : la ligne entière est
+    supprimée — c'est la donnée personnelle elle-même, même principe
+    que supprimer_objet_perdu() dans exports.py.
+
+    appels : jamais supprimée. La ligne est anonymisée exactement comme
+    purger_transcripts_expires() (donnees_brutes et telephone vidés) —
+    les colonnes de traçabilité (durée, coût, tokens...) n'ont rien de
+    personnel et doivent survivre indéfiniment (CLAUDE.md : "non
+    reconstituable après coup"). Supprimer la ligne perdrait ces
+    métriques pour de bon, pas seulement la donnée personnelle visée.
+
+    Renvoie le nombre d'éléments traités."""
+    conn = connexion_app()
+    n = 0
+    for cle in cles:
+        table, _, id_brut = cle.partition(":")
+        if table not in _TABLES_DETAIL or not id_brut.isdigit():
+            continue
+        id_ = int(id_brut)
+        if table == "appels":
+            conn.execute("UPDATE appels SET donnees_brutes = '{}', telephone = NULL WHERE id = ?", (id_,))
+        else:
+            conn.execute(f"DELETE FROM {table} WHERE id = ?", (id_,))
+        n += 1
+    conn.commit()
+    conn.close()
+    return n
+
+
+def exporter_details_csv(details):
+    tampon = io.StringIO()
+    ecrivain = csv.writer(tampon, delimiter=";")
+    ecrivain.writerow(["type", "id", "date", "telephone", "conversation_id", "contenu"])
+    for d in details:
+        ecrivain.writerow([
+            d["type"], d["id"], d["date"], d["telephone"] or "", d["conversation_id"] or "", d["contenu"],
+        ])
+    # BOM UTF-8 : même raison que assistant/backoffice/exports.py (Excel).
+    return "﻿" + tampon.getvalue()
+```
+
 ---
 
 ## Annexe D — Schéma : trajet d'un appel
@@ -392,6 +633,42 @@ def verifier_outil_actif(nom_outil):
 Illustration de la Partie 2.1 du dossier principal.
 
 ![Trajet d'un appel — Assistant vocal, zone Étang](images/schema-trajet-appel.png)
+
+---
+
+## Annexe E — Captures d'écran du back-office
+
+Captures prises le 29/10/2026, données réelles anonymisées ou masquées par l'utilisatrice avant transmission (numéro de téléphone caviardé en E.2 ; la table « Demandes de rappel », qui affiche nom et téléphone en clair, a été retirée du cadrage en E.3 — voir Partie 6.6, recherche par téléphone plutôt que par nom).
+
+### E.1 — Tableau de bord (onglet Suivi)
+
+Référencé en Partie 7.1 (« Traçabilité par appel ») et Partie 7.3 (« resumer_tracabilite »).
+
+![Tableau de bord Suivi](images/backoffice-suivi-dashboard.webp)
+
+### E.2 — Onglet RGPD, recherche par téléphone
+
+Référencé en Partie 6.6 et Annexe C.6. Numéro caviardé par l'utilisatrice avant capture.
+
+![Recherche RGPD par téléphone](images/backoffice-rgpd-recherche.png)
+
+### E.3 — Liste des appels et exports CSV (onglet Suivi)
+
+Référencé en Partie 3 (export) et Partie 7.2 (activation). Recadrée pour exclure la table « Demandes de rappel » (noms et téléphones en clair, non pertinents pour illustrer ce point).
+
+![Liste des appels et exports](images/backoffice-suivi-appels-exports.png)
+
+### E.4 — Activation des outils et paramétrage (onglet Paramétrage)
+
+Référencé en Partie 3 (« interrupteur back-office ») et Partie 7.2 (« activation progressive »).
+
+![Activation des outils](images/backoffice-parametrage-outils.png)
+
+### E.5 — Dictionnaire de prononciation (onglet Prononciation)
+
+Référencé en Partie 2.1 (note sur le matching phonétique) et CLAUDE.md (« pièges connus »).
+
+![Dictionnaire de prononciation](images/backoffice-prononciation.webp)
 
 ---
 
