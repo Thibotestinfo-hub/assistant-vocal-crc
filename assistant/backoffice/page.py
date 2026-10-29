@@ -502,6 +502,7 @@ header.entete .sous-titre-entete {{
 }}
 .bouton:hover, button:hover {{ filter: brightness(0.96); }}
 .bouton.accent {{ background: var(--bleu); border-color: var(--bleu); font-weight: 600; }}
+.bouton.danger {{ background: var(--rouge); border-color: var(--rouge); color: white; font-weight: 600; }}
 .bouton-grand {{ font-size: 1rem; padding: 0.75rem 1.5rem; font-weight: 700; }}
 .bandeau-actions button, .bandeau-actions .bouton {{ background: {BLEU}33; border-color: {BLEU}88; font-weight: 500; }}
 button[name="qualite"][value="bonne"] {{ background: {SAUGE}77; border-color: {SAUGE}; }}
@@ -1265,6 +1266,10 @@ def _carte_rgpd(telephone_rgpd, dossier_rgpd, erreur_rgpd):
     <div style="padding:1rem;display:flex;gap:0.75rem">
       <button type="submit" formaction="/backoffice/rgpd/exporter.csv" formtarget="_blank" class="bouton">⬇️ Exporter la sélection (CSV)</button>
       <button type="submit" formaction="/backoffice/rgpd/imprimer" formtarget="_blank" class="bouton accent">🖨️ Version imprimable (PDF)</button>
+      <button type="submit" formaction="/backoffice/rgpd/supprimer" class="bouton danger"
+              onclick="return confirm('Supprimer définitivement les éléments cochés ? Pour un appel, seules les données personnelles (transcript, numéro) sont effacées — la durée et le coût restent, voir CLAUDE.md. Action irréversible.')">
+        🗑️ Supprimer la sélection (droit à l'effacement)
+      </button>
     </div>
   </form>
 </div>"""
