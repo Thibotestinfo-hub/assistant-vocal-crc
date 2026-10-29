@@ -1,5 +1,25 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 29/10/2026 — dossier d'audit (V3) et annexes mis à jour pour le dispositif RGPD
+
+Suite directe du chantier RGPD : le dossier affirmait encore "rien
+n'existe à ce jour" (Partie 6.6, recommandation 6) alors que le
+dispositif était construit depuis le matin même — corrigé, avec le
+fonctionnement réel décrit (traitement différencié appels/autres
+tables sur la suppression, cf. entrée précédente). Ajouté au passage :
+la question ouverte sur la collecte passive d'identifiants (Partie
+6.5), deux entrées dans l'historique des anomalies (4.4), et une
+Annexe C.6 avec le fichier complet `rgpd.py`.
+
+Nouvelle **Annexe E** : 5 captures d'écran du back-office fournies par
+l'utilisatrice. Une d'entre elles (liste des appels, onglet Suivi)
+contenait en bas de cadrage la table "Demandes de rappel" avec des
+noms et numéros de téléphone réels en clair — recadrée avant insertion
+dans l'annexe, pas publiée telle quelle.
+
+Converti en Word + PDF, pages modifiées relues visuellement (listes,
+tableau d'anomalies, code C.6, captures) avant envoi.
+
 ## ✅ Fait le 29/10/2026 — retour terrain sur l'onglet RGPD (3 points)
 
 Premier vrai test de l'onglet RGPD par l'utilisatrice, trois retours :
