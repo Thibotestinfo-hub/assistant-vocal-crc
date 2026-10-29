@@ -1,5 +1,61 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 29/10/2026 — onglet RGPD au back-office (recherche, export CSV, version imprimable)
+
+Premier des trois chantiers techniques évoqués le 28/10 (RGPD, échange
+SMS, QR code) — priorisé par l'utilisatrice, commencé le jour même.
+Répond à la recommandation déjà notée (Partie 6.6 de l'audit, Partie
+5.5 recommandation 6) : aucun dispositif self-service n'existait pour
+les droits des personnes.
+
+**Choix de conception discuté avec l'utilisatrice avant de coder** :
+un seul onglet avec une recherche par téléphone (pas un découpage en
+plusieurs tableaux par type de donnée comme envisagé initialement) —
+le téléphone est le seul identifiant présent de façon fiable dans les
+quatre tables concernées (`appels` n'a pas de colonne nom structurée,
+contrairement à `objets_perdus`/`demandes_rappel`/`sms_envoyes` : le
+nom dit à l'oral n'existe que dans le texte libre du transcript).
+
+**Prérequis traité avant la recherche elle-même** : ajout d'une
+colonne `appels.telephone`, extraite de `metadata.phone_call.
+external_number` au moment du webhook (`assistant/backoffice/
+appels.py`, `_extraire_telephone`), normalisée au même format local
+que les autres tables (`assistant/outils/db.py`, nouveau
+`normaliser_telephone`). Point de vigilance traité : à la différence
+des colonnes de traçabilité (durée, coût...), ce nouveau champ est une
+donnée personnelle — il est désormais vidé par
+`purger_transcripts_expires()` en même temps que `donnees_brutes`,
+pas conservé indéfiniment. Vérifié explicitement : un appel vieilli
+artificiellement à plus de 90 jours et purgé disparaît bien de la
+recherche RGPD.
+
+**Fonctionnement** : recherche par téléphone dans un nouvel onglet
+(`assistant/backoffice/rgpd.py`) → liste consolidée (appels, objets
+perdus, demandes de rappel, SMS envoyés), case à cocher par ligne
+(toutes cochées par défaut, suggestion de l'utilisatrice) → export CSV
+ou version imprimable en PDF via le navigateur (Ctrl+P) — décision de
+ne pas ajouter de dépendance PDF au projet, aucune n'existait.
+
+Question RGPD posée par l'utilisatrice pendant la conception (le
+transcript intégral doit-il faire partie d'un export de droit d'accès ?) :
+répondu par le raisonnement qu'un transcript contenant des données
+personnelles de l'appelant relève bien des données le concernant au
+sens de l'article 15, donc logiquement incluse — **réponse donnée
+avec la réserve explicite que ce n'est pas une validation juridique**,
+le sujet reste à formaliser avec le DPO comme le reste de la Partie
+6.6 de l'audit.
+
+**Pas fait aujourd'hui, périmètre explicitement limité à la recherche/
+export** : la suppression groupée (droit à l'effacement) n'a pas été
+construite dans ce chantier — prochaine brique naturelle sur ce même
+onglet.
+
+Vérifié en local de bout en bout (recherche sur un numéro peuplé dans
+les 3 tables, numéro invalide, numéro valide sans résultat, export CSV,
+version imprimable, purge), capture d'écran de l'onglet prise.
+`verifier_api.py` (échecs sandbox connus uniquement) et
+`verifier_backoffice.py` (12/12) sans régression.
+
 ## 📌 Décision le 28/10/2026 — satisfaction enregistrée sans attendre (3e récidive), pas de changement de modèle pour l'instant
 
 Nouveau webhook réel (test itinéraire Vitrolles mairie → Jean Monnet,
