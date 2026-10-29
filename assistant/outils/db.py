@@ -26,6 +26,7 @@ Connexions aux deux bases du projet.
   montage se fait bien relativement au dossier de l'application.
 """
 
+import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -47,6 +48,29 @@ def horodatage():
     suffixe de fuseau — pour rester compatible avec le code existant qui
     tranche cree_le par position de caractère (ex. cree_le[11:16])."""
     return datetime.now(_FUSEAU).replace(tzinfo=None).isoformat(timespec="seconds")
+
+
+_RE_TELEPHONE_LOCAL = re.compile(r"0[1-9]\d{8}$")
+
+
+def normaliser_telephone(valeur):
+    """Convertit un numéro reçu sous n'importe quelle forme courante
+    (local "06 12 34 56 78", E.164 "+33612345678" ou "0033612345678")
+    vers le même format local sans séparateur utilisé partout ailleurs
+    dans le projet (objets_perdus, demandes_rappel, sms_envoyes — voir
+    assistant/api/schemas.py, _RE_TELEPHONE). Renvoie None si le
+    résultat n'est pas un numéro français valide, plutôt que de laisser
+    une recherche RGPD comparer silencieusement deux formats différents
+    et ne rien trouver."""
+    if not valeur:
+        return None
+    nettoye = re.sub(r"[ .\-]", "", valeur)
+    if nettoye.startswith("+33"):
+        nettoye = "0" + nettoye[3:]
+    elif nettoye.startswith("0033"):
+        nettoye = "0" + nettoye[4:]
+    return nettoye if _RE_TELEPHONE_LOCAL.fullmatch(nettoye) else None
+
 
 _SCHEMA_APP = """
 CREATE TABLE IF NOT EXISTS objets_perdus (
@@ -257,6 +281,15 @@ _COLONNES_SMS = {
     "nom": "TEXT",
 }
 
+# telephone ajouté le 29/10/2026 pour le dossier RGPD (recherche d'un
+# appelant par numéro, voir assistant/backoffice/rgpd.py) : à la
+# différence de _COLONNES_TRACABILITE ci-dessus, c'est une donnée
+# personnelle — elle doit être vidée par purger_transcripts_expires()
+# en même temps que donnees_brutes, jamais conservée au-delà.
+_COLONNES_PERSONNELLES_APPEL = {
+    "telephone": "TEXT",
+}
+
 
 def _migrer_colonnes_manquantes(conn):
     def ajouter_colonnes(table, colonnes):
@@ -266,6 +299,7 @@ def _migrer_colonnes_manquantes(conn):
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {nom} {type_sql}")
 
     ajouter_colonnes("appels", _COLONNES_TRACABILITE)
+    ajouter_colonnes("appels", _COLONNES_PERSONNELLES_APPEL)
     ajouter_colonnes("demandes_rappel", _COLONNES_RAPPEL)
     ajouter_colonnes("sms_envoyes", _COLONNES_SMS)
 

@@ -24,6 +24,7 @@ import time
 from urllib.parse import quote
 
 from assistant.elevenlabs_api import nom_voix, voix_disponibles
+from assistant.outils.db import horodatage
 
 # Conversion affichage seulement (le montant reste stocké en USD, tel que
 # rapporté par ElevenLabs — cost_fiat) : un chiffre interne à l'équipe pour
@@ -1209,10 +1210,107 @@ def _carte_dictionnaire_prononciation(regles):
 </div>"""
 
 
+def _ligne_rgpd(e):
+    consentement = "—" if e["opt_in_marketing"] is None else ("oui" if e["opt_in_marketing"] else "non")
+    date = html.escape((e["date"] or "")[:16].replace("T", " "))
+    return f"""<tr>
+  <td><input type="checkbox" name="elements" value="{html.escape(e['cle'])}" checked></td>
+  <td>{html.escape(e['type'])}</td>
+  <td>{date}</td>
+  <td>{html.escape(e['resume'])}</td>
+  <td>{consentement}</td>
+</tr>"""
+
+
+def _carte_rgpd(telephone_rgpd, dossier_rgpd, erreur_rgpd):
+    """Onglet RGPD (docs/audit-dsi.md, partie 6.6) : recherche par
+    téléphone uniquement — voir assistant/backoffice/rgpd.py pour
+    pourquoi (appels n'a pas de nom structuré, contrairement aux trois
+    autres tables). La sélection de lignes (cases à cocher, toutes
+    cochées par défaut) part dans un même formulaire vers deux actions
+    possibles (CSV ou version imprimable), ouvertes dans un nouvel
+    onglet pour ne pas perdre la recherche en cours."""
+    recherche = f"""<div class="carte">
+  <h2>Rechercher un appelant</h2>
+  <form method="get" action="/backoffice/appels#rgpd">
+    <input type="tel" name="telephone_rgpd" placeholder="06 12 34 56 78"
+           value="{html.escape(telephone_rgpd)}" required
+           style="padding:0.5rem 0.8rem;border-radius:7px;border:1px solid var(--bordure);margin-right:0.5rem">
+    <button type="submit" class="bouton accent">Rechercher</button>
+  </form>
+  {'<p class="erreur-voix">Numéro invalide — format attendu : 10 chiffres, format français (ex. 06 12 34 56 78).</p>' if erreur_rgpd else ''}
+  <p class="note-a-venir">Recherche par téléphone uniquement : c'est le seul identifiant présent de façon
+  fiable dans les appels, objets perdus, demandes de rappel et SMS envoyés — un nom n'y figure pas toujours
+  (voir docs/prochaines-etapes.md, 28/10/2026).</p>
+</div>"""
+
+    if dossier_rgpd is None:
+        return recherche
+
+    elements = dossier_rgpd["elements"]
+    if not elements:
+        return recherche + f"""<div class="carte"><p>Aucune donnée trouvée pour {html.escape(dossier_rgpd['telephone'])}.</p></div>"""
+
+    lignes = "\n".join(_ligne_rgpd(e) for e in elements)
+    return recherche + f"""<div class="carte carte-tableau">
+  <div style="padding:1rem 1rem 0">
+    <h2 style="margin:0">{len(elements)} élément(s) lié(s) à {html.escape(dossier_rgpd['telephone'])}</h2>
+  </div>
+  <form method="post">
+    <input type="hidden" name="telephone_rgpd" value="{html.escape(dossier_rgpd['telephone'])}">
+    <table>
+      <thead><tr><th></th><th>Type</th><th>Date</th><th>Résumé</th><th>Consentement marketing</th></tr></thead>
+      <tbody>{lignes}</tbody>
+    </table>
+    <div style="padding:1rem;display:flex;gap:0.75rem">
+      <button type="submit" formaction="/backoffice/rgpd/exporter.csv" formtarget="_blank" class="bouton">⬇️ Exporter la sélection (CSV)</button>
+      <button type="submit" formaction="/backoffice/rgpd/imprimer" formtarget="_blank" class="bouton accent">🖨️ Version imprimable (PDF)</button>
+    </div>
+  </form>
+</div>"""
+
+
+def page_imprimable_rgpd(telephone, details):
+    """Page autonome (pas le chrome du back-office), destinée à être
+    imprimée en PDF par le navigateur (Ctrl+P) pour joindre à une
+    réponse à une demande d'accès RGPD — voir assistant/backoffice/
+    rgpd.py et docs/audit-dsi.md, partie 6.6. Pas de dépendance PDF
+    ajoutée au projet : le navigateur suffit."""
+    blocs = "\n".join(
+        f"""<section>
+  <h2>{html.escape(d['type'])} — {html.escape((d['date'] or '')[:16].replace('T', ' '))}</h2>
+  <pre>{html.escape(d['contenu'])}</pre>
+</section>"""
+        for d in details
+    )
+    return f"""<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Dossier RGPD — {html.escape(telephone)}</title>
+<style>
+  body {{ font-family: Georgia, serif; max-width: 42rem; margin: 2rem auto; color: #1a1a1a; }}
+  h1 {{ font-size: 1.3rem; }}
+  section {{ margin-bottom: 1.5rem; border-top: 1px solid #ccc; padding-top: 1rem; }}
+  h2 {{ font-size: 1rem; }}
+  pre {{ white-space: pre-wrap; font-family: inherit; font-size: 0.92rem; }}
+  .meta {{ color: #555; font-size: 0.85rem; }}
+</style>
+</head>
+<body>
+<h1>Dossier des données détenues — {html.escape(telephone)}</h1>
+<p class="meta">Généré le {horodatage()} — réseau Salon Étang Côte Bleue, assistant vocal CRC (expérimentation 2026).</p>
+<p class="meta">{len(details)} élément(s) sélectionné(s) ci-dessous.</p>
+{blocs}
+</body>
+</html>"""
+
+
 def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_client, tracabilite,
                      demandes_rappel, en_cours, regles_prononciation, rappels_en_attente=0,
                      repartition_horaire=None, erreur_voix=False, detail_voix="", erreur_prononciation=False,
-                     format_sms="emoji", resume_sms=None, site_web_actuel="", erreur_site_web=False):
+                     format_sms="emoji", resume_sms=None, site_web_actuel="", erreur_site_web=False,
+                     telephone_rgpd="", dossier_rgpd=None, erreur_rgpd=False):
     resume_sms = resume_sms or {"nb_sms_envoyes": 0, "nb_segments": 0}
     repartition_horaire = repartition_horaire or [0] * 96
     bonnes, total_eval = satisfaction
@@ -1285,6 +1383,7 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     <button type="button" class="onglet-btn actif" data-cible="suivi" onclick="afficherOnglet('suivi')"><span class="onglet-icone">📊</span> Suivi</button>
     <button type="button" class="onglet-btn" data-cible="live" onclick="afficherOnglet('live')"><span class="onglet-icone">⚙️</span> Paramétrage</button>
     <button type="button" class="onglet-btn" data-cible="prononciation" onclick="afficherOnglet('prononciation')"><span class="onglet-icone">🔤</span> Prononciation</button>
+    <button type="button" class="onglet-btn" data-cible="rgpd" onclick="afficherOnglet('rgpd')"><span class="onglet-icone">🔒</span> RGPD</button>
   </nav>
   <main class="contenu-principal">
 
@@ -1425,6 +1524,10 @@ def page_backoffice(appels, activations, nb_appels, satisfaction, satisfaction_c
     {_carte_dictionnaire_prononciation(regles_prononciation)}
   </div>
 
+  <div id="onglet-rgpd" class="contenu-onglet" style="display:none">
+    {_carte_rgpd(telephone_rgpd, dossier_rgpd, erreur_rgpd)}
+  </div>
+
   </main>
 </div>
 <footer class="pied-de-page">
@@ -1562,6 +1665,8 @@ document.addEventListener('DOMContentLoaded', function() {{
     if (id) afficherDetail(id);
   }} else if (location.hash === '#prononciation') {{
     afficherOnglet('prononciation');
+  }} else if (location.hash === '#rgpd') {{
+    afficherOnglet('rgpd');
   }}
 }});
 </script>
