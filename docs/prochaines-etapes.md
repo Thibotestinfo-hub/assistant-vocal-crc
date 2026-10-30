@@ -1,5 +1,53 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 30/10/2026 — le CRC ouvert/fermé est calculé, plus deviné
+
+Premier des deux sujets ouverts hier (transfert d'appel, Partie 8 de
+l'audit) : avant aujourd'hui, le prompt demandait à l'agent de se
+comporter différemment selon que le CRC est ouvert ou fermé, mais rien
+dans le code ne calculait ni ne transmettait cette information — le
+modèle devait deviner, exactement le genre d'approximation que
+CLAUDE.md interdit.
+
+**Horaires réelles communiquées par l'utilisatrice** : lundi-samedi
+(fermé dimanche et jours fériés), 8h30-18h00 du 1er avril au 30
+septembre, 8h30-17h30 du 1er octobre au 31 mars.
+
+**Construit** :
+- `data/config.yaml`, nouvelle section `horaires_crc` (jours fermés,
+  saisons avec heures d'ouverture/fermeture) — paramètre de
+  configuration, pas une valeur en dur, conforme à ce que la spec
+  demandait déjà sans l'avoir jamais implémenté.
+- `assistant/outils/horaires_crc.py`, `crc_ouvert_maintenant()` :
+  calcule les jours fériés français (fixes et mobiles — Pâques par
+  l'algorithme de Meeus/Jones/Butcher, jamais une liste à remettre à
+  jour chaque année), vérifie le jour de la semaine, résout la saison
+  (gère la saison qui traverse le 31 décembre) et compare l'heure.
+- `/webhooks/elevenlabs/personnalisation` (assistant/api/main.py)
+  transmet désormais `{{crc_ouvert}}` ("ouvert"/"fermé") en variable
+  dynamique, comme `{{outils_actifs}}` et `{{formule_cloture}}` déjà en
+  place.
+- `docs/spec-assistant-vocal-v0-revisee.md` : les deux endroits qui
+  demandaient à l'agent de distinguer CRC ouvert/fermé référencent
+  maintenant explicitement `{{crc_ouvert}}`, avec une consigne stricte
+  de ne jamais le déduire soi-même.
+
+**Vérifié** : `tests/verifier_horaires_crc.py` (nouveau, 15 cas —
+jours fériés fixes et mobiles, dimanche, bascule de saison dans les
+deux sens, changement d'année), webhook testé en local
+(`crc_ouvert: "ouvert"` un vendredi après-midi d'octobre, cohérent).
+`verifier_api.py` (17/19, échecs sandbox connus) et
+`verifier_backoffice.py` (12/12) sans régression.
+
+**Reste à faire, nécessite des informations qui ne sont pas dans le
+code** — voir Partie 8 de l'audit :
+1. Republier côté ElevenLabs les deux paragraphes modifiés de la spec
+   (jamais automatique).
+2. Le transfert réel vers un conseiller (pas seulement l'enregistrement
+   de l'intention) — dépend du système téléphonique du CRC, pas encore
+   défini avec l'utilisatrice.
+3. La détection qu'un conseiller est déjà en ligne — même dépendance.
+
 ## ✅ Fait le 29/10/2026 — dossier d'audit (V3) et annexes mis à jour pour le dispositif RGPD
 
 Suite directe du chantier RGPD : le dossier affirmait encore "rien
