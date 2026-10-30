@@ -51,6 +51,7 @@ from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_regla
 from assistant.ingestion.extraire_corpus import site_web
 from assistant.ingestion.prononciation import nom_prononcable
 from assistant.outils.db import _FUSEAU, definir_parametre, obtenir_parametre
+from assistant.outils.horaires_crc import crc_ouvert_maintenant
 from assistant.outils.horaires_theoriques import horaires_theoriques
 from assistant.outils.itineraire import calculer_itineraire
 from assistant.outils.itineraire_google import calculer_itineraire_complexe
@@ -278,12 +279,18 @@ def route_webhook_personnalisation():
     l'afficher en clair une fois enregistré) — préféré à un jeton dans
     l'URL (comme /webhooks/elevenlabs/fin_appel), moins exposé.
 
+    - {{crc_ouvert}}, "ouvert" ou "fermé" — calculé (horaires + jours
+      fériés français, assistant/outils/horaires_crc.py), jamais deviné
+      par le modèle à partir de l'heure système seule (voir
+      docs/prochaines-etapes.md, 30/10/2026).
+
     On ignore volontairement le corps de la requête (caller_id,
     called_number, call_sid...) : on ne personnalise pas par appelant,
     seulement selon l'heure et l'état d'activation global des outils."""
     return {"dynamic_variables": {
         "outils_actifs": phrase_outils_actifs(),
         "formule_cloture": _formule_cloture(),
+        "crc_ouvert": "ouvert" if crc_ouvert_maintenant() else "fermé",
     }}
 
 

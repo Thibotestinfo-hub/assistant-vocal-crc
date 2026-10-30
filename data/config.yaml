@@ -23,6 +23,23 @@ elevenlabs_agent_id: "agent_7101m00afyqfe16re00h46qnbnd3"
 # ici (voir assistant/outils/sms.py).
 twilio_numero_envoi: "+33939205690"
 
+# Horaires d'ouverture du CRC (Salon-de-Provence) — communiqués par
+# l'utilisatrice le 30/10/2026. Fermé le dimanche et les jours fériés
+# français (calculés, voir assistant/outils/horaires_crc.py — jamais une
+# liste figée à mettre à jour chaque année). Deux saisons, bornes
+# incluses, résolues par date (mois-jour) indépendamment de l'année.
+horaires_crc:
+  jours_fermes_semaine: ["dimanche"]
+  saisons:
+    - debut: "04-01"
+      fin: "09-30"
+      ouverture: "08:30"
+      fermeture: "18:00"
+    - debut: "10-01"
+      fin: "03-31"
+      ouverture: "08:30"
+      fermeture: "17:30"
+
 # Voix proposées à l'équipe CRC depuis le back-office (choisies parmi
 # celles ajoutées à "Mes voix" côté ElevenLabs, Étape 6 point B). Liste
 # volontairement statique plutôt qu'interrogée en direct à chaque

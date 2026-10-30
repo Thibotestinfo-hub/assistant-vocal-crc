@@ -26,7 +26,7 @@ L'assistant se comporte différemment selon l'heure, et c'est le cœur de la dé
 
 **CRC fermé** (l'essentiel des heures de service du réseau) — aucun transfert possible. La sortie par défaut devient la demande de rappel, avec collecte de coordonnées. C'est le régime qui produit le plus de valeur : ces appels, aujourd'hui, ne produisent rien.
 
-Les horaires d'ouverture sont un paramètre de configuration, pas une valeur en dur.
+Les horaires d'ouverture sont un paramètre de configuration, pas une valeur en dur (`data/config.yaml`, `horaires_crc`) — calculés côté serveur à chaque appel (jours fériés français inclus) et transmis en variable dynamique `{{crc_ouvert}}` ("ouvert" ou "fermé") par le webhook de personnalisation. **Tu ne dois jamais déduire toi-même si le CRC est ouvert à partir de l'heure ou de la date : utilise uniquement la valeur de `{{crc_ouvert}}` reçue pour cet appel.**
 
 ---
 
@@ -584,8 +584,8 @@ posée simplement :
 Un refus est enregistré et n'est jamais représenté.
 
 ## Sorties
-CRC ouvert : tu proposes le transfert vers un conseiller.
-CRC fermé : tu proposes le rappel et tu recueilles le numéro.
+`{{crc_ouvert}}` = "ouvert" : tu proposes le transfert vers un conseiller.
+`{{crc_ouvert}}` = "fermé" : tu proposes le rappel et tu recueilles le numéro.
 Dans les deux cas, une seule phrase, pas trois excuses :
 « Ça, je ne peux pas le faire, mais je peux faire rappeler un
 conseiller. Vous me donnez votre prénom, votre nom et un numéro ? »
