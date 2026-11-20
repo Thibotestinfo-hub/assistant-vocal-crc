@@ -17,6 +17,18 @@ site_web: "https://www.salonetangcotebleue.fr/"
 # .env, jamais ici).
 elevenlabs_agent_id: "agent_7101m00afyqfe16re00h46qnbnd3"
 
+# Nom du réseau tel qu'affiché sur la page publique d'information
+# (/informations) — pas un secret, juste un libellé.
+nom_reseau_public: "TABM — zone Étang de Berre"
+
+# Adresse du DPO (délégué à la protection des données) affichée sur la
+# page publique /informations pour exercer ses droits (accès,
+# rectification, effacement). Valeur ci-dessous = placeholder : la page
+# affiche un bandeau "à compléter" tant que cette valeur commence par
+# "dpo-exemple". À remplacer par la vraie adresse avant toute ouverture
+# publique du POC (voir docs/audit-dsi.md Partie 6.6).
+contact_dpo_email: "dpo-exemple@a-remplacer.fr"
+
 # Numéro Twilio depuis lequel les SMS (itinéraire complexe) sont envoyés
 # — pas un secret, juste une référence. Les identifiants pour agir
 # dessus (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) sont dans .env, jamais

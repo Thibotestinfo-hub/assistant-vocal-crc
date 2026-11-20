@@ -46,6 +46,7 @@ from assistant.backoffice.exports import (
 )
 from assistant.backoffice.page import page_backoffice, page_imprimable_rgpd
 from assistant.backoffice.rgpd import exporter_details_csv, obtenir_details, rechercher_dossier, supprimer_elements
+from assistant.page_publique import page_informations
 from assistant.backoffice.prononciation import ajouter_regle, lister_toutes_regles, supprimer_regle
 from assistant.elevenlabs_api import apercu_voix, appels_en_cours, changer_reglages_voix, synthetiser_texte
 from assistant.ingestion.extraire_corpus import site_web
@@ -107,6 +108,15 @@ def sante():
     """Pas d'authentification requise : sert juste à vérifier que l'API
     est en ligne et joignable (voir méthode, Étape 3)."""
     return {"statut": "bonjour"}
+
+
+@app.get("/informations", response_class=HTMLResponse)
+def route_page_informations():
+    """Page publique, sans authentification (destinée à un appelant ou un
+    passant, pas à l'équipe) — information claire RGPD : objectif du POC,
+    données collectées, durées de conservation, contact DPO. Voir
+    assistant/page_publique.py."""
+    return page_informations()
 
 
 @app.post("/outils/rechercher_arret", response_model=RechercherArretReponse,
