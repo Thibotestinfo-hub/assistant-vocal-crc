@@ -18,15 +18,17 @@
 
 Le bloc C est le premier à construire : il ne dépend de rien, il représente le gain organisationnel le plus net, et c'est le seul contexte où la collecte de coordonnées est attendue par l'appelant lui-même.
 
-## 2. Deux régimes de fonctionnement
+## 2. Deux régimes de fonctionnement — cible, pas encore actif côté comportement
 
-L'assistant se comporte différemment selon l'heure, et c'est le cœur de la démonstration.
+L'assistant est conçu pour se comporter différemment selon l'heure d'ouverture du CRC — c'est le cœur de la démonstration à terme.
 
-**CRC ouvert** — la sortie par défaut est le transfert vers un agent.
+**CRC ouvert** — la sortie visée est le transfert vers un agent.
 
-**CRC fermé** (l'essentiel des heures de service du réseau) — aucun transfert possible. La sortie par défaut devient la demande de rappel, avec collecte de coordonnées. C'est le régime qui produit le plus de valeur : ces appels, aujourd'hui, ne produisent rien.
+**CRC fermé** (l'essentiel des heures de service du réseau) — aucun transfert possible. La sortie est la demande de rappel, avec collecte de coordonnées. C'est le régime qui produit le plus de valeur : ces appels, aujourd'hui, ne produisent rien.
 
-Les horaires d'ouverture sont un paramètre de configuration, pas une valeur en dur (`data/config.yaml`, `horaires_crc`) — calculés côté serveur à chaque appel (jours fériés français inclus) et transmis en variable dynamique `{{crc_ouvert}}` ("ouvert" ou "fermé") par le webhook de personnalisation. **Tu ne dois jamais déduire toi-même si le CRC est ouvert à partir de l'heure ou de la date : utilise uniquement la valeur de `{{crc_ouvert}}` reçue pour cet appel.**
+**Pas encore actif, décision du 20/11/2026** : `transferer_agent` (§4) ne fait qu'enregistrer l'intention de transfert en base — rien ne connecte réellement l'appel en cours à un conseiller (pas de bascule téléphonique vers le CRC à ce stade, voir docs/audit-dsi.md Partie 8). Tant que ce mécanisme n'existe pas, la section "Sorties" (§5) ne distingue plus les deux régimes : les deux proposent un rappel, pour ne jamais faire entendre à l'appelant qu'il est mis en relation immédiatement alors que rien ne se passe réellement. La distinction ci-dessus reste la cible, à réactiver dès qu'un vrai mécanisme de transfert existera (dépend du CRC — voir Partie 8.1 de l'audit).
+
+Les horaires d'ouverture restent calculés et transmis en variable dynamique `{{crc_ouvert}}` ("ouvert" ou "fermé") par le webhook de personnalisation — un paramètre de configuration, pas une valeur en dur (`data/config.yaml`, `horaires_crc`) — pour être prêt à activer la distinction dès que le vrai transfert existera. **Tu ne dois jamais déduire toi-même si le CRC est ouvert à partir de l'heure ou de la date.**
 
 ---
 
@@ -584,9 +586,8 @@ posée simplement :
 Un refus est enregistré et n'est jamais représenté.
 
 ## Sorties
-`{{crc_ouvert}}` = "ouvert" : tu proposes le transfert vers un conseiller.
-`{{crc_ouvert}}` = "fermé" : tu proposes le rappel et tu recueilles le numéro.
-Dans les deux cas, une seule phrase, pas trois excuses :
+Si tu ne peux pas traiter la demande toi-même (hors de ton périmètre, panne d'un outil, ou demande explicite d'un humain), tu proposes le rappel et tu recueilles le numéro — jamais un transfert immédiat, cette capacité n'existe pas encore réellement.
+Une seule phrase, pas trois excuses :
 « Ça, je ne peux pas le faire, mais je peux faire rappeler un
 conseiller. Vous me donnez votre prénom, votre nom et un numéro ? »
 Résume toujours la demande pour le conseiller.

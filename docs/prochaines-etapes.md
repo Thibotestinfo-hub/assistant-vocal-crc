@@ -1,5 +1,47 @@
 # Prochaines étapes — état au 25/09/2026
 
+## ✅ Fait le 20/11/2026 — page publique d'information RGPD, prompt "Sorties" corrigé, prérequis DSI formalisés pour Vitrolles
+
+Reprise après 18 jours d'inactivité, trois chantiers dans la même session.
+
+**1. Page publique `/informations` (nouveau `assistant/page_publique.py`)**
+— sans authentification, répond aux questions obligatoires d'une
+information claire RGPD (objectif du POC, données collectées,
+proportionnalité, durée de conservation, contact DPO). Paramétrée comme
+le reste du projet : `contact_dpo_email` et `nom_reseau_public` dans
+`data/config.yaml`, en placeholder visible ("à compléter") tant que la
+vraie adresse n'est pas renseignée — jamais une valeur inventée. Durée
+de conservation affichée honnêtement : 90 jours pour les appels (déjà
+implémenté), "en cours de décision" pour objets perdus/rappels/SMS
+(Partie 6.4 de l'audit, toujours ouvert). Vérifié en local (TestClient,
+200, bandeau "à compléter" affiché). Mergé sur `main`.
+
+**2. Incohérence trouvée en relisant le prompt ElevenLabs collé par
+l'utilisatrice.** La section "Sorties" disait, CRC ouvert : "tu proposes
+le transfert vers un conseiller" — mais `transferer_agent` (Partie 3 de
+l'audit) ne fait qu'enregistrer l'intention en base, aucune vraie
+bascule téléphonique n'existe. L'appelant aurait entendu "je vous
+transfère" sans que rien ne se passe réellement. **Décision de
+l'utilisatrice** : retirer la distinction CRC ouvert/fermé dans
+"Sorties" tant que ce mécanisme n'existe pas — les deux régimes
+proposent désormais un rappel. Corrigé dans
+`docs/spec-assistant-vocal-v0-revisee.md` (§2 et §5) et dans
+`docs/audit-dsi.md` (Partie 8). **Reste à faire par l'utilisatrice** :
+coller la nouvelle section "Sorties" dans le champ "Invite système"
+d'ElevenLabs (jamais automatique, comme toujours).
+
+**3. Nouvelle Partie 8.1 du dossier d'audit** — "Prérequis pour un test
+avec Vitrolles, questions pour la DSI" : 14 questions organisées par
+thème (téléphonie/renvoi d'appel, transfert réel, bouton on/off,
+sécurité, robustesse, RGPD), formalisant la punch-list du 08/09/2026
+ci-dessous pour être transmise telle quelle à la DSI plutôt que de
+rester une note de travail interne.
+
+**Reste ouvert, pas démarré** : clé Mecatran à régénérer (pas de portail
+self-service identifié, voir réponse donnée à l'utilisatrice en
+conversation), numéro Twilio US à vérifier/résilier, QR code, retour de
+la réponse du CRC aux 5 questions téléphonie déjà envoyées.
+
 ## ✅ Fait le 30/10/2026 — le CRC ouvert/fermé est calculé, plus deviné
 
 Premier des deux sujets ouverts hier (transfert d'appel, Partie 8 de

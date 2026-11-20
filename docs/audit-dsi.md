@@ -390,10 +390,42 @@ Plusieurs limites documentées dans ce dossier (rotation manuelle des secrets, P
 
 **Deux points supplémentaires, soulevés par l'utilisatrice et vérifiés dans le code en préparant cette version, à inscrire parmi les sujets à trancher avec la DSI avant un pilote plus large :**
 
-- **Le transfert vers un conseiller n'est pas une vraie bascule téléphonique.** `transferer_agent` (Partie 3) enregistre l'intention de transfert en base, pour une relance par l'équipe — rien dans le code ne connecte l'appel en cours à un humain. Les fonctionnalités de transfert natives d'ElevenLabs (`transfer_to_agent`, `transfer_to_number`) existent côté plateforme mais ne sont pas activées sur l'agent. À l'échelle d'un pilote avec de vrais enjeux d'urgence (objet perdu critique, situation de détresse), cet écart entre ce que l'appelant entend (« je vous transfère ») et ce qui se passe réellement mérite d'être tranché explicitement.
+- **Le transfert vers un conseiller n'est pas une vraie bascule téléphonique.** `transferer_agent` (Partie 3) enregistre l'intention de transfert en base, pour une relance par l'équipe — rien dans le code ne connecte l'appel en cours à un humain. Les fonctionnalités de transfert natives d'ElevenLabs (`transfer_to_agent`, `transfer_to_number`) existent côté plateforme mais ne sont pas activées sur l'agent. À l'échelle d'un pilote avec de vrais enjeux d'urgence (objet perdu critique, situation de détresse), cet écart entre ce que l'appelant entend (« je vous transfère ») et ce qui se passe réellement méritait d'être tranché explicitement. **Décision du 20/11/2026** : en attendant ce mécanisme, le prompt (spec §2 et §5) ne fait plus cette promesse — CRC ouvert ou fermé, l'assistant propose toujours un rappel, jamais un transfert immédiat. L'écart de fond (aucune vraie bascule téléphonique) reste entier, voir Partie 8.1 ci-dessous.
 - **L'interrupteur général du back-office ne coupe pas l'appel, seulement les outils.** Couper « tous » (Partie 7.2) ne fait pas raccrocher ni dévier l'appel vers le CRC ou un répondeur : Twilio continue de faire sonner ElevenLabs, l'agent répond toujours, mais tout appel d'outil échoue (503) — avec, selon la consigne du prompt, une explication et une proposition de rappel/transfert (eux-mêmes non coupés, voir point précédent). Il n'existe aujourd'hui aucun mécanisme pour fermer réellement la ligne ou la rediriger selon les horaires d'ouverture du CRC ou un pic d'appels — ce serait une configuration côté Twilio/ElevenLabs (horaires, bascule vers un numéro humain), pas encore mise en place ni documentée.
 
 La question que ce document soumet à la DSI, sans y répondre à sa place : la suite envisageable est-elle d'industrialiser cette architecture telle quelle avec les correctifs recommandés (Partie 5.5), ou de la faire évoluer vers des environnements mieux maîtrisés et sécurisés par les équipes infrastructure du groupe (à titre d'exemple de piste, un hébergement opéré par Transdev) — en conservant l'essentiel des choix fonctionnels et techniques déjà faits et documentés ici, sans repartir d'une page blanche ?
+
+### 8.1 Prérequis pour un test avec Vitrolles — questions pour la DSI
+
+Avant d'élargir l'expérimentation au-delà de l'équipe projet (test avec la commune de Vitrolles), plusieurs ressources et décisions côté infrastructure ne dépendent pas de ce dépôt : elles doivent être vérifiées ou tranchées avec la DSI pour que les bons branchements puissent être développés ensuite. Liste organisée par thème, pas par ordre de priorité — certains points bloquent directement le fonctionnement du service, d'autres sont des garde-fous à poser avant d'exposer de vraies données de voyageurs.
+
+**Téléphonie — le plus structurant, condition du POC public telle que définie par l'utilisatrice (l'appelant doit continuer à composer le numéro existant du CRC, jamais un nouveau numéro) :**
+1. Quel est le système téléphonique actuel du CRC (standard, logiciel de centre d'appels, postes directs) ? Permet-il un renvoi conditionnel vers un numéro externe (Twilio) selon l'heure, et/ou selon l'occupation des lignes humaines ?
+2. Qui, côté DSI ou opérateur télécom du CRC, peut configurer ce renvoi ? Quel délai et quelle procédure ?
+3. Ce renvoi peut-il être activé/désactivé par l'équipe projet pour piloter le test, ou nécessite-t-il chaque fois une intervention de la DSI/opérateur ?
+4. Volume d'appels réel du CRC (pointe et moyenne) : nécessaire pour dimensionner la limite de concurrence ElevenLabs (budget prévisionnel) et pour juger si un test Vitrolles isolé est représentatif.
+
+**Transfert réel vers un conseiller (Partie 8 ci-dessus) :**
+5. Une fois le renvoi en place, un transfert "retour" (de l'assistant vers un conseiller humain pendant que le CRC est ouvert) est-il possible techniquement (pont SIP, fonctionnalité native ElevenLabs `transfer_to_number`) ? Vers quel numéro ou poste ?
+6. En attendant cette brique, l'assistant ne propose qu'un rappel (décision du 20/11/2026, spec §2 et §5) — à confirmer que ça reste acceptable pour la durée du test Vitrolles.
+
+**Bouton on/off (Partie 7.2 et Partie 8 ci-dessus) :**
+7. L'arrêt d'urgence (tout couper) et la bascule automatique horaires-CRC (ouvert/fermé, déjà calculée côté code) sont deux besoins différents — lequel la DSI veut-elle voir piloté depuis le back-office du projet, lequel depuis la configuration téléphonique elle-même ?
+
+**Sécurité, avant toute donnée réelle de voyageur (Partie 5.3-5.4) :**
+8. Signature HMAC du webhook de fin d'appel — à mettre en place avant Vitrolles, ou acceptable pour ce test limité ?
+9. Chiffrement au repos de la base SQLite (Partie 6.7) — ce que Clever Cloud garantit par défaut est-il suffisant pour la DSI ?
+
+**Robustesse à l'échelle (si Vitrolles génère plus d'appels simultanés que le volume actuel) :**
+10. L'écriture concurrente dans SQLite a-t-elle besoin d'être testée en charge avant le test, ou le mode WAL activé par précaution ?
+11. Le GTFS se retélécharge entièrement à chaque déploiement Clever Cloud (fenêtre d'indisponibilité, Partie 2.3) — acceptable pour un test en conditions réelles, ou faut-il la fiabiliser avant ?
+
+**RGPD — à trancher avant de traiter de vraies données de voyageurs (Partie 6, déjà détaillé) :**
+12. Durée de conservation de `objets_perdus` / `demandes_rappel` / `sms_envoyes` (6.4).
+13. Délai et canal officiels de traitement des droits des personnes (6.6) — le mécanisme technique existe (onglet RGPD du back-office), reste à le formaliser.
+14. Vérification contractuelle des sous-traitants hors UE (6.5).
+
+Cette liste reprend et formalise des points déjà notés en interne (`docs/prochaines-etapes.md`, punch-list du 08/09/2026) — rassemblés ici pour être transmis tels quels à la DSI.
 
 ---
 
