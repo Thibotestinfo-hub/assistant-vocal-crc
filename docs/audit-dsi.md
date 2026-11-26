@@ -12,15 +12,15 @@ Statut : parties 1 à 8 rédigées. Annexes à venir.
 
 ### 1.1 Résumé exécutif
 
-Reprise textuelle du contexte tel que défini dans `CLAUDE.md`, le document de référence du projet. Précision utile pour la lecture de ce document : `CLAUDE.md` n'est pas un texte que l'assistant IA s'est écrit à lui-même — chaque règle qu'il contient (hébergement européen, pas de donnée inventée, budget de latence de 300 ms, etc.) a été dictée par l'utilisateur, qui a ensuite demandé qu'elle soit consignée par écrit pour s'appliquer de façon systématique à tout le code produit par la suite. Les décisions de cadrage viennent de l'utilisateur ; leur mise en œuvre technique vient de Claude Code.
+Reprise textuelle du contexte tel que défini dans `CLAUDE.md`, le document de référence du projet. Précision utile pour la lecture de ce document : `CLAUDE.md` n'est pas un texte que l'assistant IA s'est écrit à lui-même — chaque règle qu'il contient (hébergement européen, pas de donnée inventée, budget de latence de 300 ms, etc.) a été dictée par l'utilisateur (Direction Innovation), qui a ensuite demandé qu'elle soit consignée par écrit pour s'appliquer de façon systématique à tout le code produit par la suite. Les décisions de cadrage viennent de l'utilisateur ; leur mise en œuvre technique vient de Claude Code.
 
 > Démonstrateur d'assistant téléphonique pour un réseau de bus de la zone Étang de Berre. Il répond aux appels de voyageurs sur les tarifs, les horaires théoriques et les déclarations d'objets perdus. Il n'est branché à aucun système métier : les données viennent de l'open data et d'une base de connaissance écrite à la main.
 
-Ce dernier point est structurant pour l'audit : l'assistant ne lit ni n'écrit dans aucun système d'information existant (billettique, CRM, planification) — son seul état propre est la petite base SQLite décrite en Partie 2, et ses seules sources externes sont des données ouvertes (GTFS, site public du réseau).
+Ce dernier point est structurant pour l'audit : l'assistant ne lit ni n'écrit dans aucun système d'information existant (billettique, CRM, planification) — son seul état propre est la petite base SQLite décrite en Partie 2, et ses seules sources externes sont des données ouvertes (GTFS, site public du réseau, contours communaux ouverts — France GeoJSON, voir Partie 4.2).
 
 ### 1.2 Genèse et méthode de conception
 
-Ce projet a été construit par l'utilisateur lui-même, non-développeur de profession, avec Claude Code comme assistant de développement — un choix assumé et documenté dès l'origine (`docs/methode-developpement.md`), pas découvert a posteriori. La méthode retenue, écrite avant la première ligne de code, repose sur des règles de travail explicites :
+Ce projet a été construit par l'utilisateur lui-même, non-développeur de profession, avec Claude Code comme assistant de développement « vibe coding » — un choix assumé et documenté dès l'origine (`docs/methode-developpement.md`), pas découvert a posteriori. La méthode retenue, écrite avant la première ligne de code, repose sur des règles de travail explicites :
 
 - **Une session de travail = un objectif** — jamais une demande ouverte du type « construis l'application ».
 - **Un commit à chaque état qui fonctionne**, pour toujours pouvoir revenir en arrière.
@@ -29,6 +29,8 @@ Ce projet a été construit par l'utilisateur lui-même, non-développeur de pro
 - **Déployer tôt** — une API en ligne dès l'étape 3 de la méthode, avant même que les fonctionnalités ne soient complètes, pour rencontrer les problèmes d'infrastructure quand il n'y a encore rien à perdre.
 
 Le développement s'est déroulé par itérations courtes et vérifiées, documentées au fil de l'eau dans `docs/prochaines-etapes.md` (le journal de bord complet du projet, plusieurs centaines d'entrées datées) — la Partie 4.4 de ce document en reprend les épisodes les plus significatifs pour l'audit.
+
+Le périmètre fonctionnel (1.3) n'a pas été choisi arbitrairement : il reprend des motifs d'appel réels, déjà traités quotidiennement par l'équipe du CRC, remontés tout au long du projet pour alimenter un jeu de questions de test (voir Partie 7.3, `docs/methode-amelioration-continue.md`) plutôt que supposés a priori.
 
 ### 1.3 Périmètre fonctionnel actuel
 
@@ -43,9 +45,13 @@ L'assistant répond aujourd'hui sur six familles de sujets, chacune correspondan
 
 Aucun horaire ou tarif temps réel : tout est présenté comme prévu, jamais comme garanti — choix assumé dans le prompt de l'agent, cohérent avec l'absence de connexion à un système métier (1.1).
 
+Un bouton « back-office » permet d'activer ou de désactiver chacune de ces fonctionnalités autonomes.
+
 ### 1.4 État d'avancement
 
-Le projet a passé son test interne (démonstration à l'équipe CRC) et pourrait devenir, sous réserve de cet audit, un pilote public sur une filiale du groupe — un test grandeur réelle, mais toujours sans développement lourd supplémentaire. C'est le contexte précis de ce document : documenter exhaustivement l'existant pour que la DSI puisse se prononcer en connaissance de cause, plutôt que de laisser le POC continuer à vivre sans traçabilité formelle de ses choix.
+**Ambition du projet.** Elle se lit en deux temps, à des échelles très différentes. À court terme, offrir un point de contact qui fonctionne quand aucun conseiller n'est disponible — les appels reçus hors des horaires d'ouverture du CRC (Partie 8) ne produisent aujourd'hui rien, c'est le gain le plus net et le plus immédiatement mesurable. À plus long terme, et de façon encore non cadrée, explorer si ce même assistant peut absorber une partie des pics d'appels pendant les horaires d'ouverture, en complément de l'équipe plutôt qu'à sa place — un sujet qui dépasse le périmètre de ce document et qui est reposé explicitement en Partie 8.
+
+Après avoir été présenté à plusieurs équipes internes Transdev (DSI suivi de projets IA, Direction Marketing France, filiale TABM, etc.) le projet pourrait devenir, sous réserve de cet audit, un pilote public sur une filiale du groupe — un test grandeur réelle, mais toujours sans développement lourd supplémentaire. C'est le contexte précis de ce document : documenter exhaustivement l'existant pour que la DSI puisse se prononcer en connaissance de cause, plutôt que de laisser le POC continuer à vivre sans traçabilité formelle de ses choix, et formuler les prérequis de consolidation et de sécurisation avant tout lancement « live ».
 
 ### 1.5 Ce que ce document couvre
 
@@ -55,18 +61,20 @@ Architecture et choix techniques (Partie 2), inventaire complet des outils expos
 
 ## Partie 2 — Architecture et choix techniques
 
+Cette partie répond à une question simple avant tout le reste : comment un appel traverse-t-il concrètement le système, avec quels outils, et pourquoi ces choix techniques plutôt que d'autres ? Elle se lit comme un parcours : le trajet d'un appel (2.1), la pile technique retenue (2.2), le choix d'hébergement (2.3), puis chaque fournisseur externe impliqué et ce qu'il reçoit (2.4).
+
 ### 2.1 Vue d'ensemble
 
 Un appel suit ce trajet :
 
-1. **L'appelant** compose le numéro du réseau.
+1. **L'appelant** compose le numéro du réseau (un numéro français de test pourvu par Twilio).
 2. **Twilio** (opérateur téléphonique) reçoit l'appel et le relie à l'agent conversationnel ElevenLabs.
 3. **ElevenLabs** assure la reconnaissance vocale (ASR), orchestre le modèle de langage (LLM — actuellement Gemini 3.1 Flash Lite) qui décide quoi dire et quels outils appeler, et synthétise la réponse vocale (TTS).
 4. Quand l'agent a besoin d'une donnée réelle (horaire, tarif, arrêt...), ElevenLabs appelle un **outil** : une requête HTTP vers notre API, hébergée sur **Clever Cloud**.
 5. Notre API interroge une base **SQLite** (données GTFS statiques, régénérées à chaque déploiement) ou une autre base SQLite (état applicatif persistant : déclarations d'objets perdus, demandes de rappel, activation des outils), et répond en JSON.
 6. En fin d'appel, ElevenLabs envoie un **webhook** (`/webhooks/elevenlabs/fin_appel`) contenant la transcription complète, les métriques d'usage (modèle, tokens, coût, minutes voix) et l'audio, que nous enregistrons pour la traçabilité et le suivi qualité (voir Partie 7).
 
-Aucune donnée ne transite par un autre service que ceux listés en 2.4 : pas de base de données tierce, pas d'analytics externe, pas de stockage cloud générique.
+Aucune donnée ne transite par un autre service que ceux listés en 2.4 : pas de base de données tierces, pas d'analytics externes, pas de stockage cloud générique.
 
 ### 2.2 Stack technique et justification
 
@@ -91,7 +99,7 @@ Choix motivé par deux critères explicites du projet, non négociables dès la 
 - **Hébergement européen.** Clever Cloud est une société française, ses offres standard hébergent en France/UE. Ce n'est pas un choix par défaut : l'alternative envisagée à une étape antérieure (voir `docs/methode-developpement.md`) incluait Scaleway, également français/européen — jamais un hébergeur dont l'origine ou la localisation des données serait inconnue ou hors UE.
 - **Simplicité d'exploitation.** Déploiement directement depuis le dépôt Git (déploiement continu), pas de gestion d'infrastructure (conteneurs, orchestration) à la charge de l'équipe — cohérent avec la contrainte du projet de rester maintenable par une équipe non spécialisée en infrastructure.
 
-**[À vérifier — DSI/DPO]** Les conditions contractuelles exactes (accord de sous-traitance RGPD/DPA, garanties de localisation des sauvegardes, durée de rétention des logs d'infrastructure) n'ont pas été vérifiées dans le cadre de ce document — à faire valider formellement avant tout pilote avec de vraies données d'appelants.
+**[À vérifier — DSI/DPO]** Les conditions contractuelles exactes (accord de sous-traitance RGPD/DPA, garanties de localisation des sauvegardes, durée de rétention des logs d'infrastructure) n'ont pas été vérifiées dans le cadre de ce document — à faire valider formellement avant tout pilote avec de vraies données d'appelants, ou proposer une alternative de stockage type espace cloud souverain maintenu par Transdev.
 
 ### 2.4 Fournisseurs tiers
 
@@ -111,7 +119,7 @@ Choix motivé par deux critères explicites du projet, non négociables dès la 
 
 ## Partie 3 — Inventaire des outils exposés à l'agent
 
-Chaque outil est une route HTTP de notre API (`assistant/api/main.py`), appelée par ElevenLabs pendant la conversation selon ce que décide le modèle de langage. Le contrat exact de chaque outil (paramètres, format de réponse) est documenté dans `docs/spec-assistant-vocal-v0-revisee.md`, §4 — ce tableau en donne la vue d'ensemble fonctionnelle et le statut de sécurité/activation.
+Chaque outil est une route HTTP de notre API (`assistant/api/main.py`), appelée par ElevenLabs pendant la conversation selon ce que décide le modèle de langage. Le contrat exact de chaque outil (paramètres, format de réponse) est documenté dans `docs/spec-assistant-vocal-v0-revisee.md`, §4 — ce tableau en donne la vue d'ensemble fonctionnelle et le statut de sécurité/activation. Ce fichier (le prompt système complet de l'agent, hors secrets) peut être communiqué à la DSI sur simple demande — il ne contient aucune donnée personnelle ni secret, seulement des règles de comportement, mais sa longueur (plusieurs centaines de lignes) n'en justifie pas une annexion systématique à ce dossier.
 
 Les outils sont listés dans l'ordre des sujets voyageur tels qu'ils apparaissent dans le message d'accueil de l'agent (horaires, informations pratiques, itinéraire, objets perdus, sorties) — pas par statut d'activation, pour garder la lisibilité « un outil = un sujet voyageur » plutôt qu'un classement actif/désactivé qui mélangerait les sujets.
 
@@ -121,7 +129,7 @@ Les outils sont listés dans l'ordre des sujets voyageur tels qu'ils apparaissen
 | `horaires_theoriques` | Donner les prochains passages théoriques (prévus, pas temps réel) à un arrêt donné | Non | Non | Actif par défaut, désactivable (même interrupteur que `rechercher_arret`) |
 | `rechercher_information` | Répondre sur les tarifs, le vélo en libre-service, le transport à la demande, les amendes, à partir d'une base de connaissance indexée | Non | Non | Actif par défaut, désactivable par catégorie (commercial / VLS / TAD / amendes séparément) |
 | `calculer_itineraire` | Calculer un trajet théorique (direct ou une correspondance) entre deux arrêts, à partir des seules données GTFS du projet — toujours tenté en premier pour une demande d'itinéraire, avant tout recours à `calculer_itineraire_complexe` (Google Routes), voir Partie 2.1 | Non | Non | **Désactivé par défaut** — activable depuis le back-office, expérimental |
-| `rechercher_repere` | Résoudre un lieu dit en clair (« la mairie ») vers l'arrêt le plus proche | Non | Non | **Désactivé par défaut**, même interrupteur que `calculer_itineraire`, expérimental |
+| `rechercher_repere` | Résoudre un lieu-dit en clair (« la mairie ») vers l'arrêt le plus proche | Non | Non | **Désactivé par défaut**, même interrupteur que `calculer_itineraire`, expérimental |
 | `calculer_itineraire_complexe` | Calculer un trajet plus complexe via Google Routes API, en repli uniquement quand `calculer_itineraire` ne trouve rien ; accepte une préférence optionnelle (moins de marche / moins de correspondances) | Non | Non | **Désactivé par défaut**, interrupteur sur back-office séparé de `calculer_itineraire` — expérimental, dépend d'un appel réseau externe facturé |
 | `envoyer_sms_itineraire` | Envoyer par SMS (Twilio) le détail d'un itinéraire déjà présenté à l'oral, à la demande explicite de l'appelant ; recalcule l'itinéraire côté serveur au moment de l'envoi (jamais composé par le modèle de langage, voir Partie 4.4) | **Oui** — prénom/nom (optionnel), numéro de téléphone (obligatoire, confirmé par l'appelant avant envoi) | Non (accusé d'envoi) | **Désactivé par défaut**, interrupteur séparé de `calculer_itineraire_complexe` — dépend d'un envoi réel à un numéro réel, facturé |
 | `enregistrer_objet_perdu` | Enregistrer une déclaration d'objet perdu | **Oui** — prénom, nom, numéro de téléphone, email optionnel | Non (accusé d'enregistrement uniquement) | Actif par défaut, désactivable |
@@ -144,6 +152,8 @@ Toutes les routes `/backoffice/*` (consultation des appels, export CSV, activati
 
 ## Partie 4 — Code source
 
+Cette partie regarde le code depuis l'angle de l'audit, pas du développement : comment il est organisé et ce que chaque dossier fait (4.1), quels modules portent le plus de risque et lequel exactement (4.2), comment on vérifie qu'il se comporte comme prévu plutôt que de l'espérer (4.3), et ce que cette vérification a concrètement permis de trouver et corriger par le passé (4.4) — une preuve par les faits plutôt qu'une déclaration d'intention.
+
 ### 4.1 Organisation du dépôt
 
 ```
@@ -162,7 +172,7 @@ docs/                spec, méthode, journal de session, ce dossier d'audit
 tests/               scripts de vérification (4.3)
 ```
 
-Quatre modules à la racine de `assistant/`, en plus de `ingestion/`, `outils/`, `api/`, `backoffice/` :
+Ces cinq modules ne sont pas des outils exposés à l'agent (Partie 3) : ce sont des scripts que l'équipe projet exécute elle-même, en ligne de commande, pour faire fonctionner et surveiller le reste du système (recherche d'arrêt, alimentation et contrôle qualité de la base de connaissance, pilotage de la voix ElevenLabs) — jamais appelés pendant un appel téléphonique réel. Cinq modules à la racine de `assistant/`, en plus de `ingestion/`, `outils/`, `api/`, `backoffice/` :
 
 | Module | Rôle |
 |---|---|
@@ -174,16 +184,22 @@ Quatre modules à la racine de `assistant/`, en plus de `ingestion/`, `outils/`,
 
 ### 4.2 Modules critiques, par dossier
 
-« Critiques » regroupe ici des risques de nature différente, à ne pas lire comme un seul et même niveau de gravité : risque de fuite de données personnelles (`backoffice/`, qui manipule les données les plus sensibles), risque de stabilité architecturale (`api/`, point de passage obligé de tout appel externe), risque de coût et de performance (`outils/`, qui interroge les bases et les services tiers). Chaque module ci-dessous est qualifié individuellement plutôt que rangé sous une étiquette unique.
+Cette sous-partie répond à une question concrète : si quelque chose doit mal tourner, où, et avec quelle conséquence ? Trois familles de risques bien distinctes se posent ici, qui ne relèvent pas toutes du même niveau de gravité — un module peut n'en porter aucune, une seule, ou plusieurs à la fois :
 
-- **`ingestion/`** : pipeline hors ligne, jamais exposé à un appel en direct. Transforme le GTFS brut et le site public en données exploitables par les outils : déduction de la commune de chaque arrêt à partir de ses coordonnées (absente du GTFS source — piège connu, `CLAUDE.md`), gestion des horaires au-delà de minuit (`24:30:00` pour 0h30, autre piège connu), index phonétique pour la reconnaissance des noms d'arrêts.
-- **`outils/`** : la logique métier de chaque outil décrit en Partie 3, plus `db.py` qui centralise le schéma SQLite et les migrations. Toutes les requêtes prenant une donnée externe en entrée (nom d'arrêt prononcé, identifiant reçu d'un outil précédent) utilisent des requêtes paramétrées, vérifié explicitement pour la Partie 5.1.
-- **`api/`** : point d'entrée unique de tout appel externe. `main.py` déclare les routes, `schemas.py` valide chaque paramètre avant qu'il n'atteigne le code métier (Pydantic), `auth.py` vérifie le jeton ou l'authentification back-office.
-- **`backoffice/`** : la seule interface humaine du projet. `appels.py` reçoit et stocke le webhook de fin d'appel (et purge désormais son contenu après 90 jours, Partie 6.4) ; `activation.py` gère l'activation progressive de chaque outil ; `exports.py` produit les exports CSV ; `page.py` génère les pages HTML consultées par l'équipe.
+- **risque de fuite de données personnelles** : un module qui lit ou affiche des données d'appelants peut, en cas de faille ou d'erreur, les exposer ;
+- **risque de stabilité architecturale** : un module qui reçoit directement des requêtes venues de l'extérieur peut, s'il est mal protégé, devenir un point d'entrée pour une panne ou une attaque qui toucherait tout le système ;
+- **risque de coût et de performance** : un module qui interroge des bases de données ou des services tiers facturés peut, s'il est inefficace, dégrader la latence (budget de 300 ms, `CLAUDE.md`) ou faire gonfler la facture.
+
+Chaque module ci-dessous est qualifié selon le ou les risques qui le concernent réellement, plutôt que rangé sous une étiquette unique :
+
+- **`ingestion/`** — risque de coût et de performance uniquement : pipeline hors ligne, jamais exposé à un appel en direct, donc hors de portée d'une fuite de données ou d'une instabilité en temps réel. Transforme le GTFS brut et le site public en données exploitables par les outils : déduction de la commune de chaque arrêt à partir de ses coordonnées (absente du GTFS source — piège connu, `CLAUDE.md`), gestion des horaires au-delà de minuit (`24:30:00` pour 0h30, autre piège connu), index phonétique pour la reconnaissance des noms d'arrêts.
+- **`outils/`** — risque de fuite et risque de coût/performance : la logique métier de chaque outil décrit en Partie 3, plus `db.py` qui centralise le schéma SQLite et les migrations, lit et écrit directement les données personnelles et interroge les services tiers facturés (Google Routes, Twilio). Toutes les requêtes prenant une donnée externe en entrée (nom d'arrêt prononcé, identifiant reçu d'un outil précédent) utilisent des requêtes paramétrées, vérifié explicitement pour la Partie 5.1.
+- **`api/`** — risque de stabilité architecturale au premier chef : point d'entrée unique de tout appel externe, donc le module dont une faille aurait la portée la plus large sur l'ensemble du service. `main.py` déclare les routes, `schemas.py` valide chaque paramètre avant qu'il n'atteigne le code métier (Pydantic), `auth.py` vérifie le jeton ou l'authentification back-office.
+- **`backoffice/`** — risque de fuite de données personnelles au premier chef : seule interface humaine du projet, elle affiche directement les transcripts d'appel et les coordonnées des appelants à l'écran. `appels.py` reçoit et stocke le webhook de fin d'appel (et purge désormais son contenu après 90 jours, Partie 6.4) ; `activation.py` gère l'activation progressive de chaque outil ; `exports.py` produit les exports CSV ; `page.py` génère les pages HTML consultées par l'équipe.
 
 ### 4.3 Tests et vérification
 
-Conformément à la règle de méthode « chaque fonction s'accompagne d'un script de vérification » (1.2), le dossier `tests/` contient :
+Cette sous-partie liste ce qui vérifie, automatiquement et à chaque changement, que l'API, le back-office et les calculs d'horaires se comportent comme prévu — la preuve concrète que la discipline annoncée en 1.2 (« chaque fonction s'accompagne d'un script de vérification ») est appliquée, pas seulement déclarée. Conformément à cette règle de méthode, le dossier `tests/` contient :
 
 - `verifier_api.py` — vérifie chaque route d'outil contre une API déjà démarrée (authentification, réponse attendue, budget de latence de 300 ms). Couvre les 11 outils exposés à l'agent, y compris les quatre désactivés par défaut (`calculer_itineraire`, `rechercher_repere`, `calculer_itineraire_complexe`, `envoyer_sms_itineraire`) : le script les active le temps du test, puis restaure systématiquement l'état désactivé, y compris en cas d'échec en cours de route.
 - `verifier_backoffice.py` — même principe pour les routes du back-office (webhook, exports, activation).
@@ -209,10 +225,10 @@ Extrait sélectif du journal complet (`docs/prochaines-etapes.md`), pour donner 
 | 13/10/2026 | `rechercher_information` répondait en ~10 secondes en production (budget : 300 ms) | Webhook d'un appel réel, latence anormale repérée dans les métriques du tool call | Cause trouvée (modèle d'embeddings chargé à la première requête, plus une vérification réseau superflue de la bibliothèque sous-jacente même avec le modèle déjà en cache) et corrigée le jour même : chargement à vide au démarrage du serveur, hors du chemin critique |
 | 13/10/2026 | Le prompt citait un exemple avec les deux communes réelles d'un scénario de test, répété littéralement par le modèle au lieu de la vraie commune dite par l'appelant | Lecture d'un vrai transcript d'appel, après signalement de l'appelant lui-même | Noms de communes de l'exemple remplacés par des valeurs génériques, même principe que l'anomalie du 28/09/2026 sur ce point |
 | 13/10/2026 | SMS envoyé sans confirmation effective du numéro ; question de satisfaction validée sans réponse de l'appelant (récidive d'une anomalie déjà vue le 28/09/2026) | Analyse du webhook de deux appels réels successifs | Règles de prompt renforcées pour imposer deux tours de parole distincts (question, puis réponse de l'appelant, puis action) ; la récidive de la question de satisfaction reste partiellement non résolue, probable variabilité du modèle plutôt qu'un défaut de formulation |
-| 13/10/2026 | Diagnostic initial erroné : une généralisation de prompt accusée d'avoir causé la récidive ci-dessus | Contradiction relevée par l'utilisatrice, qui ne retrouvait pas le texte en cause dans son prompt ElevenLabs | Vérifié : cette généralisation n'avait en réalité jamais été publiée, donc ne pouvait pas être la cause ; retirée du document de référence, diagnostic corrigé le jour même — gardé ici comme preuve que les diagnostics de ce projet sont systématiquement revérifiés, pas seulement affirmés |
+| 13/10/2026 | Diagnostic initial erroné : une généralisation de prompt accusée d'avoir causé la récidive ci-dessus | Contradiction relevée par l'utilisateur, qui ne retrouvait pas le texte en cause dans son prompt ElevenLabs | Vérifié : cette généralisation n'avait en réalité jamais été publiée, donc ne pouvait pas être la cause ; retirée du document de référence, diagnostic corrigé le jour même — gardé ici comme preuve que les diagnostics de ce projet sont systématiquement revérifiés, pas seulement affirmés |
 | 27/10/2026 | `rechercher_repere` répondait en ~1,3 s en production (budget : 300 ms) — récidive du même type d'erreur que celle du 25/09/2026 ci-dessus (une requête coûteuse relancée inutilement), déjà corrigée une première fois dans un autre module, mais pas à cet endroit-là du code | Nouveau cas de test ajouté à `verifier_api.py` (Partie 4.3) | Cause confirmée : la requête coûteuse était relancée une fois par résultat candidat (jusqu'à 8 fois pour une seule recherche) au lieu d'une seule fois pour tout l'appel. Corrigée et revérifiée le jour même (1 274 ms → 245 ms) |
-| 29/10/2026 | La clé apiKey du flux GTFS Mecatran figurait en clair dans deux fichiers versionnés (`data/config.yaml`, `docs/sources.md` — 5 apiKey au total, pas seulement celle du réseau exploité) | Relecture volontaire en préparant l'Annexe B du dossier d'audit | Sortie des deux fichiers le jour même, remplacée par une variable d'environnement (`MECATRAN_API_KEY`) — régénération de la valeur elle-même encore à faire par l'utilisatrice sur le portail Mecatran (recommandation 2 ci-dessous) |
-| 29/10/2026 | Un appel réel n'apparaissait pas dans une recherche RGPD par téléphone, alors que le SMS lié au même numéro apparaissait | Signalé par l'utilisatrice lors du premier test réel du nouvel onglet RGPD (6.6) | Cause confirmée : la nouvelle colonne `appels.telephone` n'est renseignée automatiquement que pour les appels reçus après son déploiement ; un rattrapage manuel existait déjà pour un autre champ (`retraiter_tracabilite`, bouton back-office) et a été étendu pour couvrir aussi le téléphone |
+| 29/10/2026 | La clé apiKey du flux GTFS Mecatran figurait en clair dans deux fichiers versionnés (`data/config.yaml`, `docs/sources.md` — 5 apiKey au total, pas seulement celle du réseau exploité) | Relecture volontaire en préparant l'Annexe B du dossier d'audit | Sortie des deux fichiers le jour même, remplacée par une variable d'environnement (`MECATRAN_API_KEY`) — régénération de la valeur elle-même encore à faire par l'utilisateur sur le portail Mecatran (recommandation 2 ci-dessous) |
+| 29/10/2026 | Un appel réel n'apparaissait pas dans une recherche RGPD par téléphone, alors que le SMS lié au même numéro apparaissait | Signalé par l'utilisateur lors du premier test réel du nouvel onglet RGPD (6.6) | Cause confirmée : la nouvelle colonne `appels.telephone` n'est renseignée automatiquement que pour les appels reçus après son déploiement ; un rattrapage manuel existait déjà pour un autre champ (`retraiter_tracabilite`, bouton back-office) et a été étendu pour couvrir aussi le téléphone |
 
 Le point commun de ces épisodes : aucune anomalie n'a été découverte par un appelant réel en dehors des tests. Toutes ont été trouvées soit par une vérification automatisée, soit par une relecture attentive d'un appel de test avant toute exposition publique plus large.
 
@@ -220,13 +236,17 @@ Le point commun de ces épisodes : aucune anomalie n'a été découverte par un 
 
 ## Partie 5 — Sécurité
 
+Cette partie évalue le projet du point de vue de la sécurité : ce qui est déjà en place et vérifié (5.1), ce qui reste exposé et non contrôlé (5.2), comment les secrets sont gérés et ce qui a déjà posé problème en pratique (5.3), les limites connues qui ne sont pas encore corrigées (5.4), et les actions concrètes recommandées avant d'aller plus loin (5.5).
+
 ### 5.1 Principes appliqués, vérifiés dans le code au 29/09/2026
+
+Cette sous-partie liste les principes de sécurité déjà en place dans le code, vérifiés ligne par ligne au 29/09/2026 plutôt que simplement déclarés — chacun avec une preuve concrète plutôt qu'une affirmation de principe :
 
 - **Authentification par jeton sur chaque route d'outil** (`assistant/api/auth.py`) : comparaison en temps constant (`secrets.compare_digest`), qui protège contre les attaques par mesure de temps de réponse — pas une simple égalité de chaînes.
 - **Authentification HTTP Basic séparée sur le back-office** (`verifier_acces_backoffice`), jamais accessible depuis l'agent vocal.
 - **Validation stricte de toutes les entrées** via les schémas Pydantic de FastAPI (`assistant/api/schemas.py`) : avant qu'une donnée reçue d'un outil n'atteigne le code métier, elle est vérifiée automatiquement (bon format, bonne longueur, type attendu) — un modèle de langage ne peut pas envoyer n'importe quoi à notre base de données. Preuve concrète et datée de son utilité : le 28/09/2026, un modèle de langage testé (Gemini 3.1 Flash Lite) a tenté d'appeler `enregistrer_objet_perdu` avec `nom="Inconnu"` et `telephone="0000000000"` plutôt que de poser la question à l'appelant — bloqué le jour même par une contrainte ajoutée sur ces deux champs (longueur minimale, puis forme d'un numéro français valide).
-- **Requêtes SQL exclusivement paramétrées.** Vérification explicite menée pour ce document : les trois seuls endroits du code utilisant une interpolation de chaîne dans une requête SQL (`assistant/outils/db.py`, `assistant/backoffice/exports.py`) construisent leur requête à partir de noms de table/colonne codés en dur dans le code (listes Python fixes), jamais à partir d'une donnée reçue d'un appelant ou d'un outil. Partout ailleurs (45 requêtes au total), les valeurs variables ne sont jamais collées directement dans le texte de la requête : elles passent par un emplacement réservé — le caractère `?` — que la base de données remplit elle-même de façon sécurisée, la protection standard contre l'injection SQL.
-- **Paramétrage externalisé** : tout ce qui est propre au réseau (source GTFS, identifiant d'agent, voix disponibles) vit dans `data/config.yaml` et des variables d'environnement, jamais codé en dur — à une exception près, voir 5.3. Les variables d'environnement sont saisies manuellement dans l'interface de configuration de Clever Cloud (jamais écrites dans un fichier du dépôt).
+- **Requêtes SQL exclusivement paramétrées — protection contre l'injection SQL** (une technique d'attaque classique où un attaquant glisse du code dans une donnée censée n'être qu'une simple valeur, pour détourner une requête à la base de données et, par exemple, en extraire un contenu qu'il ne devrait pas voir). Vérification explicite menée pour ce document : les trois seuls endroits du code utilisant une interpolation de chaîne dans une requête SQL (`assistant/outils/db.py`, `assistant/backoffice/exports.py`) construisent leur requête à partir de noms de table/colonne codés en dur dans le code (listes Python fixes), jamais à partir d'une donnée reçue d'un appelant ou d'un outil. Partout ailleurs (45 requêtes au total), les valeurs variables ne sont jamais collées directement dans le texte de la requête : elles passent par un emplacement réservé — le caractère `?` — que la base de données remplit elle-même de façon sécurisée, la protection standard contre l'injection SQL.
+- **Paramétrage externalisé** : concrètement, rien dans le code lui-même ne nomme ce réseau précis (ni son numéro de téléphone, ni ses identifiants de service) — tout ce qui lui est propre (source GTFS, identifiant d'agent, voix disponibles) vit dans `data/config.yaml` et des variables d'environnement, jamais codé en dur, à une exception près (voir 5.3). Double bénéfice : un secret qui finirait par fuiter ne révèle jamais, en plus, du code applicatif exploitable ; et le même code peut être redéployé sur un autre réseau de bus par simple changement de configuration, sans toucher une ligne de code (`CLAUDE.md`). Les variables d'environnement sont saisies manuellement dans l'interface de configuration de Clever Cloud (jamais écrites dans un fichier du dépôt).
 
 ### 5.2 Surface exposée
 
@@ -263,7 +283,7 @@ Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 
 1. Mettre en place la vérification de signature HMAC du webhook de fin d'appel, et au passage faire transiter `API_TOKEN` par la syntaxe `{{ variable d'environnement }}` d'ElevenLabs plutôt qu'en clair dans l'URL (5.3) — deux actions techniques concrètes côté ElevenLabs, pas encore faites, probablement à mener manuellement.
 2. **Partiellement fait le 29/10/2026** : la clé Mecatran est sortie des fichiers versionnés (`data/config.yaml`, `docs/sources.md`), remplacée par une variable d'environnement — voir 4.4. Reste à faire : régénérer la valeur elle-même sur le portail Mecatran (l'ancienne reste dans l'historique git même après ce correctif).
-3. Trancher et implémenter une durée de rétention pour `objets_perdus`/`demandes_rappel` et `sms_envoyes` (Partie 6.4) — `appels` déjà fait.
+3. Trancher et implémenter une durée de rétention des informations collectées pour `objets_perdus`/`demandes_rappel` et `sms_envoyes` (Partie 6.4) — recommandation encore entièrement ouverte sur ces trois tables ; la rétention des appels, distincte, est déjà traitée (6.4).
 4. Envisager une limitation de débit basique si le périmètre d'appel s'élargit.
 5. Acter formellement une consigne de manipulation des secrets en ligne de commande (saisie via `read -s` systématique, jamais en clair dans une commande affichée ni dans une charge de diagnostic partagée sans l'avoir expurgée) — quatre incidents du même type en deux semaines (5.3) suggèrent que ça ne se résoudra pas seul.
 6. **Fait le 29/10/2026** : dispositif pour les demandes d'accès/rectification/effacement RGPD d'un appelant (recherche par numéro de téléphone, export CSV et version imprimable, suppression groupée) — voir Partie 6.6 et Annexe C.6. Reste à formaliser : délai de réponse et canal de réception d'une demande (6.6).
@@ -271,6 +291,8 @@ Deux catégories de secrets coexistent dans ce projet, à ne pas confondre :
 ---
 
 ## Partie 6 — RGPD et données personnelles
+
+Cette partie documente, donnée par donnée, ce que le projet collecte et pourquoi (6.1-6.2), sur quelle base légale (6.3, à qualifier par le DPO), combien de temps c'est conservé (6.4), ce qui transite hors UE (6.5), comment un appelant peut faire valoir ses droits (6.6), les mesures de sécurité associées (6.7), et une synthèse des points que le DPO devra couvrir en priorité pour l'analyse d'impact (6.8).
 
 ### 6.1 Données personnelles collectées
 
@@ -326,7 +348,7 @@ Conformément au RGPD, tout appelant doit pouvoir demander l'accès, la rectific
 - **Export CSV**, ou **version imprimable** convertible en PDF par le navigateur (aucune dépendance PDF ajoutée au projet) — à joindre à une réponse d'accès.
 - **Suppression pour le droit à l'effacement**, avec un traitement différencié délibéré : les objets perdus, demandes de rappel et SMS sont supprimés entièrement (c'est la donnée personnelle elle-même), mais un appel n'est jamais supprimé — seules ses données personnelles (transcript, numéro) sont vidées, exactement comme la purge automatique à 90 jours (6.4). Les colonnes de traçabilité économique (durée, coût, tokens) survivent, conformément à l'exigence de non-reconstitution de `CLAUDE.md` : elles n'ont rien de personnel et une demande d'effacement ne les vise pas.
 
-**Point encore à trancher par le DPO, soulevé en testant ce dispositif** : le transcript intégral d'un appel doit-il figurer dans un export de droit d'accès ? Lecture de travail du projet, non contraignante : un transcript contenant des données de l'appelant relève des données le concernant au sens de l'article 15, donc inclus par défaut dans cet outil — à confirmer formellement.
+**Point encore à trancher par le DPO, soulevé en testant ce dispositif** : la transcription intégrale d'un appel doit-elle figurer dans un export de droit d'accès ? Lecture de travail du projet, non contraignante : une transcription contenant des données de l'appelant relève des données le concernant au sens de l'article 15, donc incluse par défaut dans cet outil — à confirmer formellement.
 
 ### 6.7 Mesures de sécurité des données personnelles
 
@@ -343,6 +365,8 @@ Ce document fournit la matière première ; l'analyse elle-même reste à mener 
 ---
 
 ## Partie 7 — Traçabilité et gouvernance
+
+Cette partie couvre deux sujets de gouvernance distincts : comment le projet mesure son propre coût et son impact, exigence non négociable de `CLAUDE.md` (7.1), et comment l'équipe garde la main sur ce qui est activé ou non (7.2) ainsi que sur la qualité perçue par les appelants (7.3).
 
 ### 7.1 Traçabilité économique et environnementale
 
@@ -388,18 +412,19 @@ Cette partie se distingue volontairement du reste du document : les Parties 1 à
 
 Plusieurs limites documentées dans ce dossier (rotation manuelle des secrets, Partie 5.3-5.4 ; sous-traitants hors UE non vérifiés contractuellement, Partie 6.5 ; formalisation encore ouverte du délai et du canal de traitement des droits des personnes, Partie 6.6) sont compatibles avec un POC testé par une équipe réduite, mais se poseraient différemment à l'échelle d'un vrai public.
 
-**Deux points supplémentaires, soulevés par l'utilisatrice et vérifiés dans le code en préparant cette version, à inscrire parmi les sujets à trancher avec la DSI avant un pilote plus large :**
+**Trois points supplémentaires, soulevés par l'utilisateur et vérifiés dans le code en préparant cette version, à inscrire parmi les sujets à trancher avec la DSI avant un pilote plus large :**
 
+- **Comment l'appel est-il aujourd'hui aiguillé vers l'assistant, et comment pourrait-il l'être demain ?** Deux phases ont été envisagées, à des échelles très différentes. **Phase 1** : l'assistant fonctionne comme un répondeur pendant les horaires de fermeture du CRC, quand aucun conseiller ne décrocherait de toute façon — c'est le périmètre du test envisagé à Vitrolles (Partie 8.1). **Phase 2**, plus ambitieuse et pas encore cadrée : l'assistant interviendrait aussi pendant les horaires d'ouverture, pour absorber un pic d'appels. Cette deuxième phase pose une question de fond que ce document ne tranche pas : qui décide, à l'échelle de chaque appel, s'il est dirigé vers le bot ou vers un humain ? Si c'est le prestataire téléphonique du CRC qui aiguille, selon l'occupation réelle des lignes, le bot reste un simple débordement ponctuel. Si, à l'inverse, tous les appels passaient systématiquement par l'assistant — qui ne réorienterait vers un humain que si le voyageur le demande explicitement — l'assistant deviendrait de fait un filtre pour l'ensemble des appels du réseau : un choix d'une tout autre portée, qui revient à l'équipe du test autant qu'à la DSI, et dont découlent nécessairement des choix techniques (voir les questions de téléphonie, Partie 8.1).
 - **Le transfert vers un conseiller n'est pas une vraie bascule téléphonique.** `transferer_agent` (Partie 3) enregistre l'intention de transfert en base, pour une relance par l'équipe — rien dans le code ne connecte l'appel en cours à un humain. Les fonctionnalités de transfert natives d'ElevenLabs (`transfer_to_agent`, `transfer_to_number`) existent côté plateforme mais ne sont pas activées sur l'agent. À l'échelle d'un pilote avec de vrais enjeux d'urgence (objet perdu critique, situation de détresse), cet écart entre ce que l'appelant entend (« je vous transfère ») et ce qui se passe réellement méritait d'être tranché explicitement. **Décision du 20/11/2026** : en attendant ce mécanisme, le prompt (spec §2 et §5) ne fait plus cette promesse — CRC ouvert ou fermé, l'assistant propose toujours un rappel, jamais un transfert immédiat. L'écart de fond (aucune vraie bascule téléphonique) reste entier, voir Partie 8.1 ci-dessous.
 - **L'interrupteur général du back-office ne coupe pas l'appel, seulement les outils.** Couper « tous » (Partie 7.2) ne fait pas raccrocher ni dévier l'appel vers le CRC ou un répondeur : Twilio continue de faire sonner ElevenLabs, l'agent répond toujours, mais tout appel d'outil échoue (503) — avec, selon la consigne du prompt, une explication et une proposition de rappel/transfert (eux-mêmes non coupés, voir point précédent). Il n'existe aujourd'hui aucun mécanisme pour fermer réellement la ligne ou la rediriger selon les horaires d'ouverture du CRC ou un pic d'appels — ce serait une configuration côté Twilio/ElevenLabs (horaires, bascule vers un numéro humain), pas encore mise en place ni documentée.
 
-La question que ce document soumet à la DSI, sans y répondre à sa place : la suite envisageable est-elle d'industrialiser cette architecture telle quelle avec les correctifs recommandés (Partie 5.5), ou de la faire évoluer vers des environnements mieux maîtrisés et sécurisés par les équipes infrastructure du groupe (à titre d'exemple de piste, un hébergement opéré par Transdev) — en conservant l'essentiel des choix fonctionnels et techniques déjà faits et documentés ici, sans repartir d'une page blanche ?
+La question que ce document soumet à la DSI, sans y répondre à sa place : dans quelle mesure la suite envisageable passe par une industrialisation de cette architecture telle quelle, consolidée avec les correctifs recommandés (Partie 5.5), ou par une évolution vers des environnements mieux maîtrisés et sécurisés par les équipes infrastructure du groupe (à titre d'exemple de piste, un hébergement opéré par Transdev) — en conservant l'essentiel des choix fonctionnels et techniques déjà faits et documentés ici, sans repartir d'une page blanche ?
 
 ### 8.1 Prérequis pour un test avec Vitrolles — questions pour la DSI
 
 Avant d'élargir l'expérimentation au-delà de l'équipe projet (test avec la commune de Vitrolles), plusieurs ressources et décisions côté infrastructure ne dépendent pas de ce dépôt : elles doivent être vérifiées ou tranchées avec la DSI pour que les bons branchements puissent être développés ensuite. Liste organisée par thème, pas par ordre de priorité — certains points bloquent directement le fonctionnement du service, d'autres sont des garde-fous à poser avant d'exposer de vraies données de voyageurs.
 
-**Téléphonie — le plus structurant, condition du POC public telle que définie par l'utilisatrice (l'appelant doit continuer à composer le numéro existant du CRC, jamais un nouveau numéro) :**
+**Téléphonie — le plus structurant, condition du POC public telle que définie par l'utilisateur (l'appelant doit continuer à composer le numéro existant du CRC, jamais un nouveau numéro) :**
 
 1. Quel est le système téléphonique actuel du CRC (standard, logiciel de centre d'appels, postes directs) ? Permet-il un renvoi conditionnel vers un numéro externe (Twilio) selon l'heure, et/ou selon l'occupation des lignes humaines ?
 2. Qui, côté DSI ou opérateur télécom du CRC, peut configurer ce renvoi ? Quel délai et quelle procédure ?
